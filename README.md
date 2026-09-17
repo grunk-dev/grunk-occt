@@ -15,8 +15,8 @@ ABI, pixi/conda-forge build) rather than the old Conan-based, `reflect`-based gr
 `DESIGN.md` for the concrete decisions made along the way, and the migration plan this repo is
 being built against for the full step-by-step rationale.
 
-**Status**: early / WIP. Only an empty plugin skeleton exists so far (Step 0 of the migration
-plan) - it loads and reports itself, but registers no OCCT types/functions yet.
+**Status**: early / WIP. The `gp` module (`gp_Pnt`, `gp_Dir`, `gp_Vec`, `gp_Ax1`, `gp_Trsf`) is
+wrapped - generated automatically by `codegen/` (see below), not hand-written.
 
 ## Build & test
 
@@ -27,6 +27,18 @@ pixi run configure [Debug|Release]   # cmake configure into build/
 pixi run build                       # cmake --build build/
 pixi run test                        # ctest --test-dir build
 pixi run all                         # configure + build + test
+pixi run generate_code               # regenerate generated/ from codegen/config.yml (needs
+                                      # -D GRUNK_OCCT_GENERATE_CODE=ON at configure time)
+```
+
+## Project structure
+
+```
+codegen/            # libclang-based code generator (see codegen/README.md)
+generated/           # its output - checked into git, compiled unconditionally
+src/                 # occt_plugin.cpp (plugin entry point) + hand-written escape hatches
+tests/               # one test executable per module, loads occt_plugin.so at runtime
+reference/legacy-recipes/  # legacy grocc-only example recipes, ported in Step 6.5
 ```
 
 ## Dependencies
@@ -36,6 +48,7 @@ pixi run all                         # configure + build + test
 | grunk | FetchContent from GitHub, pinned to a specific commit (see `DESIGN.md`) |
 | occt (OpenCASCADE) | conda-forge, pinned to `7.9.3` |
 | lua, sol2, taskflow, yaml-cpp, libparametric | conda-forge (needed to build grunk itself from source) |
+| python, pyyaml, libclang (PyPI) | conda-forge/PyPI, needed only for `codegen/` (opt-in) |
 
 ## License
 

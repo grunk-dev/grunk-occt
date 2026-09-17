@@ -3,12 +3,14 @@
 // SPDX-License-Identifier: MPL-2.0
 
 // Step 0 built an empty grunk plugin proving the whole toolchain (pixi -> cmake ->
-// conda-forge OCCT -> dlopen -> grunk::state). Step 1 adds the first real module.
+// conda-forge OCCT -> dlopen -> grunk::state). Step 1 hand-wrote the first real
+// module (gp); Step 2's generator now reproduces (and exceeds) it - see
+// generated/gp.cpp/codegen/README.md.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>
 
-#include "gp/gp_registration.hpp"
+#include "../generated/gp.hpp"
 
 namespace {
 

@@ -18,6 +18,14 @@ sol2 = "*"
 taskflow = "*"
 yaml-cpp = "*"
 libparametric = "*"
+python = ">=3.9"
+pyyaml = "*"
+
+[pypi-dependencies]
+# Self-contained (bundles libclang.so + the clang.cindex Python bindings) - conda-forge's
+# own `libclang` package is the bare C library only, no Python bindings. See
+# codegen/README.md.
+libclang = "*"
 
 [target.win-64.activation.env]
 CMAKE_PREFIX_PATH = "%CONDA_PREFIX%/Library"
@@ -42,6 +50,8 @@ configure = { cmd = [
 ], description = "Configure the CMake build." }
 
 build = { cmd = "cmake --build build --parallel", description = "Build the plugin and test harness." }
+
+generate_code = { cmd = "cmake --build build --target generate_code", description = "Regenerate OCCT bindings (requires -D GRUNK_OCCT_GENERATE_CODE=ON at configure time)." }
 
 test = { cmd = "ctest --test-dir build --output-on-failure", depends-on = ["build"], description = "Run the test harness." }
 

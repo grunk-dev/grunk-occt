@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 Jan Kleinert <jan.kleinert@dlr.de>
+#
+# SPDX-License-Identifier: MPL-2.0
+
+# Declarative generator config (see DESIGN.md and codegen/README.md): one entry per
+# OCCT "module", each naming the headers to wrap (one class per header, matched by
+# filename stem - true for every gp_* header) and a blacklist of specific
+# ClassName::MethodName (or bare ClassName) symbols to exclude, each with a reason.
+#
+# Revives legacy grocc's config.yml.in shape (modules -> headers -> blacklist),
+# repointed at the new register_type/add_constructors/add_member_function API - see
+# grocc/config.yml.in for the legacy version this is modeled on.
+
+modules:
+  - name: gp
+    headers:
+      - gp_Pnt.hxx
+      - gp_Vec.hxx
+      - gp_Dir.hxx
+      - gp_Ax1.hxx
+      - gp_Trsf.hxx
+    blacklist:
+      # Step 2 checkpoint (see DESIGN.md/migration plan): deliberately blacklisted to
+      # prove the mechanism works end to end, not because it's actually unwrappable -
+      # BaryCenter is real, accepted by the type filter, and not needed by any target
+      # recipe today.
+      - gp_Pnt::BaryCenter

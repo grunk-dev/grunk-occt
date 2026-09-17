@@ -63,10 +63,30 @@ endif()
 # OCCT's own upstream CMake config - independent of what the conda package is called).
 find_package(OpenCASCADE REQUIRED)
 
+# --- code generator (Step 2, see codegen/README.md): opt-in, not wired as a
+# dependency of occt_plugin below - regenerated output needs review/diffing before
+# being trusted, not silent regeneration on every build (see DESIGN.md's
+# "Generated-code policy"). Run via `pixi run generate_code`, which activates the
+# pixi environment (python3 + libclang + pyyaml) before invoking this target.
+if (GRUNK_OCCT_GENERATE_CODE)
+    add_custom_target(generate_code
+        COMMAND python3 ${CMAKE_SOURCE_DIR}/codegen/generate.py
+                --config ${CMAKE_SOURCE_DIR}/codegen/config.yml
+                --occt-include-dir ${OpenCASCADE_INCLUDE_DIR}
+                --output-dir ${CMAKE_SOURCE_DIR}/generated
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        COMMENT "Regenerating OCCT bindings (codegen/generate.py)"
+        VERBATIM
+    )
+endif()
+
 # --- occt plugin: built as its own shared object, loaded at runtime via
 # grunk::plugin::load_native (never linked directly by a consuming application) -
-# see src/occt_plugin.cpp.
-add_library(occt_plugin SHARED src/occt_plugin.cpp)
+# see src/occt_plugin.cpp. generated/*.cpp are checked into git (see
+# codegen/README.md) and compiled unconditionally, regardless of
+# GRUNK_OCCT_GENERATE_CODE above.
+file(GLOB GENERATED_SOURCES ${CMAKE_SOURCE_DIR}/generated/*.cpp)
+add_library(occt_plugin SHARED src/occt_plugin.cpp ${GENERATED_SOURCES})
 target_link_libraries(occt_plugin PRIVATE grunk::plugin ${OpenCASCADE_LIBRARIES})
 target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
 

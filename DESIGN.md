@@ -102,6 +102,23 @@ only opted into fuller automagic after explicit human confirmation it's safe (e.
 types with no dangerous operator surface, following the `gp_Pnt` precedent in grunk's
 `cad_autodiff` example). This is a generator-wide rule, not a per-type ad hoc choice.
 
+## Code generator (Step 2)
+
+`codegen/generate.py` (libclang-based, see `codegen/README.md` for full design/scope)
+targets the `gp` module and reproduces - and exceeds - Step 1's hand-written
+registrations: 166 constructors/methods accepted automatically (vs. ~15 hand-picked),
+48 rejected with a recorded reason each (unregistered types like `gp_XYZ`/`gp_Ax2`,
+non-const-reference out-params, `Standard_OStream&`, ...), 1 deliberately blacklisted
+(`gp_Pnt::BaryCenter`, the Step 2 checkpoint proving the blacklist mechanism). The
+hand-written `src/gp/gp_registration.hpp` was deleted once `generated/gp.cpp` passed
+Step 1's tests unchanged - generated and hand-written versions of the same module must
+never coexist/drift.
+
+The AD-portability macro name is **`GRUNK_OCCT_WITH_ADOLC`** (not defined anywhere yet
+- only the plain branch of every `#ifdef`-gated dual form is compiled today). The
+generator bakes this in automatically for every `Standard_Real` parameter; hand-written
+escape-hatch code (Steps 4a/6) should use the same macro name for consistency.
+
 ## `Standard_Real` / AD-portability rule
 
 Every constructor/function parameter of type `Standard_Real` is emitted (by hand today, by the
