@@ -49,6 +49,17 @@ availability can't be assumed on every build host/platform, mirroring legacy gro
 `GROCC_GENERATE_CODE` convention. `CMakeLists.txt`'s `GRUNK_OCCT_GENERATE_CODE` option (default
 OFF) gates an opt-in regeneration path; a normal build never needs clang/libclang installed.
 
+## Windows CI compiler
+
+Windows GitHub Actions runners have a MinGW toolchain on `PATH` by default, which CMake picks up
+ahead of MSVC's `cl.exe` (not on `PATH` without an explicit developer-shell setup) - this produced
+a build using MinGW/GCC instead of MSVC, surfacing as e.g. a `NOMINMAX` redefinition warning
+between grunk's own headers and MinGW's `os_defines.h`. Fixed by adding an `egor-tensin/vs-shell@v2`
+step (`arch: x64`) before `setup-pixi` in `.github/workflows/ci.yml`, matching grunk's own CI
+(`.github/workflows/build-test.yml`) - this puts `cl.exe`/`link.exe` on `PATH` (and sets
+`INCLUDE`/`LIB`) so CMake's `-G Ninja` (used on all three platforms, matching grunk's own
+`pyproject.toml` configure task) picks up MSVC instead.
+
 ## Test-harness shape
 
 The test harness (`tests/test_load.cpp`, growing over subsequent steps) loads the plugin via

@@ -23,6 +23,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Windows runners have a MinGW toolchain on PATH by default, which CMake picks
+      # up ahead of MSVC's cl.exe (not on PATH without this) - build against MSVC
+      # instead, matching grunk's own CI (.github/workflows/build-test.yml) and
+      # avoiding MinGW-vs-sol2/grunk header conflicts (e.g. NOMINMAX redefinition
+      # warnings from grunk/plugin/loader.cpp under MinGW's own os_defines.h).
+      - name: Set up Visual Studio shell
+        if: startsWith(matrix.os, 'windows')
+        uses: egor-tensin/vs-shell@v2
+        with:
+          arch: x64
+
       - uses: prefix-dev/setup-pixi@v0.8.1
         with:
           cache: true
