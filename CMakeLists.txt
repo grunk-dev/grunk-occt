@@ -75,11 +75,17 @@ target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
 # through grunk::recipe's YAML layer yet).
 if(GRUNK_OCCT_TESTS)
     enable_testing()
-    add_executable(occt_plugin_tests tests/test_load.cpp)
-    target_link_libraries(occt_plugin_tests PRIVATE grunk::plugin)
-    target_compile_definitions(occt_plugin_tests PRIVATE
-        OCCT_PLUGIN_SO_PATH="$<TARGET_FILE:occt_plugin>"
-    )
-    add_dependencies(occt_plugin_tests occt_plugin)
-    add_test(NAME occt_plugin_tests COMMAND occt_plugin_tests)
+
+    # One test executable per module (see DESIGN.md/migration plan's Step 6 - "one
+    # module per small PR, each with its own smoke test"), plus test_load for the
+    # bare plugin-loads-at-all check from Step 0.
+    foreach(test_name IN ITEMS test_load test_gp)
+        add_executable(occt_plugin_${test_name} tests/${test_name}.cpp)
+        target_link_libraries(occt_plugin_${test_name} PRIVATE grunk::plugin)
+        target_compile_definitions(occt_plugin_${test_name} PRIVATE
+            OCCT_PLUGIN_SO_PATH="$<TARGET_FILE:occt_plugin>"
+        )
+        add_dependencies(occt_plugin_${test_name} occt_plugin)
+        add_test(NAME ${test_name} COMMAND occt_plugin_${test_name})
+    endforeach()
 endif()

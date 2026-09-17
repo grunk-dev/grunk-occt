@@ -81,6 +81,19 @@ wrapper's own `operator[]`/`get<T>()` (C++-side) rather than via a Lua-side `ass
 inside `create_env()`'s environment, or switch to `create_parametric_env()` if a test genuinely
 needs Lua-side `assert`/`print` and doesn't mind the added dependency-tracking behavior.
 
+## `add_member_function` and overloaded OCCT methods
+
+Unlike `add_constructors` (which wraps all its arguments in `sol::overload(...)` automatically),
+`add_member_function(key, fun)` registers exactly one `fun` under `key` - calling it twice with the
+same key overwrites, it doesn't merge overloads. Several `gp_*` methods are themselves overloaded in
+OCCT (e.g. `gp_Trsf::SetTranslation`, `SetRotation`, `SetMirror` each have 2+ C++ overloads) - taking
+`&Type::Method` bare in those cases is ambiguous and fails to compile. Fix: an explicit
+`static_cast<RetType (Type::*)(ArgTypes...)>(&Type::Method)` picks the exact overload needed (see
+`src/gp/gp_registration.hpp`). When a name genuinely needs more than one overload exposed to Lua
+under the same key, pass `sol::overload(overload1, overload2)` as `fun` instead (per
+`usertype_proxy::add_member_function`'s own doc comment) - not needed yet in the `gp` module, but
+expect it in Step 6 modules with more heavily overloaded methods.
+
 ## `automagic_flags` policy
 
 Default to `sol::automagic_flags::none` for every OCCT type (OCCT types generally lack
