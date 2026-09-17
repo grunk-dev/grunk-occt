@@ -1,0 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Jan Kleinert <jan.kleinert@dlr.de>
+#
+# SPDX-License-Identifier: MPL-2.0
+
+# 3-platform CI matrix (see DESIGN.md's "Scope" section): every step of the migration
+# plan targets Linux, macOS, and Windows, with AD-enabled builds as the sole,
+# deliberately deferred exception. This is what makes future grunk-pin bumps and
+# generator changes safe on all three platforms, not just Linux.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          cache: true
+
+      - name: Configure
+        run: pixi run configure Release
+
+      - name: Build
+        run: pixi run build
+
+      - name: Test
+        run: pixi run test
