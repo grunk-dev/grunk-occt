@@ -21,6 +21,7 @@
 #include "../generated/brepbuilderapi.hpp"
 #include "../generated/brepprimapi.hpp"
 #include "../generated/brepalgoapi.hpp"
+#include "gp/gp_extras.hpp"
 #include "geom/geom_extras.hpp"
 #include "shape_io.hpp"
 
@@ -30,6 +31,7 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
 {
     auto ns = state.begin_plugin(info);
     register_gp(ns);
+    register_gp_extras(ns);
     register_geom(ns);
     register_geom_extras(ns);
     register_message_progress(ns);

@@ -57,6 +57,43 @@ PASSTHROUGH_TYPES = {"Standard_Integer", "Standard_Boolean"}
 TRANSIENT_ROOT = "Standard_Transient"
 HANDLE_PATTERN = re.compile(r"^opencascade::handle<\s*(\w+)\s*>$")
 
+# NCollection_Array1<T>/NCollection_Array2<T> (e.g. TColgp_Array1OfPnt, TColStd_Array1OfReal)
+# are typedefs, invisible as such to a parameter's own (non-canonical) spelling - only
+# libclang's *canonical* type resolution reveals the actual template ("const
+# NCollection_Array1<gp_Pnt> &"), which is what Param.canonical carries and these
+# patterns match against (see Param.kind's "Array1OfX/Array2OfX" section below and
+# codegen/README.md's "NCollection_Array1/2 support").
+ARRAY1_PATTERN = re.compile(r"^NCollection_Array1<\s*(.+?)\s*>$")
+ARRAY2_PATTERN = re.compile(r"^NCollection_Array2<\s*(.+?)\s*>$")
+# Canonical resolution also resolves Standard_Real/Standard_Integer/Standard_Boolean
+# themselves away to their own underlying fundamental type (double/int/bool) - an
+# array element's spelling never comes back as "Standard_Real", only "double".
+REAL_ELEMENT_SPELLINGS = {"double", "float"}
+PASSTHROUGH_ELEMENT_SPELLINGS = {"int", "bool"}
+
+
+def array_element_supported(elem: str, registered_types: set[str]) -> bool:
+    """Whether elem - an NCollection_Array1/2's own already-canonical template
+    argument spelling, e.g. "gp_Pnt" or "double" - is itself a collection element
+    type this generator can convert via src/collections.hpp's to_array1/to_array2.
+    Deliberately does NOT extend AD-portability's #ifdef GRUNK_OCCT_WITH_ADOLC
+    dual-emission to array elements (see codegen/README.md's "Known gaps") - a
+    "real" array element is always plain double, in both AD and non-AD builds."""
+    return (
+        elem in REAL_ELEMENT_SPELLINGS
+        or elem in PASSTHROUGH_ELEMENT_SPELLINGS
+        or elem in registered_types
+    )
+
+
+def array_element_type(canonical: str, pattern: re.Pattern) -> str:
+    """Re-extracts the same element type array_element_supported already found
+    supported, for emission (see emit_lambda) - called only after kind() has
+    already matched, so the match here is guaranteed to succeed."""
+    m = pattern.match(strip_type(canonical))
+    assert m is not None, f"expected {canonical!r} to match {pattern.pattern!r}"
+    return m.group(1).strip()
+
 AD_MACRO = "GRUNK_OCCT_WITH_ADOLC"
 
 GENERATED_BANNER = """\
@@ -78,6 +115,13 @@ def strip_type(spelling: str) -> str:
 class Param:
     spelling: str
     name: str
+    # Canonical (typedef-resolved) spelling, e.g. "const TColgp_Array1OfPnt &" ->
+    # "const NCollection_Array1<gp_Pnt> &" - only populated for genuine parameters
+    # (see collect_class_callables/collect_namespace_callables), never for the
+    # synthetic Param Callable.rejection_reason constructs to check a return type;
+    # kind() uses that (name == "") to deliberately keep NCollection_Array1/2
+    # support parameter-only for now - see kind()'s own comment.
+    canonical: str = ""
 
     @property
     def base(self) -> str:
@@ -118,6 +162,23 @@ class Param:
         m = HANDLE_PATTERN.match(self.base)
         if m and m.group(1) in registered_types:
             return "handle"
+        # NCollection_Array1<X>/NCollection_Array2<X> (see codegen/README.md's
+        # "NCollection_Array1/2 support") - by value or const-reference only
+        # (is_mutable_ref check mirrors Standard_Real's own out-param rule above: no
+        # Lua-side identity to mutate a bare std::vector<X> in place through, unlike
+        # a registered object/Handle). Parameter-only: self.name is empty only for
+        # the synthetic Param Callable.rejection_reason builds to check a *return*
+        # type, so an array-typed return stays rejected exactly as before - see
+        # codegen/README.md's "Known gaps" for why (no decided Lua-facing shape yet
+        # for a from_array1/2-converted return value).
+        if self.name and self.canonical:
+            canon_base = strip_type(self.canonical)
+            m1 = ARRAY1_PATTERN.match(canon_base)
+            if m1 and array_element_supported(m1.group(1), registered_types):
+                return None if self.is_mutable_ref else "array1"
+            m2 = ARRAY2_PATTERN.match(canon_base)
+            if m2 and array_element_supported(m2.group(1), registered_types):
+                return None if self.is_mutable_ref else "array2"
         return None
 
 
@@ -168,7 +229,7 @@ def collect_namespace_callables(namespace_cursors: list[cindex.Cursor], ns_name:
                 continue
             if child.spelling.startswith("operator"):
                 continue  # operators not handled yet - see codegen/README.md's "Known gaps"
-            params = [Param(arg.type.spelling, arg.spelling or f"arg{i}")
+            params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling)
                       for i, arg in enumerate(child.get_arguments())]
             callables.append(Callable(ns_name, "method", child.spelling, params,
                                        child.result_type.spelling, is_const=False, is_static=True))
@@ -272,7 +333,7 @@ def collect_class_callables(target: cindex.Cursor, class_name: str) -> list[Call
         else:
             continue
 
-        params = [Param(arg.type.spelling, arg.spelling or f"arg{i}")
+        params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling)
                   for i, arg in enumerate(child.get_arguments())]
         callables.append(Callable(class_name, kind, cpp_name, params, return_spelling, is_const, is_static))
     return callables
@@ -285,6 +346,14 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) 
         if ad_branch and k == "real":
             param_decls.append(f"sol::object {p.name}")
             call_args.append(f"occt_plugin::to_real({p.name})")
+        elif k == "array1":
+            elem = array_element_type(p.canonical, ARRAY1_PATTERN)
+            param_decls.append(f"std::vector<{elem}> const& {p.name}")
+            call_args.append(f"occt_plugin::to_array1({p.name})")
+        elif k == "array2":
+            elem = array_element_type(p.canonical, ARRAY2_PATTERN)
+            param_decls.append(f"std::vector<{elem}> const& {p.name}_flat, Standard_Integer {p.name}_rows, Standard_Integer {p.name}_cols")
+            call_args.append(f"occt_plugin::to_array2({p.name}_flat, {p.name}_rows, {p.name}_cols)")
         else:
             param_decls.append(f"{p.spelling} {p.name}")
             call_args.append(p.name)
@@ -428,6 +497,18 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
     includes = "\n".join(f"#include <{h}>" for h in result.headers)
     any_transient = any(result.is_transient.values())
+    any_array = any(
+        k in ("array1", "array2")
+        for overloads in result.accepted_ctors.values()
+        for _, kinds in overloads
+        for k in kinds
+    ) or any(
+        k in ("array1", "array2")
+        for methods in result.accepted_methods.values()
+        for overloads in methods.values()
+        for _, kinds in overloads
+        for k in kinds
+    )
     all_class_names = [Path(h).stem for h in result.headers]
     registered_here = set(all_class_names)
 
@@ -509,6 +590,7 @@ void register_{result.name}(grunk::plugin_namespace& ns);
         body_parts.append("\n".join(lines) + ";")
 
     extra_includes = '\n#include "../src/occt_sol_traits.hpp"' if any_transient else ""
+    extra_includes += '\n#include "../src/collections.hpp"\n#include <vector>' if any_array else ""
 
     cpp_source = GENERATED_BANNER + f"""
 #include "{result.name}.hpp"

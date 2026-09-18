@@ -7,11 +7,15 @@
 #include <Geom_Geometry.hxx>
 #include <Geom_Curve.hxx>
 #include <Geom_Line.hxx>
+#include <Geom_BoundedCurve.hxx>
+#include <Geom_BezierCurve.hxx>
 
 #include <memory>
 
 #include "../src/occt_ad_support.hpp"
 #include "../src/occt_sol_traits.hpp"
+#include "../src/collections.hpp"
+#include <vector>
 
 void register_geom(grunk::plugin_namespace& ns)
 {
@@ -199,5 +203,118 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("ParametricTransformation", [](Geom_Line const& self, const gp_Trsf & T) -> Standard_Real { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_Line const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
-
+    ns.register_type<Geom_BoundedCurve, sol::automagic_flags::none>("Geom_BoundedCurve")
+        .add_member_function("EndPoint", [](Geom_BoundedCurve const& self) -> gp_Pnt { return self.EndPoint(); })
+        .add_member_function("StartPoint", [](Geom_BoundedCurve const& self) -> gp_Pnt { return self.StartPoint(); })
+        .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_BezierCurve, sol::automagic_flags::none>("Geom_BezierCurve")
+        .add_constructors(
+            [](std::vector<gp_Pnt> const& CurvePoles) -> opencascade::handle<Geom_BezierCurve> { return opencascade::handle<Geom_BezierCurve>(new Geom_BezierCurve(occt_plugin::to_array1(CurvePoles))); },
+            [](std::vector<gp_Pnt> const& CurvePoles, std::vector<double> const& PoleWeights) -> opencascade::handle<Geom_BezierCurve> { return opencascade::handle<Geom_BezierCurve>(new Geom_BezierCurve(occt_plugin::to_array1(CurvePoles), occt_plugin::to_array1(PoleWeights))); }
+        )
+        .add_member_function("Increase", [](Geom_BezierCurve& self, const Standard_Integer Degree) { self.Increase(Degree); })
+        .add_member_function("InsertPoleAfter", sol::overload(
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P) { self.InsertPoleAfter(Index, P); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P, sol::object Weight) { self.InsertPoleAfter(Index, P, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P, const Standard_Real Weight) { self.InsertPoleAfter(Index, P, Weight); }
+#endif
+        
+        ))
+        .add_member_function("InsertPoleBefore", sol::overload(
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P) { self.InsertPoleBefore(Index, P); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P, sol::object Weight) { self.InsertPoleBefore(Index, P, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P, const Standard_Real Weight) { self.InsertPoleBefore(Index, P, Weight); }
+#endif
+        
+        ))
+        .add_member_function("RemovePole", [](Geom_BezierCurve& self, const Standard_Integer Index) { self.RemovePole(Index); })
+        .add_member_function("Reverse", [](Geom_BezierCurve& self) { self.Reverse(); })
+        .add_member_function("ReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve const& self, sol::object U) -> Standard_Real { return self.ReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_BezierCurve const& self, const Standard_Real U) -> Standard_Real { return self.ReversedParameter(U); }
+#endif
+        )
+        .add_member_function("Segment", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve& self, sol::object U1, sol::object U2) { self.Segment(occt_plugin::to_real(U1), occt_plugin::to_real(U2)); }
+#else
+            [](Geom_BezierCurve& self, const Standard_Real U1, const Standard_Real U2) { self.Segment(U1, U2); }
+#endif
+        )
+        .add_member_function("SetPole", sol::overload(
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P) { self.SetPole(Index, P); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P, sol::object Weight) { self.SetPole(Index, P, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const gp_Pnt & P, const Standard_Real Weight) { self.SetPole(Index, P, Weight); }
+#endif
+        
+        ))
+        .add_member_function("SetWeight", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve& self, const Standard_Integer Index, sol::object Weight) { self.SetWeight(Index, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BezierCurve& self, const Standard_Integer Index, const Standard_Real Weight) { self.SetWeight(Index, Weight); }
+#endif
+        )
+        .add_member_function("IsClosed", [](Geom_BezierCurve const& self) -> Standard_Boolean { return self.IsClosed(); })
+        .add_member_function("IsCN", [](Geom_BezierCurve const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
+        .add_member_function("IsPeriodic", [](Geom_BezierCurve const& self) -> Standard_Boolean { return self.IsPeriodic(); })
+        .add_member_function("IsRational", [](Geom_BezierCurve const& self) -> Standard_Boolean { return self.IsRational(); })
+        .add_member_function("Degree", [](Geom_BezierCurve const& self) -> Standard_Integer { return self.Degree(); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve const& self, sol::object U, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), P); }
+#else
+            [](Geom_BezierCurve const& self, const Standard_Real U, gp_Pnt & P) { self.D0(U, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1) { self.D1(occt_plugin::to_real(U), P, V1); }
+#else
+            [](Geom_BezierCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1) { self.D1(U, P, V1); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(occt_plugin::to_real(U), P, V1, V2); }
+#else
+            [](Geom_BezierCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(U, P, V1, V2); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(occt_plugin::to_real(U), P, V1, V2, V3); }
+#else
+            [](Geom_BezierCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(U, P, V1, V2, V3); }
+#endif
+        )
+        .add_member_function("DN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierCurve const& self, sol::object U, const Standard_Integer N) -> gp_Vec { return self.DN(occt_plugin::to_real(U), N); }
+#else
+            [](Geom_BezierCurve const& self, const Standard_Real U, const Standard_Integer N) -> gp_Vec { return self.DN(U, N); }
+#endif
+        )
+        .add_member_function("StartPoint", [](Geom_BezierCurve const& self) -> gp_Pnt { return self.StartPoint(); })
+        .add_member_function("EndPoint", [](Geom_BezierCurve const& self) -> gp_Pnt { return self.EndPoint(); })
+        .add_member_function("FirstParameter", [](Geom_BezierCurve const& self) -> Standard_Real { return self.FirstParameter(); })
+        .add_member_function("LastParameter", [](Geom_BezierCurve const& self) -> Standard_Real { return self.LastParameter(); })
+        .add_member_function("NbPoles", [](Geom_BezierCurve const& self) -> Standard_Integer { return self.NbPoles(); })
+        .add_member_function("Pole", [](Geom_BezierCurve const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Pole(Index); })
+        .add_member_function("Weight", [](Geom_BezierCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Weight(Index); })
+        .add_member_function("Transform", [](Geom_BezierCurve& self, const gp_Trsf & T) { self.Transform(T); })
+        .add_member_function("Copy", [](Geom_BezierCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
+    ns.register_function("Geom_BezierCurve_MaxDegree", []() -> Standard_Integer { return Geom_BezierCurve::MaxDegree(); });
 }

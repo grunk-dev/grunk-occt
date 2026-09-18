@@ -220,3 +220,100 @@ generator from Step 2 onward) as an `#ifdef`-gated pair: a plain-fundamental-typ
 ordinary builds, and a `sol::object`-based mixed-conversion overload for a future AD-enabled build
 (mirroring `geoml_registration.hpp`'s `gp_Pnt` constructor in grunk's `cad_autodiff` example). This
 makes the deferred AD milestone a recompile against an AD-enabled OCCT build, not a source rewrite.
+
+## Collections: `std::vector<T>` <-> `NCollection_Array1/2` (Step 5)
+
+Validated with `Geom_BezierCurve` (`codegen/config.yml`'s `geom` module gained
+`Geom_BoundedCurve.hxx`/`Geom_BezierCurve.hxx`).
+
+`src/collections.hpp` provides the actual conversion, independent of the generator:
+`to_array1<T>(std::vector<T> const&) -> NCollection_Array1<T>` /
+`from_array1<T>(NCollection_Array1<T> const&) -> std::vector<T>`, 1-based (`[1,
+v.size()]`, matching OCCT's own array convention throughout its docs), and the
+`NCollection_Array2` equivalents `to_array2`/`from_array2`.
+
+- **`NCollection_Array2`'s Lua-side shape, decided explicitly** (not folded into the
+  1D decision): a single **flat `std::vector<T>` plus separate `rows`/`cols`
+  counts** (row-major: row `r`, column `c` is at index `r*cols + c`) - **not** a
+  nested `std::vector<std::vector<T>>`. Deliberately reconsidered after an initial
+  nested-vector draft: a nested vector's own type doesn't prevent a jagged
+  (non-rectangular) input (each inner vector can have a different length, silently
+  wrong rather than a type error), and it costs one heap allocation per row instead
+  of one contiguous buffer for the whole array. A flat vector is rectangular *by
+  construction* (`to_array2` checks `flat.size() == rows*cols` and throws
+  otherwise) and contiguous. `tests/test_collections.cpp` covers the round trip and
+  both error cases directly (no real OCCT binding needs 2D yet, so this has no
+  other coverage).
+- **Generator-level support** (`codegen/generate.py`'s `Param.kind()`/`emit_lambda` -
+  see codegen/README.md's "NCollection_Array1/2 support" for the full mechanism):
+  a by-value or const-reference parameter whose *canonical* (typedef-resolved) type
+  is `NCollection_Array1<X>`/`NCollection_Array2<X>` - which is what
+  `TColgp_Array1OfPnt`/`TColStd_Array1OfReal`/... actually are, invisible as such
+  without canonical resolution - is accepted automatically whenever `X` is itself a
+  supported element type (a registered class, or `double`/`Standard_Integer`/
+  `Standard_Boolean`), and the generated lambda converts through
+  `collections.hpp` before calling the real OCCT function. This is what makes
+  `Geom_BezierCurve`'s *own* two constructors (`(TColgp_Array1OfPnt const&)` and
+  `(TColgp_Array1OfPnt const&, TColStd_Array1OfReal const&)`) both auto-generate
+  as ordinary `add_constructors(...)` overloads - no hand-written escape hatch
+  needed for construction. `NCollection_Array2` support in the generator is
+  implemented symmetrically but, like the `collections.hpp` side, has no real OCCT
+  binding to validate it yet.
+- **Deliberately out of scope for this pass** (rejected exactly as before, recorded
+  with a reason - see codegen/README.md's "Known gaps"): a **mutable-reference**
+  array out-param (e.g. `Geom_BezierCurve::Poles(TColgp_Array1OfPnt& P)`) and an
+  array **return type** (e.g. `Poles() const -> const TColgp_Array1OfPnt&`,
+  `Weights()`). Both need a decided answer to a question the parameter side
+  doesn't: what happens on a size mismatch (out-param) or which Lua-facing shape a
+  freshly-`from_array1`/`from_array2`-converted return value takes - deferred until
+  a concrete consumer forces the decision, per the same "don't design for
+  hypothetical requirements" principle as the migration plan's own Step-by-step
+  scoping.
+
+**Gotcha found while implementing this**: a bare Lua table of `occt.gp_Pnt` values is
+**not** accepted directly as a `std::vector<gp_Pnt> const&` function parameter - sol2
+has no generic table-to-`std::vector<Usertype>` conversion for an ordinary function
+parameter (confirmed empirically: it fails with "expected userdata, received table",
+i.e. sol2 expects an already-constructed `std::vector<gp_Pnt>` *object*, not
+something to build from a table on the fly - unrelated to the array-conversion work
+above, since this is sol2's own container-argument binding, not anything
+`collections.hpp`/the generator's array support does). The vector has to be built
+explicitly first, via grunk's own `with_std_vector()`-provided `as_vec(...)`/
+`new_vec()` - opted into `gp_Pnt` by hand (`src/gp/gp_extras.hpp`, using
+`modify_type<gp_Pnt>` since `gp_Pnt` is already registered generically by the
+generator) since the generator doesn't emit this for any type yet.
+`tests/test_geom.cpp`'s `BezierCurveFromVectorOfPoints` calls
+`occt.gp_Pnt.as_vec(p1, p2, p3)` before passing the result to
+`occt.Geom_BezierCurve.new(poles)`.
+
+## Known issue: `Handle(T)` upcast argument-checking fails in Debug (`SOL_SAFE_FUNCTION_CALLS`) builds
+
+Found while validating Step 5 (unrelated to it - reproduces identically on
+unmodified `main`, confirmed via `git stash`): `tests/test_geom.cpp`'s
+`NullHandleSurfacesAsNil` (`downcast_to_geom_line(Handle(Geom_Geometry) const&)`
+called with a genuine `Handle(Geom_Line)` value, upcast via `add_bases`) **fails**
+when grunk-occt is built with `CMAKE_BUILD_TYPE=Debug`, with sol2's own "unrecognized
+userdata (not pushed by sol?)" error - the exact same failure mode as the
+never-fully-explained synthetic `Handle<T>` repro documented in
+`docs/step5-investigation/`, except this reproduces with a **real OCCT type**, gated
+purely by Debug vs. Release.
+
+Root cause, now much better understood after the grunk `with_std_vector` fix (see
+[grunk-dev/grunk#282](https://github.com/grunk-dev/grunk/pull/282)): sol2's
+`SOL_SAFE_FUNCTION_CALLS` (on by default in Debug builds, off by default in
+Release/`NDEBUG` builds) gates whether a function argument gets a full type-safety
+check before binding. The two paths apparently disagree about whether a
+`unique_usertype_traits`-wrapped `Handle(Derived)` value satisfies a `Handle(Base)
+const&` parameter: the *unchecked* path (Release, what every test/CI job so far has
+exercised - `pixi.toml`'s `configure` task defaults to Release, and CI
+(`.github/workflows/ci.yml`) always passes `Release` explicitly) accepts it, the
+*checked* path (Debug) incorrectly rejects it.
+
+**Consequence for this codebase**: not fixed here - deep sol2-internal territory,
+same category as grunk-dev/grunk#281, and orthogonal to Step 5's own deliverable
+(Step 5's own new test, `BezierCurveFromVectorOfPoints`, passes in both Debug and
+Release - this is exclusively about the pre-existing `downcast_to_geom_line` case).
+grunk-occt's only currently-tested/supported build configuration is Release (matches
+CI); a Debug build should be understood as not fully validated for `Handle(T)`
+upcasting until this is root-caused upstream in sol2/grunk. Filed as
+[grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283).

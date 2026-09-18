@@ -29,14 +29,30 @@ modules:
   - name: geom
     # Step 3 validation module (see DESIGN.md/migration plan): Standard_Transient/
     # Handle(T) detection + add_bases<...>() for inheritance chains, on something
-    # Transient-derived but array-free (Geom_Line, not the Bezier curve - that needs
-    # collections support, Step 5). Order matters here: base classes first, so the
-    # generated .cpp registers Geom_Geometry before Geom_Curve before Geom_Line
-    # (natural reading order, though sol2's add_bases doesn't strictly require it).
+    # Transient-derived but array-free (Geom_Line). Order matters here: base classes
+    # first, so the generated .cpp registers Geom_Geometry before Geom_Curve before
+    # Geom_Line/Geom_BoundedCurve/Geom_BezierCurve (natural reading order, though
+    # sol2's add_bases doesn't strictly require it).
+    #
+    # Geom_BoundedCurve/Geom_BezierCurve are the Step 5 validation case (collections -
+    # see DESIGN.md/migration plan): the generator registers Geom_BezierCurve itself
+    # generically (add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry>() reaches
+    # Value/D0/D1/D2/D3/... via inheritance, and NbPoles/Pole/Degree/IsRational/
+    # StartPoint/EndPoint/Transform/Copy/Weight are all accepted directly, same as any
+    # other module), but both of Geom_BezierCurve's own constructors take a
+    # TColgp_Array1OfPnt const& - an OCCT array type the generator has no concept of
+    # (see codegen/README.md's "Known gaps") - so it ends up with zero accepted
+    # constructors, exactly like the abstract classes above it in the chain. The
+    # hand-written `bezier_curve` free function (src/geom/bezier.hpp) is therefore the
+    # only way to actually construct one from Lua, converting through
+    # src/collections.hpp's to_array1<gp_Pnt>() rather than ever exposing
+    # TColgp_Array1OfPnt to Lua directly.
     headers:
       - Geom_Geometry.hxx
       - Geom_Curve.hxx
       - Geom_Line.hxx
+      - Geom_BoundedCurve.hxx
+      - Geom_BezierCurve.hxx
 
   - name: message_progress
     # Message_ProgressRange appears as a defaulted parameter across a large swath of

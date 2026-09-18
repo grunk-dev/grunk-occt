@@ -45,7 +45,9 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
     `Handle(X)` *also being registered in the same generator run* (i.e. one of the
     config's own header stems, across every module - see "Type registration spans
     the whole config" below; a type from a module that's genuinely never wrapped is
-    rejected, not silently miscompiled), or
+    rejected, not silently miscompiled),
+  - `NCollection_Array1<X>`/`NCollection_Array2<X>` **by value or const-reference,
+    parameters only** (see "NCollection_Array1/2 support" below), or
   - `void` (return type only).
 - **Non-const-reference ("out") parameters**: accepted, but only when the mutated
   type is itself a registered object/`Handle` type (e.g. `Geom_Curve::D0(Standard_Real
@@ -96,6 +98,36 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   **Multiple inheritance is not handled** - only the first `CXX_BASE_SPECIFIER` per
   class is followed; fine for every OCCT class this generator has targeted so far
   (single inheritance throughout), but would need extending if that changes.
+- **`NCollection_Array1<X>`/`NCollection_Array2<X>` support (Step 5)**: a
+  by-value or const-reference parameter whose type is (or is a typedef for) one of
+  these templates - e.g. `TColgp_Array1OfPnt` (`NCollection_Array1<gp_Pnt>`),
+  `TColStd_Array1OfReal` (`NCollection_Array1<double>`) - is accepted whenever `X`
+  is itself a supported element type (a registered class, or `double`/`float`/
+  `Standard_Integer`/`Standard_Boolean`), and rendered as `std::vector<X> const&`
+  (array1) or `std::vector<X> const&` plus two extra `Standard_Integer rows, cols`
+  parameters (array2 - see `../DESIGN.md`'s "NCollection_Array2 Lua-side shape" for
+  why flat + dims, not nested vectors), converted at the call site via
+  `../src/collections.hpp`'s `to_array1`/`to_array2`. Detecting this requires
+  libclang's *canonical* (typedef-resolved) type - `TColgp_Array1OfPnt`'s own
+  spelling never mentions `NCollection_Array1` at all - which is why `Param` also
+  carries a `canonical` field (`Param.kind()`'s `ARRAY1_PATTERN`/`ARRAY2_PATTERN`
+  match against it, not the ordinary `spelling`). This is what lets e.g.
+  `Geom_BezierCurve`'s own constructors (`(TColgp_Array1OfPnt const&)` and
+  `(TColgp_Array1OfPnt const&, TColStd_Array1OfReal const&)`) auto-generate as
+  ordinary `add_constructors(...)` overloads, with no hand-written escape hatch.
+  AD-portability's `#ifdef GRUNK_OCCT_WITH_ADOLC` dual-emission is **not** extended
+  to array elements (a "real" array element is always plain `double`, regardless of
+  build) - out of scope until Step 7 actually needs it.
+  - **Parameter-only, deliberately**: `Param.kind()` only recognizes an array
+    canonical type when `self.name` is non-empty, which is true for every genuine
+    parameter but never for the synthetic `Param` `Callable.rejection_reason` builds
+    to check a *return* type - so a method/constructor **returning** an array type
+    (`Geom_BezierCurve::Poles() const -> const TColgp_Array1OfPnt&`, `Weights()`)
+    stays rejected, same as a **mutable-reference** array out-param
+    (`Poles(TColgp_Array1OfPnt& P)`) - unlike a registered object/`Handle`'s own
+    non-const-reference out-param support above, `to_array1`/`from_array1` don't
+    have an in-place-mutation story, and no concrete binding has forced a decision
+    on either yet. See `../DESIGN.md`'s own note on this boundary.
 - **Type registration spans the whole config, not just one module**: `main()`
   computes `registered_types` as the union of every module's class names *before*
   processing any of them, so a later module's callables can reference an earlier

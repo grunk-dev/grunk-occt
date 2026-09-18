@@ -107,11 +107,18 @@ if(GRUNK_OCCT_TESTS)
         tests/test_gp.cpp
         tests/test_geom.cpp
         tests/test_shapes.cpp
+        tests/test_collections.cpp
     )
     target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE
         OCCT_PLUGIN_SO_PATH="$<TARGET_FILE:occt_plugin>"
     )
+    # tests/test_collections.cpp includes src/collections.hpp (and gp_Pnt.hxx)
+    # directly, and calls into real OCCT code (NCollection_Array1's own bounds
+    # checks, gp_Pnt) - unlike every other test file here, which only drives
+    # occt_plugin through raw Lua strings and never names an OCCT header itself.
+    target_include_directories(runUnitTests PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+    target_link_libraries(runUnitTests PRIVATE ${OpenCASCADE_LIBRARIES})
     add_dependencies(runUnitTests occt_plugin)
     gtest_discover_tests(runUnitTests)
 endif()

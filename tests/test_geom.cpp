@@ -112,3 +112,51 @@ TEST_F(GeomTest, OutParamMutatesInPlace)
     EXPECT_DOUBLE_EQ(env.get<double>("out_py"), 0.);
     EXPECT_DOUBLE_EQ(env.get<double>("out_pz"), 0.);
 }
+
+// Step 5 validation case (collections, see DESIGN.md/migration plan):
+// Geom_BezierCurve's own constructor (generated/geom.cpp, via
+// codegen/generate.py's "array1" parameter kind) takes a std::vector<gp_Pnt>
+// const& - the generator converts it through src/collections.hpp's
+// to_array1<gp_Pnt>() into the TColgp_Array1OfPnt the real OCCT constructor
+// actually requires, never exposing that OCCT array type to Lua. A bare Lua table
+// of occt.gp_Pnt values is NOT accepted directly as that parameter, though - sol2
+// has no generic table->std::vector<Usertype> conversion for an ordinary function
+// parameter (confirmed by trying it first: it fails with "expected userdata,
+// received table", i.e. sol2 expects an already-constructed std::vector<gp_Pnt>
+// object, not something to build from a table) - so the vector must be built
+// explicitly first, via grunk's own with_std_vector()-provided gp_Pnt.as_vec(...)
+// (opted into gp_Pnt by hand, src/gp/gp_extras.hpp, since the generator doesn't
+// emit this for any type yet). Also confirms native colon-call dispatch on the
+// Handle(Geom_BezierCurve)-returned value reaches a method registered on a base
+// four levels up the chain (Value, from Geom_Curve, via
+// add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>()).
+TEST_F(GeomTest, BezierCurveFromVectorOfPoints)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        p1 = occt.gp_Pnt.new(0., 0., 0.)
+        p2 = occt.gp_Pnt.new(1., 1., 0.)
+        p3 = occt.gp_Pnt.new(2., 0., 0.)
+
+        poles = occt.gp_Pnt.as_vec(p1, p2, p3)
+        curve = occt.Geom_BezierCurve.new(poles)
+        n = curve:NbPoles()
+
+        start = curve:Value(0.0)
+        sx = start:X(); sy = start:Y(); sz = start:Z()
+
+        fin = curve:Value(1.0)
+        fx = fin:X(); fy = fin:Y(); fz = fin:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_EQ(env.get<int>("n"), 3);
+
+    // Value(0.0)/Value(1.0) return exactly the first/last pole for a Bezier curve.
+    EXPECT_DOUBLE_EQ(env.get<double>("sx"), 0.);
+    EXPECT_DOUBLE_EQ(env.get<double>("sy"), 0.);
+    EXPECT_DOUBLE_EQ(env.get<double>("sz"), 0.);
+
+    EXPECT_DOUBLE_EQ(env.get<double>("fx"), 2.);
+    EXPECT_DOUBLE_EQ(env.get<double>("fy"), 0.);
+    EXPECT_DOUBLE_EQ(env.get<double>("fz"), 0.);
+}
