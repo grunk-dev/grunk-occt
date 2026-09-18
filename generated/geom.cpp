@@ -86,6 +86,34 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("IsPeriodic", [](Geom_Curve const& self) -> Standard_Boolean { return self.IsPeriodic(); })
         .add_member_function("Period", [](Geom_Curve const& self) -> Standard_Real { return self.Period(); })
         .add_member_function("IsCN", [](Geom_Curve const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Curve const& self, sol::object U, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), P); }
+#else
+            [](Geom_Curve const& self, const Standard_Real U, gp_Pnt & P) { self.D0(U, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Curve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1) { self.D1(occt_plugin::to_real(U), P, V1); }
+#else
+            [](Geom_Curve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1) { self.D1(U, P, V1); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Curve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(occt_plugin::to_real(U), P, V1, V2); }
+#else
+            [](Geom_Curve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(U, P, V1, V2); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Curve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(occt_plugin::to_real(U), P, V1, V2, V3); }
+#else
+            [](Geom_Curve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(U, P, V1, V2, V3); }
+#endif
+        )
         .add_member_function("DN", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](Geom_Curve const& self, sol::object U, const Standard_Integer N) -> gp_Vec { return self.DN(occt_plugin::to_real(U), N); }
@@ -123,6 +151,34 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("IsClosed", [](Geom_Line const& self) -> Standard_Boolean { return self.IsClosed(); })
         .add_member_function("IsPeriodic", [](Geom_Line const& self) -> Standard_Boolean { return self.IsPeriodic(); })
         .add_member_function("IsCN", [](Geom_Line const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Line const& self, sol::object U, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), P); }
+#else
+            [](Geom_Line const& self, const Standard_Real U, gp_Pnt & P) { self.D0(U, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Line const& self, sol::object U, gp_Pnt & P, gp_Vec & V1) { self.D1(occt_plugin::to_real(U), P, V1); }
+#else
+            [](Geom_Line const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1) { self.D1(U, P, V1); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Line const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(occt_plugin::to_real(U), P, V1, V2); }
+#else
+            [](Geom_Line const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(U, P, V1, V2); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Line const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(occt_plugin::to_real(U), P, V1, V2, V3); }
+#else
+            [](Geom_Line const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(U, P, V1, V2, V3); }
+#endif
+        )
         .add_member_function("DN", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](Geom_Line const& self, sol::object U, const Standard_Integer N) -> gp_Vec { return self.DN(occt_plugin::to_real(U), N); }

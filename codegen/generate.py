@@ -74,14 +74,6 @@ def strip_type(spelling: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
 
-def is_supported_reference(spelling: str) -> bool:
-    """Rejects non-const references (out-parameters we can't bind generically) -
-    accepts plain values and const references."""
-    has_ref = "&" in spelling
-    has_const = "const" in spelling
-    return not (has_ref and not has_const)
-
-
 @dataclass
 class Param:
     spelling: str
@@ -91,13 +83,30 @@ class Param:
     def base(self) -> str:
         return strip_type(self.spelling)
 
+    @property
+    def is_mutable_ref(self) -> bool:
+        return "&" in self.spelling and "const" not in self.spelling
+
     def kind(self, registered_types: set[str]) -> str | None:
-        if not is_supported_reference(self.spelling):
-            return None
+        # Non-const-reference ("out") parameters ARE supported here, but only when
+        # the base type is itself an OCCT object/Handle usertype - Lua/sol2 userdata
+        # for a registered class already has stable, mutable identity (the same
+        # userdata the caller passed in gets mutated in place, exactly like OOP
+        # mutation works in Lua natively), so `void D0(Standard_Real U, gp_Pnt& P)
+        # const` binds and behaves correctly with zero special-casing. What's NOT
+        # supported is a non-const reference to a *primitive* (Standard_Real/
+        # Standard_Integer/Standard_Boolean) - Lua has no mutable-number-by-reference
+        # concept, there is no userdata to mutate in place for a bare number. See
+        # codegen/README.md's "Non-const-reference ('out') parameters" section - this
+        # is a real, common OCCT idiom (D0/D1/D2/D3, Coord's 3-out-param overload,
+        # ...), not a corner case, and the *recommended* way to consume it from a
+        # recipe is grunk's own "module" mechanism (raw/undecorated Lua calls inside
+        # a module function, whose own return value is what gets tracked
+        # parametrically) - not something this generator needs to encode itself.
         if self.base == STANDARD_REAL:
-            return "real"
+            return None if self.is_mutable_ref else "real"
         if self.base in PASSTHROUGH_TYPES:
-            return "passthrough"
+            return None if self.is_mutable_ref else "passthrough"
         if self.base in registered_types:
             return "object"
         # Handle(X) (i.e. opencascade::handle<X>) - accepted only if X is itself a
@@ -105,7 +114,7 @@ class Param:
         # Step 3 section on Standard_Transient/Handle(T) support). Bridged to Lua via
         # occt_sol_traits.hpp's sol::unique_usertype_traits<opencascade::handle<T>>
         # specialization - no special conversion needed in the emitted lambda body,
-        # the type is simply passed/returned as-is.
+        # the type is simply passed/returned as-is (mutable reference included).
         m = HANDLE_PATTERN.match(self.base)
         if m and m.group(1) in registered_types:
             return "handle"

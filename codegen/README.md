@@ -36,19 +36,34 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   this assumption revisited.
 - **Public constructors and instance methods only.**
 - A parameter/return type is accepted only if it is:
-  - `Standard_Real` (gets the `#ifdef GRUNK_OCCT_WITH_ADOLC`-gated dual-emission form -
-    see `../DESIGN.md`'s "Standard_Real / AD-portability rule"),
-  - `Standard_Integer`/`Standard_Boolean` (passed through as-is, no AD concern - these
-    aren't the type `adOCCT` retargets),
-  - a **value or const-reference** of another class *also being registered in the same
-    generator run* (i.e. one of the module's own header stems - a type from a
-    different, not-yet-wrapped module is rejected, not silently miscompiled), or
+  - `Standard_Real` **by value or const-reference** (gets the
+    `#ifdef GRUNK_OCCT_WITH_ADOLC`-gated dual-emission form - see `../DESIGN.md`'s
+    "Standard_Real / AD-portability rule"),
+  - `Standard_Integer`/`Standard_Boolean` **by value or const-reference** (passed
+    through as-is, no AD concern - these aren't the type `adOCCT` retargets),
+  - a **value, const-reference, or non-const-reference** of another class or
+    `Handle(X)` *also being registered in the same generator run* (i.e. one of the
+    config's own header stems, across every module - see "Type registration spans
+    the whole config" below; a type from a module that's genuinely never wrapped is
+    rejected, not silently miscompiled), or
   - `void` (return type only).
+- **Non-const-reference ("out") parameters**: accepted, but only when the mutated
+  type is itself a registered object/`Handle` type (e.g. `Geom_Curve::D0(Standard_Real
+  U, gp_Pnt& P)`) - **not** a corner case to work around, this is a common, idiomatic
+  OCCT pattern (`D0`/`D1`/`D2`/`D3`, `Coord`'s 3-out-param overload, ...) and Lua/sol2
+  handles it natively: the existing userdata passed in gets mutated in place, exactly
+  like OOP mutation already works in Lua. What's **not** supported is a non-const
+  reference to a *primitive* (`Standard_Real&`/`Standard_Integer&`/`Standard_Boolean&`)
+  - Lua has no mutable-number-by-reference concept, there is no userdata to mutate for
+    a bare number (e.g. `gp_Trsf::Transforms(Standard_Real&, gp_XYZ&)` stays rejected
+    on the *first* parameter alone, independent of `gp_XYZ` also being unregistered).
+  Consuming a mutate-through-reference method from a **recipe** (as opposed to the
+  raw/undecorated `create_env()` this project's tests use so far) is where grunk's own
+  "module" mechanism becomes relevant - see `../DESIGN.md`'s note.
 - Anything else is **rejected** (recorded with a reason, never silently dropped):
-  non-const-reference out-parameters (`Standard_Real&`, `gp_XYZ&`, ...), unregistered
-  class types (`gp_XYZ`, `gp_Ax2`, `gp_Quaternion`, `gp_Mat`, `gp_TrsfForm`, ...),
-  `Standard_OStream&`/`Standard_SStream`, operators (skipped by name prefix - see
-  "Known gaps"), and static methods.
+  unregistered class types (`gp_XYZ`, `gp_Ax2`, `gp_Quaternion`, `gp_Mat`,
+  `gp_TrsfForm`, ...), `Standard_OStream&`/`Standard_SStream`, operators (skipped by
+  name prefix - see "Known gaps"), and static methods.
 - **Overloaded methods** (same Lua name, 2+ accepted C++ overloads - e.g.
   `gp_Trsf::SetTranslation`) are merged into one `sol::overload(...)` call
   automatically. Every emitted callable is a **lambda**, never a bare

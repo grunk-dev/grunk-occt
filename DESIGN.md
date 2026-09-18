@@ -81,7 +81,37 @@ wrapper's own `operator[]`/`get<T>()` (C++-side) rather than via a Lua-side `ass
 inside `create_env()`'s environment, or switch to `create_parametric_env()` if a test genuinely
 needs Lua-side `assert`/`print` and doesn't mind the added dependency-tracking behavior.
 
-## Null Handle arguments segfault (found in Step 3 - likely worth a grunk issue)
+## Non-const-reference ("out") parameters are supported, deliberately
+
+Initially (Step 3, first pass) the generator rejected every non-const-reference
+parameter outright, treating out-params as generically unsupportable. That was wrong,
+corrected after review: OCCT's OO APIs use mutate-through-reference constantly
+(`Geom_Curve::D0/D1/D2/D3`, `gp_Pnt::Coord`'s 3-out-param overload, ...) and it isn't
+optional to support them - see `codegen/README.md`'s "Non-const-reference ('out')
+parameters" for the corrected rule (accepted when the mutated type is a registered
+object/`Handle`, rejected only for a bare primitive reference, which Lua genuinely
+has no representation for).
+
+Binding these directly (`register_type`/`add_member_function`) works with zero
+special-casing - sol2 already supports mutating an existing userdata in place, this
+project's own `tests/test_geom.cpp` confirms it (`Geom_Curve::D0` mutating a `gp_Pnt&`
+passed in from Lua). The distinct, separate concern is **using** such a call from
+inside a tracked `grunk::recipe` (as opposed to the raw `create_env()` harness this
+project's tests use so far): grunk's dependency-tracking decorator
+(`create_parametric_env()`) assumes a call's return value is its only output, so a
+mutation-based out-param wouldn't be tracked correctly if called directly inside a
+decorated/parametric environment. grunk's own **"module"** mechanism
+(`Recipe::insert_module_script`/`run_module_script` - see `grunk/dynamic/state.hpp`'s
+docs) is the documented way to bridge this: a module function's own *body* runs in a
+raw/undecorated context (so it can freely construct a placeholder, mutate it through
+as many out-param calls as needed, and build up the result imperatively), while the
+module function *as a whole*, called from outside, is treated as a single pure/
+parametric unit - only its final return value is tracked. This project hasn't needed
+that bridge yet (Step 0 deliberately deferred `grunk::recipe`-based testing), but it's
+the mechanism to reach for once out-param-heavy OCCT calls need to appear inside an
+actual recipe, not just this project's own `create_env()`-based tests.
+
+## Null Handle arguments segfault (found in Step 3, filed as grunk-dev/grunk#281)
 
 Passing a Lua value that is `nil` as an argument to a function/method parameter typed
 `Handle(T) const&` (bridged via `occt_sol_traits.hpp`'s
@@ -99,8 +129,8 @@ recipe, or registration code that passes a Lua `nil` into a `Handle(T)`-typed
 parameter. `tests/test_geom.cpp`'s negative-path check was redesigned around this -
 it only ever inspects a *returned* Handle for nilness, never passes one in.
 
-This looks like a real robustness gap worth flagging upstream (a Lua script should
-never be able to crash the host process) - not filed yet, ask before doing so.
+This is a real robustness gap (a Lua script should never be able to crash the host
+process) - filed as [grunk-dev/grunk#281](https://github.com/grunk-dev/grunk/issues/281).
 
 ## `add_member_function` and overloaded OCCT methods
 

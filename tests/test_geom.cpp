@@ -17,6 +17,16 @@
 // occt_sol_traits.hpp's is_null directly. Also confirms a genuine Handle(Geom_Line)
 // upcast-converts to a Handle(Geom_Geometry) const& parameter (via add_bases) for a
 // real DownCast success case.
+//
+// Out-param path: Geom_Curve::D0(U, gp_Pnt& P) takes a non-const-reference "out"
+// parameter - the generator now accepts these when the mutated type is itself a
+// registered OCCT object (see codegen/README.md's "Non-const-reference ('out')
+// parameters"; the existing gp_Pnt userdata passed in from Lua is mutated in place,
+// exactly like OOP mutation works in Lua natively). Called directly here (not
+// through a grunk::recipe "module") since this test's create_env() harness is
+// already an undecorated/non-parametric environment - the module-wrapping pattern
+// only matters once this kind of call needs to happen inside a tracked recipe
+// (create_parametric_env(), deferred to Step 6.5).
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>
@@ -93,6 +103,20 @@ int main()
                 "null_geom_geometry() surfaces as nil (is_null on a direct function return)");
     ok &= check(env.get<bool>("downcast_ok"),
                 "downcast_to_geom_line succeeds on a genuine Geom_Line (upcast via add_bases)");
+
+    // --- Out-param path ---
+    auto out_res = env.eval(R"(
+        out_p = occt.gp_Pnt.new(-1., -1., -1.)   -- pre-existing, mutable userdata
+        line:D0(3.0, out_p)                      -- mutates out_p in place, returns nothing
+        out_px = out_p:X(); out_py = out_p:Y(); out_pz = out_p:Z()
+    )");
+    if (!out_res.valid()) {
+        std::cerr << "FAIL: out-param eval failed\n";
+        return 1;
+    }
+    ok &= check(near(env.get<double>("out_px"), 3.) && near(env.get<double>("out_py"), 0.)
+                    && near(env.get<double>("out_pz"), 0.),
+                "Geom_Curve::D0's non-const-reference gp_Pnt& out-param mutates in place");
 
     if (!ok) {
         return 1;
