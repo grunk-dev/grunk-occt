@@ -11,7 +11,8 @@
 // brepalgoapi) - see generated/*.cpp, codegen/README.md, src/geom/geom_extras.hpp,
 // src/shape_io.hpp. Step 5 adds NCollection_Array1/2 <-> std::vector<T> support
 // (Geom_BezierCurve, src/collections.hpp). Step 6 is the module expansion sweep -
-// bnd (Bnd_Box/BRepBndLib) is its first module.
+// bnd (Bnd_Box/BRepBndLib), brep (BRep_Builder/BRep_Tool), and breptools
+// (BRepTools) so far.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>
@@ -25,6 +26,7 @@
 #include "../generated/brepalgoapi.hpp"
 #include "../generated/bnd.hpp"
 #include "../generated/brep.hpp"
+#include "../generated/breptools.hpp"
 #include "gp/gp_extras.hpp"
 #include "brep/brep_extras.hpp"
 #include "geom/geom_extras.hpp"
@@ -47,6 +49,7 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_bnd(ns);
     register_brep(ns);
     register_brep_extras(ns);
+    register_breptools(ns);
     register_shape_io(ns);
 }
 

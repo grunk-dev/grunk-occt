@@ -110,6 +110,7 @@ if(GRUNK_OCCT_TESTS)
         tests/test_collections.cpp
         tests/test_bnd.cpp
         tests/test_brep.cpp
+        tests/test_breptools.cpp
     )
     target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE

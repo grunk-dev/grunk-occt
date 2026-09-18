@@ -345,3 +345,13 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   isn't a `Shell`/`Wire`, it falls back to `TopoDS_Shape::Closed()`, a plain stored
   flag `BRepPrimAPI_MakeBox` never sets (confirmed empirically: false for a
   freshly-built box) - documented in the test itself, not just here.
+- **`breptools`** (`BRepTools`, a static-only "namespace class"): 22 accepted, 20
+  rejected (mutable `Standard_Real&`/`Standard_Boolean&` out-params, `Standard_
+  OStream&`/`Standard_CString` for `Write`/`Read`/`Dump` - never colliding with
+  `src/shape_io.hpp`'s own hand-written `export_brep`, which exists for exactly
+  that gap - plus assorted unregistered types). What's left is still real:
+  `Update`/`Clean`/`CleanGeometry`/`RemoveUnusedPCurves`/`Triangulation`/`Compare`/
+  `OuterWire`/`IsReallyClosed`/`RemoveInternals`. No new generator work or
+  hand-written escape hatch needed - the third module in a row proving out
+  `extra_includes` (this time for the seven `TopoDS_*` types `BRepTools.hxx` only
+  forward-declares) rather than needing something new.

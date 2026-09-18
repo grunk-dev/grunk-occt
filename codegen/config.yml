@@ -184,3 +184,37 @@ modules:
       - TopoDS_Vertex.hxx
       - TopoDS_Edge.hxx
       - TopoDS_Face.hxx
+
+  - name: breptools
+    # Step 6 module expansion sweep, third module. BRepTools is a static-only
+    # "namespace class" (see codegen/README.md's "Static-only 'namespace classes'")
+    # with a much larger real API than what's accepted - most overloads need
+    # mutable Standard_Real&/Standard_Boolean& out-params (unsupported - no Lua-side
+    # identity for a bare number/bool to mutate in place, same rule as everywhere
+    # else), Standard_OStream&/Standard_CString (Write/Read/Dump - also why these
+    # never collide with src/shape_io.hpp's own hand-written export_brep, which
+    # exists for exactly this gap), or unregistered types (Bnd_Box2d,
+    # TopTools_IndexedMapOfShape/ListOfShape, Handle(OSD_FileSystem),
+    # TopAbs_Orientation, Handle(Geom2d_Curve)/Handle(Geom_Surface)). What's left is
+    # still real, useful functionality: Update (9 overloads, one per TopoDS_* type),
+    # UpdateFaceUVPoints, Clean/CleanGeometry/RemoveUnusedPCurves, Triangulation
+    # (verifies deflection), Compare (Vertex/Edge overloads), OuterWire,
+    # IsReallyClosed, and RemoveInternals (mutates the TopoDS_Shape passed in - same
+    # non-const-reference-to-a-registered-object out-param pattern as everywhere
+    # else in this module sweep).
+    # extra_includes: BRepTools.hxx forward-declares every TopoDS_* type it uses
+    # (by reference only, from its own header's point of view) - sol2's usertype
+    # binding needs their complete definitions, same reasoning as bnd/brep above.
+    # No blacklist entries.
+    headers:
+      - BRepTools.hxx
+    extra_includes:
+      - TopoDS_Shape.hxx
+      - TopoDS_Vertex.hxx
+      - TopoDS_Edge.hxx
+      - TopoDS_Wire.hxx
+      - TopoDS_Face.hxx
+      - TopoDS_Shell.hxx
+      - TopoDS_Solid.hxx
+      - TopoDS_CompSolid.hxx
+      - TopoDS_Compound.hxx
