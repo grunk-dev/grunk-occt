@@ -56,6 +56,25 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   [grunk-dev/grunk#280](https://github.com/grunk-dev/grunk/issues/280) entirely,
   since calling an overloaded method with concrete argument types is never
   ambiguous, only *taking its address* is.
+- **`Standard_Transient`/`Handle(T)` support** (Step 3): a class whose ancestor chain
+  includes `Standard_Transient` gets its constructors emitted as heap-allocating
+  factories returning `opencascade::handle<T>` (`new T(args...)`, never a by-value
+  `T`) instead of plain value constructors, and its full ancestor chain emitted as
+  `.add_bases<Base1, Base2, ...>()` (needed for Lua colon-call dispatch to reach a
+  method registered on a *base* class, and for virtual dispatch through it to reach a
+  derived override - see `codegen/config.yml`'s `geom` module and
+  `tests/test_geom.cpp`). `Handle(X)` (i.e. `opencascade::handle<X>`) parameters/
+  returns are accepted wherever `X` is itself a registered type, bridged via
+  `../src/occt_sol_traits.hpp`'s `sol::unique_usertype_traits` specialization
+  (included automatically when a module has any Transient-derived class).
+  **Multiple inheritance is not handled** - only the first `CXX_BASE_SPECIFIER` per
+  class is followed; fine for every OCCT class this generator has targeted so far
+  (single inheritance throughout), but would need extending if that changes.
+- **Type registration spans the whole config, not just one module**: `main()`
+  computes `registered_types` as the union of every module's class names *before*
+  processing any of them, so a later module's callables can reference an earlier
+  module's types (e.g. `geom`'s methods take/return `gp_Pnt`/`gp_Vec`/`gp_Trsf`) -
+  matches legacy grocc's cross-module type visibility.
 - **`automagic_flags::none`** is applied to every registered type unconditionally (see
   `../DESIGN.md`'s policy) - the generator does not (yet) have a mechanism for opting
   a specific type into fuller automagic.
@@ -76,9 +95,6 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   N trailing default arguments into N+1 overloads; this generator does not (a method
   with a default argument is still fully accepted/emitted, it just always requires
   every argument explicitly from Lua - no arity-reduced overloads are synthesized).
-- **`Handle(T)`/`Standard_Transient` detection is not implemented yet** - that's Step 3
-  (`is_derived(cursor, "Standard_Transient")`, per the migration plan), along with
-  `.add_bases<...>()` for inheritance chains.
 - **Toolchain include-path discovery is GCC/Clang-only** (`system_cxx_include_dirs()`
   probes `$CXX`/`c++` with `-E -x c++ -v -`, parsing the "#include <...> search starts
   here" block - this doesn't work for MSVC). Not a blocker today since codegen is

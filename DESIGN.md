@@ -81,6 +81,27 @@ wrapper's own `operator[]`/`get<T>()` (C++-side) rather than via a Lua-side `ass
 inside `create_env()`'s environment, or switch to `create_parametric_env()` if a test genuinely
 needs Lua-side `assert`/`print` and doesn't mind the added dependency-tracking behavior.
 
+## Null Handle arguments segfault (found in Step 3 - likely worth a grunk issue)
+
+Passing a Lua value that is `nil` as an argument to a function/method parameter typed
+`Handle(T) const&` (bridged via `occt_sol_traits.hpp`'s
+`sol::unique_usertype_traits<opencascade::handle<T>>`) **segfaults**, rather than
+either erroring cleanly or default-constructing a null handle. Confirmed via gdb: the
+crash is inside the registered lambda itself, meaning sol2 handed it something
+invalid rather than refusing the call or passing a genuine null handle. This is the
+*opposite* direction of the (correctly-working) `is_null` path: a null `Handle(T)`
+**returned** from a function surfaces safely as Lua `nil` (confirmed working,
+`tests/test_geom.cpp`'s `null_geom_geometry` check) - it's specifically passing `nil`
+back **in** as an argument that crashes.
+
+**Consequence for this codebase**: never write (hand-written or generated) a test, a
+recipe, or registration code that passes a Lua `nil` into a `Handle(T)`-typed
+parameter. `tests/test_geom.cpp`'s negative-path check was redesigned around this -
+it only ever inspects a *returned* Handle for nilness, never passes one in.
+
+This looks like a real robustness gap worth flagging upstream (a Lua script should
+never be able to crash the host process) - not filed yet, ask before doing so.
+
 ## `add_member_function` and overloaded OCCT methods
 
 Unlike `add_constructors` (which wraps all its arguments in `sol::overload(...)` automatically),

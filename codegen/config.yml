@@ -25,3 +25,15 @@ modules:
       # BaryCenter is real, accepted by the type filter, and not needed by any target
       # recipe today.
       - gp_Pnt::BaryCenter
+
+  - name: geom
+    # Step 3 validation module (see DESIGN.md/migration plan): Standard_Transient/
+    # Handle(T) detection + add_bases<...>() for inheritance chains, on something
+    # Transient-derived but array-free (Geom_Line, not the Bezier curve - that needs
+    # collections support, Step 5). Order matters here: base classes first, so the
+    # generated .cpp registers Geom_Geometry before Geom_Curve before Geom_Line
+    # (natural reading order, though sol2's add_bases doesn't strictly require it).
+    headers:
+      - Geom_Geometry.hxx
+      - Geom_Curve.hxx
+      - Geom_Line.hxx

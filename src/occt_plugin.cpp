@@ -4,13 +4,16 @@
 
 // Step 0 built an empty grunk plugin proving the whole toolchain (pixi -> cmake ->
 // conda-forge OCCT -> dlopen -> grunk::state). Step 1 hand-wrote the first real
-// module (gp); Step 2's generator now reproduces (and exceeds) it - see
-// generated/gp.cpp/codegen/README.md.
+// module (gp); Step 2's generator now reproduces (and exceeds) it, and Step 3 adds
+// Standard_Transient/Handle(T) + add_bases support (geom module) - see
+// generated/*.cpp, codegen/README.md, src/geom/geom_extras.hpp.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>
 
 #include "../generated/gp.hpp"
+#include "../generated/geom.hpp"
+#include "geom/geom_extras.hpp"
 
 namespace {
 
@@ -18,6 +21,8 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
 {
     auto ns = state.begin_plugin(info);
     register_gp(ns);
+    register_geom(ns);
+    register_geom_extras(ns);
 }
 
 } // anonymous namespace

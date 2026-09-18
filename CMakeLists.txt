@@ -99,7 +99,7 @@ if(GRUNK_OCCT_TESTS)
     # One test executable per module (see DESIGN.md/migration plan's Step 6 - "one
     # module per small PR, each with its own smoke test"), plus test_load for the
     # bare plugin-loads-at-all check from Step 0.
-    foreach(test_name IN ITEMS test_load test_gp)
+    foreach(test_name IN ITEMS test_load test_gp test_geom)
         add_executable(occt_plugin_${test_name} tests/${test_name}.cpp)
         target_link_libraries(occt_plugin_${test_name} PRIVATE grunk::plugin)
         target_compile_definitions(occt_plugin_${test_name} PRIVATE

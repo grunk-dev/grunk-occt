@@ -54,6 +54,8 @@ def system_cxx_include_dirs() -> list[str]:
 
 STANDARD_REAL = "Standard_Real"
 PASSTHROUGH_TYPES = {"Standard_Integer", "Standard_Boolean"}
+TRANSIENT_ROOT = "Standard_Transient"
+HANDLE_PATTERN = re.compile(r"^opencascade::handle<\s*(\w+)\s*>$")
 
 AD_MACRO = "GRUNK_OCCT_WITH_ADOLC"
 
@@ -98,6 +100,15 @@ class Param:
             return "passthrough"
         if self.base in registered_types:
             return "object"
+        # Handle(X) (i.e. opencascade::handle<X>) - accepted only if X is itself a
+        # type being registered in this run (see Param docs / codegen/README.md's
+        # Step 3 section on Standard_Transient/Handle(T) support). Bridged to Lua via
+        # occt_sol_traits.hpp's sol::unique_usertype_traits<opencascade::handle<T>>
+        # specialization - no special conversion needed in the emitted lambda body,
+        # the type is simply passed/returned as-is.
+        m = HANDLE_PATTERN.match(self.base)
+        if m and m.group(1) in registered_types:
+            return "handle"
         return None
 
 
@@ -120,24 +131,55 @@ class Callable:
         return None
 
 
-def collect_class_callables(tu: cindex.TranslationUnit, header_path: Path, class_name: str) -> list[Callable]:
-    """Finds the CLASS_DECL/STRUCT_DECL for class_name whose definition is located
-    exactly in header_path (not a forward declaration, and not the same class pulled
-    in transitively from a different header this one #includes), and returns its
-    public constructors/instance methods as unfiltered Callables."""
-    target = None
+def find_class_definition(tu: cindex.TranslationUnit, class_name: str, header_path: Path | None = None) -> cindex.Cursor | None:
+    """Finds the CLASS_DECL/STRUCT_DECL definition of class_name. If header_path is
+    given, only accepts the definition located exactly there (not a forward
+    declaration, and not the same class pulled in transitively from a different
+    header this one #includes) - used for a module's own headers. Without
+    header_path, accepts any definition in the translation unit - used to walk base
+    classes from other, transitively-included headers (e.g. Geom_Line's own header
+    doesn't define Geom_Curve, but Geom_Curve's full definition is still visible,
+    transitively included)."""
     for cursor in tu.cursor.walk_preorder():
         if cursor.kind not in (cindex.CursorKind.CLASS_DECL, cindex.CursorKind.STRUCT_DECL):
             continue
         if cursor.spelling != class_name or not cursor.is_definition():
             continue
+        if header_path is None:
+            return cursor
         loc_file = cursor.location.file
         if loc_file and Path(loc_file.name).resolve() == header_path.resolve():
-            target = cursor
-            break
-    if target is None:
-        raise RuntimeError(f"could not find the definition of class {class_name!r} in {header_path}")
+            return cursor
+    return None
 
+
+def base_chain(tu: cindex.TranslationUnit, class_cursor: cindex.Cursor) -> list[str]:
+    """Direct parent first, then grandparent, etc. Stops after Standard_Transient
+    (inclusive) or when no further base is found. OCCT's class hierarchies are
+    single-inheritance throughout the modules this generator targets - only the
+    first CXX_BASE_SPECIFIER is followed (see codegen/README.md's "Known gaps" for
+    multiple inheritance)."""
+    chain: list[str] = []
+    current = class_cursor
+    while True:
+        bases = [c for c in current.get_children() if c.kind == cindex.CursorKind.CXX_BASE_SPECIFIER]
+        if not bases:
+            break
+        base_name = strip_type(bases[0].type.spelling)
+        chain.append(base_name)
+        if base_name == TRANSIENT_ROOT:
+            break
+        next_cursor = find_class_definition(tu, base_name)
+        if next_cursor is None:
+            break
+        current = next_cursor
+    return chain
+
+
+def collect_class_callables(target: cindex.Cursor, class_name: str) -> list[Callable]:
+    """Returns target's public constructors/instance methods as unfiltered
+    Callables - target must already be the class's own CLASS_DECL/STRUCT_DECL
+    definition cursor (see find_class_definition)."""
     callables: list[Callable] = []
     for child in target.get_children():
         if child.access_specifier != cindex.AccessSpecifier.PUBLIC:
@@ -160,7 +202,7 @@ def collect_class_callables(tu: cindex.TranslationUnit, header_path: Path, class
     return callables
 
 
-def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool) -> str:
+def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, is_transient: bool) -> str:
     param_decls = []
     call_args = []
     for p, k in zip(c.params, kinds):
@@ -172,7 +214,16 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool) -> str:
             call_args.append(p.name)
 
     if c.kind == "constructor":
-        return f"[]({', '.join(param_decls)}) {{ return {c.class_name}({', '.join(call_args)}); }}"
+        args_str = ", ".join(call_args)
+        if is_transient:
+            # Standard_Transient-derived types are never value-constructed by
+            # convention (OCCT's own idiom is always heap-allocate + refcount via
+            # Handle(T)) - heap-allocate here and let occt_sol_traits.hpp's
+            # sol::unique_usertype_traits<opencascade::handle<T>> bridge the result
+            # to Lua as if it were a T instance (see codegen/README.md's "Step 3").
+            return (f"[]({', '.join(param_decls)}) -> opencascade::handle<{c.class_name}> "
+                    f"{{ return opencascade::handle<{c.class_name}>(new {c.class_name}({args_str})); }}")
+        return f"[]({', '.join(param_decls)}) {{ return {c.class_name}({args_str}); }}"
 
     self_decl = f"{c.class_name} const& self" if c.is_const else f"{c.class_name}& self"
     all_decls = ", ".join([self_decl] + param_decls)
@@ -183,12 +234,12 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool) -> str:
     return f"[]({all_decls}) -> {ret} {{ return {call_expr}; }}"
 
 
-def emit_callable_expr(c: Callable, kinds: list[str]) -> str:
+def emit_callable_expr(c: Callable, kinds: list[str], is_transient: bool) -> str:
     has_real = "real" in kinds
-    plain = emit_lambda(c, kinds, ad_branch=False)
+    plain = emit_lambda(c, kinds, ad_branch=False, is_transient=is_transient)
     if not has_real:
         return plain
-    ad_form = emit_lambda(c, kinds, ad_branch=True)
+    ad_form = emit_lambda(c, kinds, ad_branch=True, is_transient=is_transient)
     return f"\n#if defined({AD_MACRO})\n            {ad_form}\n#else\n            {plain}\n#endif\n        "
 
 
@@ -200,13 +251,18 @@ class ModuleResult:
     accepted_methods: dict[str, dict[str, list[tuple[Callable, list[str]]]]] = field(default_factory=dict)
     rejected: list[tuple[Callable, str]] = field(default_factory=list)
     blacklisted: list[Callable] = field(default_factory=list)
+    is_transient: dict[str, bool] = field(default_factory=dict)
+    bases: dict[str, list[str]] = field(default_factory=dict)
 
 
-def process_module(module: dict, occt_include_dir: Path) -> ModuleResult:
+def process_module(module: dict, occt_include_dir: Path, registered_types: set[str]) -> ModuleResult:
+    """registered_types is the set of every class name across ALL modules in this
+    run (not just this module's own headers) - a type registered by module A is a
+    valid parameter/return type for a callable in module B, matching how legacy
+    grocc's cross-module type visibility worked (e.g. Bnd's extra_includes: gp_*.hxx)."""
     headers = module["headers"]
     blacklist = set(module.get("blacklist", []))
     class_names = [Path(h).stem for h in headers]
-    registered_types = set(class_names)
 
     result = ModuleResult(name=module["name"], headers=headers)
     index = cindex.Index.create()
@@ -220,7 +276,15 @@ def process_module(module: dict, occt_include_dir: Path) -> ModuleResult:
         if diags:
             raise RuntimeError(f"clang errors parsing {header}:\n" + "\n".join(str(d) for d in diags))
 
-        callables = collect_class_callables(tu, header_path, class_name)
+        target = find_class_definition(tu, class_name, header_path)
+        if target is None:
+            raise RuntimeError(f"could not find the definition of class {class_name!r} in {header_path}")
+
+        chain = base_chain(tu, target)
+        result.bases[class_name] = chain
+        result.is_transient[class_name] = TRANSIENT_ROOT in chain
+
+        callables = collect_class_callables(target, class_name)
         result.accepted_methods.setdefault(class_name, {})
 
         for c in callables:
@@ -254,33 +318,47 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 """
 
     includes = "\n".join(f"#include <{h}>" for h in result.headers)
+    any_transient = any(result.is_transient.values())
     body_parts = []
     for class_name in [Path(h).stem for h in result.headers]:
+        is_transient = result.is_transient.get(class_name, False)
         lines = [f'    ns.register_type<{class_name}, sol::automagic_flags::none>("{class_name}")']
 
         ctors = result.accepted_ctors.get(class_name, [])
         if ctors:
-            ctor_exprs = [emit_callable_expr(c, kinds) for c, kinds in ctors]
+            ctor_exprs = [emit_callable_expr(c, kinds, is_transient) for c, kinds in ctors]
             lines.append("        .add_constructors(\n            " + ",\n            ".join(ctor_exprs) + "\n        )")
 
         for method_name, overloads in result.accepted_methods.get(class_name, {}).items():
             if len(overloads) == 1:
                 c, kinds = overloads[0]
-                fun_expr = emit_callable_expr(c, kinds)
+                fun_expr = emit_callable_expr(c, kinds, is_transient)
             else:
                 fun_expr = "sol::overload(\n            " + ",\n            ".join(
-                    emit_callable_expr(c, kinds) for c, kinds in overloads
+                    emit_callable_expr(c, kinds, is_transient) for c, kinds in overloads
                 ) + "\n        )"
             lines.append(f'        .add_member_function("{method_name}", {fun_expr})')
 
+        # Standard_Transient/Handle(T) support (Step 3): register the full ancestor
+        # chain so Lua's colon-call dispatch can find a method registered on a base
+        # class (e.g. Geom_Curve::Value) when called on a Handle(Derived)-returned
+        # value (e.g. a Geom_Line) - required for virtual dispatch through the base's
+        # method to reach the derived override at runtime. No dual Handle_T
+        # registration needed (unlike legacy grocc) - see occt_sol_traits.hpp.
+        bases = result.bases.get(class_name, [])
+        if bases:
+            lines.append(f"        .add_bases<{', '.join(bases)}>()")
+
         body_parts.append("\n".join(lines) + ";")
+
+    extra_includes = '\n#include "../src/occt_sol_traits.hpp"' if any_transient else ""
 
     cpp_source = GENERATED_BANNER + f"""
 #include "{result.name}.hpp"
 
 {includes}
 
-#include "../src/occt_ad_support.hpp"
+#include "../src/occt_ad_support.hpp"{extra_includes}
 
 void register_{result.name}(grunk::plugin_namespace& ns)
 {{
@@ -300,8 +378,10 @@ def main() -> int:
     config = yaml.safe_load(args.config.read_text())
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
+    registered_types = {Path(h).stem for module in config["modules"] for h in module["headers"]}
+
     for module in config["modules"]:
-        result = process_module(module, args.occt_include_dir)
+        result = process_module(module, args.occt_include_dir, registered_types)
         header_source, cpp_source = render_module(result)
         (args.output_dir / f"{result.name}.hpp").write_text(header_source)
         (args.output_dir / f"{result.name}.cpp").write_text(cpp_source)

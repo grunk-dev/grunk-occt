@@ -15,8 +15,11 @@ ABI, pixi/conda-forge build) rather than the old Conan-based, `reflect`-based gr
 `DESIGN.md` for the concrete decisions made along the way, and the migration plan this repo is
 being built against for the full step-by-step rationale.
 
-**Status**: early / WIP. The `gp` module (`gp_Pnt`, `gp_Dir`, `gp_Vec`, `gp_Ax1`, `gp_Trsf`) is
-wrapped - generated automatically by `codegen/` (see below), not hand-written.
+**Status**: early / WIP. Wrapped so far, all generated automatically by `codegen/` (see below),
+not hand-written: the `gp` module (`gp_Pnt`, `gp_Dir`, `gp_Vec`, `gp_Ax1`, `gp_Trsf`) and the
+`geom` module (`Geom_Geometry`, `Geom_Curve`, `Geom_Line` - `Standard_Transient`/`Handle(T)`
+support, `add_bases<...>()` for inheritance). `src/geom/geom_extras.hpp` is a small hand-written
+escape hatch (OCCT's `Handle(T)::DownCast`, not introspectable by the generator).
 
 ## Build & test
 
