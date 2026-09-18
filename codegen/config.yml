@@ -142,3 +142,45 @@ modules:
       - BRepBndLib.hxx
     extra_includes:
       - TopoDS_Shape.hxx
+
+  - name: brep
+    # Step 6 module expansion sweep, second module. BRep_Builder constructs
+    # topology; BRep_Tool inspects it - the two halves legacy grocc's own config
+    # grouped as one "BRep" module. Both classes have a MUCH larger real API than
+    # what's accepted here - most overloads take Geom_Surface/Geom2d_Curve/Poly_*/
+    # gp_Pnt2d/TopLoc_Location/GeomAbs_Shape/TopAbs_ShapeEnum, none of which are
+    # registered yet - only overloads built entirely from already-registered types
+    # (TopoDS_*, gp_Pnt, Standard_Real/Integer/Boolean, and Geom_Curve - already
+    # registered by the geom module, so e.g. BRep_Tool::Curve is *conceptually*
+    # in reach, but both its overloads take Standard_Real& out-params for the
+    # parameter range, still unsupported) are accepted:
+    #   - BRep_Builder::MakeFace/MakeEdge/MakeVertex (undefined-geometry
+    #     overloads), MakeVertex(V, gp_Pnt, Tol), UpdateVertex(V, gp_Pnt, Tol),
+    #     UpdateFace/UpdateEdge(..., Tol), NaturalRestriction, SameParameter/
+    #     SameRange/Degenerated, Range(E, First, Last, Only3d), Transfert - all
+    #     mutate the registered TopoDS_Face/Edge/Vertex passed in, same
+    #     non-const-reference-to-a-registered-object out-param pattern as Bnd's
+    #     BRepBndLib::Add.
+    #   - BRep_Tool::Pnt(vertex), Tolerance(face/edge/vertex - three overloads of
+    #     one name, merged into one sol::overload since sol2 disambiguates by
+    #     each overload's distinct registered-type argument), IsClosed(shape),
+    #     IsClosed(edge, face), Parameter(vertex, edge[, face]), HasContinuity
+    #     (edge, face, face).
+    #   - BRep_Builder extends TopoDS_Builder (add_bases<TopoDS_Builder>() gets
+    #     emitted) - TopoDS_Builder itself is not separately registered (nothing
+    #     it declares is needed from Lua for this module), which sol2's add_bases
+    #     tolerates fine (it only needs the C++ type visible/complete for casting,
+    #     not a registered Lua usertype).
+    # extra_includes: both headers forward-declare TopoDS_Shape/Face/Edge/Vertex
+    # (sufficient for their own reference/pointer-only usage) - sol2's usertype
+    # binding needs the complete definitions, same reasoning as bnd's own
+    # extra_includes above.
+    # No blacklist entries - nothing accepted here needed excluding.
+    headers:
+      - BRep_Builder.hxx
+      - BRep_Tool.hxx
+    extra_includes:
+      - TopoDS_Shape.hxx
+      - TopoDS_Vertex.hxx
+      - TopoDS_Edge.hxx
+      - TopoDS_Face.hxx

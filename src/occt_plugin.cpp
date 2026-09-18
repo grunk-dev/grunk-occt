@@ -24,7 +24,9 @@
 #include "../generated/brepprimapi.hpp"
 #include "../generated/brepalgoapi.hpp"
 #include "../generated/bnd.hpp"
+#include "../generated/brep.hpp"
 #include "gp/gp_extras.hpp"
+#include "brep/brep_extras.hpp"
 #include "geom/geom_extras.hpp"
 #include "shape_io.hpp"
 
@@ -43,6 +45,8 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_brepprimapi(ns);
     register_brepalgoapi(ns);
     register_bnd(ns);
+    register_brep(ns);
+    register_brep_extras(ns);
     register_shape_io(ns);
 }
 

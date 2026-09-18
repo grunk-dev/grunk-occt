@@ -317,3 +317,31 @@ grunk-occt's only currently-tested/supported build configuration is Release (mat
 CI); a Debug build should be understood as not fully validated for `Handle(T)`
 upcasting until this is root-caused upstream in sol2/grunk. Filed as
 [grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283).
+
+## Step 6 module expansion sweep
+
+One module per PR, each with its own smoke test plus the full accumulated
+regression suite (see the migration plan's own Step 6 policy) - no blacklist
+entries carried over from legacy grocc's `config.yml.in` without re-deriving the
+reason fresh (Step 0.5's policy); so far every module has needed none of its own.
+
+- **`bnd`** (`Bnd_Box`, `BRepBndLib`): introduced the `extra_includes` config field
+  (revived from legacy grocc's own schema) - a module's own headers can
+  forward-declare a type they only use by reference (`BRepBndLib.hxx`'s
+  `class TopoDS_Shape;`), but sol2's usertype binding needs that type's *complete*
+  definition in the generated `.cpp` regardless of it being fully registered
+  elsewhere - see codegen/README.md's own "extra_includes" section.
+- **`brep`** (`BRep_Builder`, `BRep_Tool`): both classes have a much larger real API
+  than what's accepted (most overloads need `Geom_Surface`/`Geom2d_Curve`/`Poly_*`/
+  `gp_Pnt2d`/`TopLoc_Location`/`GeomAbs_Shape`/`TopAbs_ShapeEnum`, none registered
+  yet) - 37 accepted, 67 rejected, all recorded. `BRep_Builder` has no explicit
+  constructor of its own (a plain compiler-synthesized default one, invisible to
+  the generator's AST walk, same "missing implicit constructors" category the
+  migration plan's own reference material names this exact class under) - added via
+  a hand-written escape hatch (`src/brep/brep_extras.hpp`, `modify_type<BRep_Builder>
+  ().add_constructors(...)`, following `gp_extras.hpp`'s established pattern).
+  `tests/test_brep.cpp` also found that `BRep_Tool::IsClosed` on a `Solid` isn't the
+  "is this box geometrically closed" check its name suggests - for anything that
+  isn't a `Shell`/`Wire`, it falls back to `TopoDS_Shape::Closed()`, a plain stored
+  flag `BRepPrimAPI_MakeBox` never sets (confirmed empirically: false for a
+  freshly-built box) - documented in the test itself, not just here.
