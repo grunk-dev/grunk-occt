@@ -117,8 +117,16 @@ if(GRUNK_OCCT_TESTS)
     # directly, and calls into real OCCT code (NCollection_Array1's own bounds
     # checks, gp_Pnt) - unlike every other test file here, which only drives
     # occt_plugin through raw Lua strings and never names an OCCT header itself.
+    # Link only the two toolkits that code actually needs (TKernel: Standard_*/
+    # NCollection_*; TKMath: gp_Pnt), NOT ${OpenCASCADE_LIBRARIES} (every OCCT
+    # toolkit, ~50 libraries including visualization/data-exchange modules this
+    # test never touches) - found the hard way: linking the full list directly
+    # into the test *executable* (as opposed to occt_plugin, a .so only ever
+    # dlopen'd lazily inside a test body) made even `--gtest_list_tests`
+    # (gtest_discover_tests' own discovery run, invoked at build time) slow enough
+    # to blow its 5s default timeout on macOS CI.
     target_include_directories(runUnitTests PRIVATE ${OpenCASCADE_INCLUDE_DIR})
-    target_link_libraries(runUnitTests PRIVATE ${OpenCASCADE_LIBRARIES})
+    target_link_libraries(runUnitTests PRIVATE TKernel TKMath)
     add_dependencies(runUnitTests occt_plugin)
     gtest_discover_tests(runUnitTests)
 endif()
