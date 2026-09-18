@@ -62,8 +62,19 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   "module" mechanism becomes relevant - see `../DESIGN.md`'s note.
 - Anything else is **rejected** (recorded with a reason, never silently dropped):
   unregistered class types (`gp_XYZ`, `gp_Ax2`, `gp_Quaternion`, `gp_Mat`,
-  `gp_TrsfForm`, ...), `Standard_OStream&`/`Standard_SStream`, operators (skipped by
-  name prefix - see "Known gaps"), and static methods.
+  `gp_TrsfForm`, ...), `Standard_OStream&`/`Standard_SStream`, and operators (skipped
+  by name prefix - see "Known gaps").
+- **Constructor emission mode is one of three, decided per class** (see
+  `../DESIGN.md`): `"value"` (plain `return T(args...);` - the default, used for
+  simple value types like `gp_Pnt`/`TopoDS_Shape`), `"handle"` (heap-allocate +
+  `opencascade::handle<T>`-wrap, for `Standard_Transient`-derived classes - see
+  below), or `"unique_ptr"` (`return std::make_unique<T>(args...);`, for any class -
+  or any class in its ancestor chain - that declares an **explicit destructor**
+  without `"handle"` mode applying: found the hard way when `BRepAlgoAPI_Cut`
+  segfaulted at program exit under the naive `"value"` emission - see `../DESIGN.md`'s
+  "Copying an algorithm/builder class segfaults"). This is a conservative heuristic,
+  not a proof of unsafety either way - a class with no explicit destructor anywhere
+  in its chain is assumed safely copyable.
 - **Overloaded methods** (same Lua name, 2+ accepted C++ overloads - e.g.
   `gp_Trsf::SetTranslation`) are merged into one `sol::overload(...)` call
   automatically. Every emitted callable is a **lambda**, never a bare
@@ -97,15 +108,34 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   `ClassName` skips a whole class. Each entry in `config.yml` should carry an inline
   comment explaining why - re-derive the reason fresh per the migration plan's Step 6
   policy, don't copy a legacy grocc blacklist reason without checking it still applies.
-
-## Known gaps (deliberately out of scope for the Step 2 MVP)
-
-- **Operators are skipped entirely** (any method whose name starts with `operator`) -
-  no attempt yet to map `operator+`/`operator*`/etc. to sol2 metamethods.
-- **Static methods are skipped.** Needed once a module has OCCT's static-only
-  "namespace classes" (`TopoDS`, `BRepTools`, `GC`, ...) - see the migration plan's
-  Step 4 spike on that convention; the generator doesn't implement whichever
-  convention is chosen yet.
+- **Static-only "namespace classes"** (Step 4 spike, see `../DESIGN.md`): OCCT
+  expresses this concept two different ways, both handled: a genuine C++ `namespace`
+  with free functions (`TopoDS.hxx`'s `namespace TopoDS { const TopoDS_Face&
+  Face(const TopoDS_Shape&); ... }`), and an ordinary `class` whose methods happen to
+  all be `static` (`BRepTools`). Both are detected automatically per header (try
+  `CLASS_DECL`/`STRUCT_DECL` first, fall back to a `NAMESPACE` cursor - no config
+  schema change needed) and rendered identically: no "self", called fully-qualified
+  (`ClassOrNamespace::Method(args)`). **Chosen naming convention: flattened**
+  (`occt.ClassOrNamespace_Method(args)`, e.g. `occt.BRepTools_Write(shape, file)`) -
+  *not* a nested Lua table (`occt.BRepTools.Write(...)`). The nested-table option was
+  seriously considered (and works fine for a genuine class's statics, via
+  `register_type<T>` with zero constructors and `add_member_function` for each
+  static), but **cannot work for a real C++ namespace at all** - `TopoDS` has no
+  type to `register_type<>()` on - so the flattened convention is the only one that
+  generalizes to both cases uniformly, which settled the spike.
+  - **Naming collision, handled specially**: `TopoDS`'s own downcast helpers
+    (`TopoDS::Face`/`Edge`/`Vertex`/...) each compose to the exact same name as the
+    leaf type they cast *to* (`TopoDS_Face`, already a registered class) - not a
+    hypothetical, every single one of `TopoDS.hxx`'s functions collides this way.
+    Registering `occt.TopoDS_Face` as a plain free function would clobber the
+    `TopoDS_Face` usertype's own table. Detected (composed name already in this
+    module's `registered_types`) and redirected: attached as that type's own
+    `.DownCast(shape)` member instead (`occt.TopoDS_Face.DownCast(shape)`) - mirrors
+    Step 3's `Handle(T)::DownCast` naming (`src/geom/geom_extras.hpp`) for one
+    consistent Lua-side idiom regardless of which OCCT downcast mechanism is
+    underneath. **Only detected within a single module's own class set** - a
+    collision between a static/namespace function in one module and a class
+    registered in a *different* module wouldn't be caught (not yet hit in practice).
 - **No default-argument expansion.** Legacy grocc's generator expanded a method with
   N trailing default arguments into N+1 overloads; this generator does not (a method
   with a default argument is still fully accepted/emitted, it just always requires

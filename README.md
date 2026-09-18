@@ -16,10 +16,13 @@ ABI, pixi/conda-forge build) rather than the old Conan-based, `reflect`-based gr
 being built against for the full step-by-step rationale.
 
 **Status**: early / WIP. Wrapped so far, all generated automatically by `codegen/` (see below),
-not hand-written: the `gp` module (`gp_Pnt`, `gp_Dir`, `gp_Vec`, `gp_Ax1`, `gp_Trsf`) and the
-`geom` module (`Geom_Geometry`, `Geom_Curve`, `Geom_Line` - `Standard_Transient`/`Handle(T)`
-support, `add_bases<...>()` for inheritance). `src/geom/geom_extras.hpp` is a small hand-written
-escape hatch (OCCT's `Handle(T)::DownCast`, not introspectable by the generator).
+not hand-written: `gp` (`gp_Pnt`, `gp_Dir`, `gp_Vec`, `gp_Ax1`, `gp_Trsf`), `geom` (`Geom_Geometry`,
+`Geom_Curve`, `Geom_Line` - `Standard_Transient`/`Handle(T)` support, `add_bases<...>()`), and
+shapes (`topods`, `brepbuilderapi`, `brepprimapi`, `brepalgoapi` - plain value-type inheritance,
+static-method/namespace flattening, box/cylinder/cut boolean-op parity with legacy grocc's own
+smoke test). `src/geom/geom_extras.hpp` and `src/shape_io.hpp` are small hand-written escape
+hatches (`Handle(T)::DownCast`, `BRepTools::Write` - both need something the generator can't
+introspect/expand).
 
 ## Build & test
 

@@ -8,6 +8,8 @@
 #include <Geom_Curve.hxx>
 #include <Geom_Line.hxx>
 
+#include <memory>
+
 #include "../src/occt_ad_support.hpp"
 #include "../src/occt_sol_traits.hpp"
 
@@ -197,4 +199,5 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("ParametricTransformation", [](Geom_Line const& self, const gp_Trsf & T) -> Standard_Real { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_Line const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
+
 }

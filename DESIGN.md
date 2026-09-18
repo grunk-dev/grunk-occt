@@ -81,6 +81,37 @@ wrapper's own `operator[]`/`get<T>()` (C++-side) rather than via a Lua-side `ass
 inside `create_env()`'s environment, or switch to `create_parametric_env()` if a test genuinely
 needs Lua-side `assert`/`print` and doesn't mind the added dependency-tracking behavior.
 
+## Copying an algorithm/builder class segfaults - fixed via std::unique_ptr<T>
+
+Found in Step 4b (the boolean-op smoke test): registering `BRepAlgoAPI_Cut`'s
+constructor the same way as every other class so far
+(`[](Args...) { return BRepAlgoAPI_Cut(Args...); }`) built and ran, but **segfaulted
+at program exit** with heap corruption inside `BRepAlgoAPI_BuilderAlgo::~BRepAlgoAPI_BuilderAlgo()`
+(confirmed via gdb backtrace). Root cause: `BRepAlgoAPI_BuilderAlgo` (one of
+`BRepAlgoAPI_Cut`'s bases) owns a raw pointer member (`BOPAlgo_PPaveFiller myDSFiller`)
+freed in its destructor, with **no user-declared copy constructor** - the
+compiler-generated one shallow-copies the pointer. Returning the object *by value*
+from the constructor lambda means sol2 moves/copies it into the usertype's own
+storage on top of the (already copy-elided) function return - with no real move
+constructor available either (declaring a destructor suppresses the implicit move,
+falling back to copy), this ends up shallow-copying `myDSFiller` at least once. Both
+copies eventually get destroyed (once as the lambda's own temporary, once as the
+Lua-owned instance at state teardown) and free the same pointer twice.
+
+This is **not** the `Standard_Transient`/`Handle(T)` case Step 3 solved -
+`BRepAlgoAPI_Cut` isn't Transient-derived, and nothing else in OCCT expects it
+wrapped in a `Handle`. Fixed generically in the generator
+(`codegen/generate.py`'s `owns_resource_unsafely()`): a class is heap-allocated via
+`std::unique_ptr<T>` (`return std::make_unique<T>(args...);`, which sol2 accepts
+natively as constructor-return storage and never copies/moves `T` itself) instead of
+returned by value, whenever it - or any class in its ancestor chain - declares an
+**explicit destructor**. A class with no explicit destructor anywhere in its chain
+(`gp_Pnt`, `TopoDS_Shape`, ...) is assumed safely copyable and keeps the plain
+by-value path. This is a conservative heuristic (a declared destructor doesn't
+*prove* unsafe copying, just correlates with it strongly enough in OCCT's own class
+design to be worth defaulting to safe) - see `codegen/README.md` for the full
+rationale and its own "Known gaps" note on where this could still be wrong.
+
 ## Non-const-reference ("out") parameters are supported, deliberately
 
 Initially (Step 3, first pass) the generator rejected every non-const-reference

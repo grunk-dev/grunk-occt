@@ -10,6 +10,8 @@
 #include <gp_Ax1.hxx>
 #include <gp_Trsf.hxx>
 
+#include <memory>
+
 #include "../src/occt_ad_support.hpp"
 
 void register_gp(grunk::plugin_namespace& ns)
@@ -579,4 +581,5 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("PreMultiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.PreMultiply(theT); })
         .add_member_function("Power", [](gp_Trsf& self, const Standard_Integer theN) { self.Power(theN); })
         .add_member_function("Powered", [](gp_Trsf const& self, const Standard_Integer theN) -> gp_Trsf { return self.Powered(theN); });
+
 }

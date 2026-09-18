@@ -37,3 +37,59 @@ modules:
       - Geom_Geometry.hxx
       - Geom_Curve.hxx
       - Geom_Line.hxx
+
+  - name: message_progress
+    # Message_ProgressRange appears as a defaulted parameter across a large swath of
+    # OCCT's own API (BRepTools::Write, BRepAlgoAPI_Cut's own constructor, ...) - this
+    # generator doesn't expand default arguments (see codegen/README.md's "Known
+    # gaps"), so every parameter must be supplied explicitly from Lua. Registering
+    # this tiny, always-default-constructible type (rather than teaching the
+    # generator default-argument expansion) unlocks all of those call sites at once.
+    headers:
+      - Message_ProgressRange.hxx
+
+  - name: topods
+    # TopoDS_Shape is a plain VALUE type (not Standard_Transient-derived) - its leaf
+    # subtypes (Face/Edge/Vertex/...) add no data, just type identity, via ordinary
+    # (non-Handle) single inheritance. The same add_bases<...>() mechanism Step 3
+    # built for Handle(T)/Transient inheritance turns out to generalize directly to
+    # this case too (see DESIGN.md) - legacy grocc's manual "TopoDS_Shape gets extra
+    # upcast constructors from every leaf type" workaround (custom_init.cpp) is not
+    # needed here: a TopoDS_Face-typed value upcast-converts to a
+    # `TopoDS_Shape const&` parameter automatically via its own add_bases<TopoDS_Shape>().
+    #
+    # TopoDS.hxx is a genuine C++ *namespace* (not a class - see codegen/README.md's
+    # "Static-only 'namespace classes'" spike), providing the Face(shape)/Edge(shape)/
+    # ... downcast helpers, each overloaded (const-ref-returning and mutable-ref-
+    # returning) - registered as occt.TopoDS_Face(shape), occt.TopoDS_Edge(shape), ...
+    headers:
+      - TopoDS_Shape.hxx
+      - TopoDS_Vertex.hxx
+      - TopoDS_Edge.hxx
+      - TopoDS_Wire.hxx
+      - TopoDS_Face.hxx
+      - TopoDS_Shell.hxx
+      - TopoDS_Solid.hxx
+      - TopoDS_CompSolid.hxx
+      - TopoDS_Compound.hxx
+      - TopoDS.hxx
+
+  - name: brepbuilderapi
+    # BRepBuilderAPI_Command's IsDone() and BRepBuilderAPI_MakeShape's Shape() are
+    # what every BRepPrimAPI_Make*/BRepAlgoAPI_* algorithm class below actually
+    # inherits and needs - registered here once, reached via add_bases from each of
+    # them (same base-class-method-reuse pattern as Step 3's Geom_Curve::Value).
+    headers:
+      - BRepBuilderAPI_Command.hxx
+      - BRepBuilderAPI_MakeShape.hxx
+
+  - name: brepprimapi
+    # Step 4b validation module: reproduces legacy grocc's test_simple_boolean_op.cpp
+    # (box, cylinder, cut).
+    headers:
+      - BRepPrimAPI_MakeBox.hxx
+      - BRepPrimAPI_MakeCylinder.hxx
+
+  - name: brepalgoapi
+    headers:
+      - BRepAlgoAPI_Cut.hxx

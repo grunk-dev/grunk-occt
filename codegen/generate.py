@@ -129,6 +129,7 @@ class Callable:
     params: list[Param]
     return_spelling: str | None  # None for constructors
     is_const: bool
+    is_static: bool = False  # static class method, or a namespace free function - no "self"
 
     def rejection_reason(self, registered_types: set[str]) -> str | None:
         for p in self.params:
@@ -138,6 +139,40 @@ class Callable:
             if Param(self.return_spelling, "").kind(registered_types) is None:
                 return f"unsupported return type '{self.return_spelling.strip()}'"
         return None
+
+
+def find_namespace_definitions(tu: cindex.TranslationUnit, name: str, header_path: Path) -> list[cindex.Cursor]:
+    """Finds every NAMESPACE-kind fragment named `name` whose location is exactly
+    header_path (OCCT namespaces like `TopoDS` - see codegen/README.md's "Static-only
+    'namespace classes'" - are declared in one block per header in practice, but a
+    namespace can legally be reopened, so this collects every fragment rather than
+    assuming there's only one)."""
+    return [
+        cursor for cursor in tu.cursor.walk_preorder()
+        if cursor.kind == cindex.CursorKind.NAMESPACE
+        and cursor.spelling == name
+        and cursor.location.file
+        and Path(cursor.location.file.name).resolve() == header_path.resolve()
+    ]
+
+
+def collect_namespace_callables(namespace_cursors: list[cindex.Cursor], ns_name: str) -> list[Callable]:
+    """Returns every free FUNCTION_DECL directly inside the given namespace
+    fragment(s) as unfiltered, is_static=True Callables (see codegen/README.md's
+    "Static-only 'namespace classes'" - a namespace free function and a class's
+    static method are emitted identically: no self, ns_name::cpp_name(args))."""
+    callables: list[Callable] = []
+    for target in namespace_cursors:
+        for child in target.get_children():
+            if child.kind != cindex.CursorKind.FUNCTION_DECL:
+                continue
+            if child.spelling.startswith("operator"):
+                continue  # operators not handled yet - see codegen/README.md's "Known gaps"
+            params = [Param(arg.type.spelling, arg.spelling or f"arg{i}")
+                      for i, arg in enumerate(child.get_arguments())]
+            callables.append(Callable(ns_name, "method", child.spelling, params,
+                                       child.result_type.spelling, is_const=False, is_static=True))
+    return callables
 
 
 def find_class_definition(tu: cindex.TranslationUnit, class_name: str, header_path: Path | None = None) -> cindex.Cursor | None:
@@ -185,33 +220,65 @@ def base_chain(tu: cindex.TranslationUnit, class_cursor: cindex.Cursor) -> list[
     return chain
 
 
+def has_explicit_destructor(class_cursor: cindex.Cursor) -> bool:
+    return any(c.kind == cindex.CursorKind.DESTRUCTOR for c in class_cursor.get_children())
+
+
+def owns_resource_unsafely(tu: cindex.TranslationUnit, class_cursor: cindex.Cursor, chain: list[str]) -> bool:
+    """True if class_cursor or any class in its ancestor chain declares an explicit
+    destructor - found the hard way (see DESIGN.md's "Copying an algorithm/builder
+    class segfaults"): BRepAlgoAPI_Cut (via BRepAlgoAPI_BuilderAlgo) owns a raw
+    pointer member (BOPAlgo_PPaveFiller) freed in ~BRepAlgoAPI_BuilderAlgo(), with no
+    user-declared copy constructor - the implicitly-generated one shallow-copies the
+    pointer, so returning such a type *by value* from a constructor lambda (sol2
+    moving/copying it into the usertype's own storage, on top of the guaranteed-elided
+    return itself) double-frees it once both copies are eventually destroyed. Not
+    Standard_Transient-derived, so Step 3's Handle(T) heap-allocation path doesn't
+    apply here (this generator's own opencascade::handle<T> emission requires being
+    Transient-derived to interoperate with the rest of OCCT's Handle-based API) -
+    heap-allocate via std::unique_ptr<T> instead (see emit_lambda), which never
+    copies/moves T itself at all, regardless of whether T is *actually* safe to copy.
+    A class with no explicit destructor anywhere in its chain (gp_Pnt, TopoDS_Shape,
+    ...) is assumed trivially/safely copyable and keeps the plain by-value path."""
+    if has_explicit_destructor(class_cursor):
+        return True
+    for base_name in chain:
+        base_cursor = find_class_definition(tu, base_name)
+        if base_cursor is not None and has_explicit_destructor(base_cursor):
+            return True
+    return False
+
+
 def collect_class_callables(target: cindex.Cursor, class_name: str) -> list[Callable]:
-    """Returns target's public constructors/instance methods as unfiltered
-    Callables - target must already be the class's own CLASS_DECL/STRUCT_DECL
-    definition cursor (see find_class_definition)."""
+    """Returns target's public constructors/methods (static and instance) as
+    unfiltered Callables - target must already be the class's own CLASS_DECL/
+    STRUCT_DECL definition cursor (see find_class_definition). A static method (e.g.
+    BRepTools::Write) is marked is_static=True and rendered identically to a
+    namespace free function - see collect_namespace_callables/codegen/README.md."""
     callables: list[Callable] = []
     for child in target.get_children():
         if child.access_specifier != cindex.AccessSpecifier.PUBLIC:
             continue
 
         if child.kind == cindex.CursorKind.CONSTRUCTOR:
-            kind, cpp_name, return_spelling, is_const = "constructor", class_name, None, False
+            kind, cpp_name, return_spelling, is_const, is_static = "constructor", class_name, None, False, False
         elif child.kind == cindex.CursorKind.CXX_METHOD:
-            if child.is_static_method():
-                continue  # not needed/handled yet - see codegen/README.md's "Known gaps"
             if child.spelling.startswith("operator"):
                 continue  # operators not handled yet - see codegen/README.md's "Known gaps"
-            kind, cpp_name, return_spelling, is_const = "method", child.spelling, child.result_type.spelling, child.is_const_method()
+            kind, cpp_name, return_spelling, is_const, is_static = (
+                "method", child.spelling, child.result_type.spelling,
+                child.is_const_method(), child.is_static_method(),
+            )
         else:
             continue
 
         params = [Param(arg.type.spelling, arg.spelling or f"arg{i}")
                   for i, arg in enumerate(child.get_arguments())]
-        callables.append(Callable(class_name, kind, cpp_name, params, return_spelling, is_const))
+        callables.append(Callable(class_name, kind, cpp_name, params, return_spelling, is_const, is_static))
     return callables
 
 
-def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, is_transient: bool) -> str:
+def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) -> str:
     param_decls = []
     call_args = []
     for p, k in zip(c.params, kinds):
@@ -224,7 +291,7 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, is_transient: bo
 
     if c.kind == "constructor":
         args_str = ", ".join(call_args)
-        if is_transient:
+        if ctor_mode == "handle":
             # Standard_Transient-derived types are never value-constructed by
             # convention (OCCT's own idiom is always heap-allocate + refcount via
             # Handle(T)) - heap-allocate here and let occt_sol_traits.hpp's
@@ -232,23 +299,38 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, is_transient: bo
             # to Lua as if it were a T instance (see codegen/README.md's "Step 3").
             return (f"[]({', '.join(param_decls)}) -> opencascade::handle<{c.class_name}> "
                     f"{{ return opencascade::handle<{c.class_name}>(new {c.class_name}({args_str})); }}")
+        if ctor_mode == "unique_ptr":
+            # Not Transient-derived, but owns a resource unsafely under copy/move
+            # (see DESIGN.md's "Copying an algorithm/builder class segfaults" -
+            # owns_resource_unsafely()) - heap-allocate via std::unique_ptr<T>, which
+            # sol2 accepts directly as usertype-constructor storage and never
+            # copies/moves T itself, regardless of whether that's actually safe.
+            return (f"[]({', '.join(param_decls)}) {{ return std::make_unique<{c.class_name}>({args_str}); }}")
         return f"[]({', '.join(param_decls)}) {{ return {c.class_name}({args_str}); }}"
 
-    self_decl = f"{c.class_name} const& self" if c.is_const else f"{c.class_name}& self"
-    all_decls = ", ".join([self_decl] + param_decls)
-    call_expr = f"self.{c.cpp_name}({', '.join(call_args)})"
+    if c.is_static:
+        # Static class method or namespace free function - no "self" (see
+        # codegen/README.md's "Static-only 'namespace classes'"). Always
+        # fully-qualified (::) - correct whether class_name is a genuine C++ class
+        # (BRepTools::Write) or a namespace (TopoDS::Face).
+        all_decls = ", ".join(param_decls)
+        call_expr = f"{c.class_name}::{c.cpp_name}({', '.join(call_args)})"
+    else:
+        self_decl = f"{c.class_name} const& self" if c.is_const else f"{c.class_name}& self"
+        all_decls = ", ".join([self_decl] + param_decls)
+        call_expr = f"self.{c.cpp_name}({', '.join(call_args)})"
     ret = (c.return_spelling or "void").strip()
     if ret == "void":
         return f"[]({all_decls}) {{ {call_expr}; }}"
     return f"[]({all_decls}) -> {ret} {{ return {call_expr}; }}"
 
 
-def emit_callable_expr(c: Callable, kinds: list[str], is_transient: bool) -> str:
+def emit_callable_expr(c: Callable, kinds: list[str], ctor_mode: str) -> str:
     has_real = "real" in kinds
-    plain = emit_lambda(c, kinds, ad_branch=False, is_transient=is_transient)
+    plain = emit_lambda(c, kinds, ad_branch=False, ctor_mode=ctor_mode)
     if not has_real:
         return plain
-    ad_form = emit_lambda(c, kinds, ad_branch=True, is_transient=is_transient)
+    ad_form = emit_lambda(c, kinds, ad_branch=True, ctor_mode=ctor_mode)
     return f"\n#if defined({AD_MACRO})\n            {ad_form}\n#else\n            {plain}\n#endif\n        "
 
 
@@ -261,7 +343,9 @@ class ModuleResult:
     rejected: list[tuple[Callable, str]] = field(default_factory=list)
     blacklisted: list[Callable] = field(default_factory=list)
     is_transient: dict[str, bool] = field(default_factory=dict)
+    ctor_mode: dict[str, str] = field(default_factory=dict)  # "value" | "unique_ptr" | "handle"
     bases: dict[str, list[str]] = field(default_factory=dict)
+    entity_kind: dict[str, str] = field(default_factory=dict)  # "class" | "namespace"
 
 
 def process_module(module: dict, occt_include_dir: Path, registered_types: set[str]) -> ModuleResult:
@@ -286,14 +370,30 @@ def process_module(module: dict, occt_include_dir: Path, registered_types: set[s
             raise RuntimeError(f"clang errors parsing {header}:\n" + "\n".join(str(d) for d in diags))
 
         target = find_class_definition(tu, class_name, header_path)
-        if target is None:
-            raise RuntimeError(f"could not find the definition of class {class_name!r} in {header_path}")
+        if target is not None:
+            result.entity_kind[class_name] = "class"
+            chain = base_chain(tu, target)
+            result.bases[class_name] = chain
+            result.is_transient[class_name] = TRANSIENT_ROOT in chain
+            if result.is_transient[class_name]:
+                result.ctor_mode[class_name] = "handle"
+            elif owns_resource_unsafely(tu, target, chain):
+                result.ctor_mode[class_name] = "unique_ptr"
+            else:
+                result.ctor_mode[class_name] = "value"
+            callables = collect_class_callables(target, class_name)
+        else:
+            # Not a class/struct - try a genuine C++ namespace instead (e.g.
+            # TopoDS.hxx's `namespace TopoDS { ... }` - see codegen/README.md's
+            # "Static-only 'namespace classes'"). No base chain/Transient concept
+            # applies to a namespace.
+            namespaces = find_namespace_definitions(tu, class_name, header_path)
+            if not namespaces:
+                raise RuntimeError(f"could not find a class/struct or namespace definition of "
+                                    f"{class_name!r} in {header_path}")
+            result.entity_kind[class_name] = "namespace"
+            callables = collect_namespace_callables(namespaces, class_name)
 
-        chain = base_chain(tu, target)
-        result.bases[class_name] = chain
-        result.is_transient[class_name] = TRANSIENT_ROOT in chain
-
-        callables = collect_class_callables(target, class_name)
         result.accepted_methods.setdefault(class_name, {})
 
         for c in callables:
@@ -328,32 +428,80 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
     includes = "\n".join(f"#include <{h}>" for h in result.headers)
     any_transient = any(result.is_transient.values())
+    all_class_names = [Path(h).stem for h in result.headers]
+    registered_here = set(all_class_names)
+
+    free_function_parts = []  # static class methods + namespace free functions with no naming collision
+    extra_member_functions: dict[str, list[str]] = {}  # class_name -> extra ".add_member_function(...)" lines
+
+    for class_name in all_class_names:
+        ctor_mode = result.ctor_mode.get(class_name, "value")
+
+        for method_name, overloads in list(result.accepted_methods.get(class_name, {}).items()):
+            if not overloads[0][0].is_static:
+                continue
+            if len(overloads) == 1:
+                c, kinds = overloads[0]
+                fun_expr = emit_callable_expr(c, kinds, ctor_mode)
+            else:
+                fun_expr = "sol::overload(\n        " + ",\n        ".join(
+                    emit_callable_expr(c, kinds, ctor_mode) for c, kinds in overloads
+                ) + "\n    )"
+
+            composed_name = f"{class_name}_{method_name}"
+            if composed_name in registered_here:
+                # Naming collision (e.g. TopoDS::Face(shape) composes to the same
+                # name as the registered TopoDS_Face class itself - a real case, not
+                # hypothetical: every TopoDS namespace downcast helper collides with
+                # its own destination leaf type this way). Rather than clobbering the
+                # type's own occt.TopoDS_Face table with a plain function, attach it
+                # as that type's own .DownCast(shape) member instead - mirrors Step
+                # 3's Handle(T)::DownCast naming (src/geom/geom_extras.hpp) for a
+                # consistent Lua-side idiom regardless of which OCCT downcast
+                # mechanism (Handle-based vs. TopoDS-namespace-based) is underneath.
+                # See codegen/README.md's "Static-only 'namespace classes'".
+                extra_member_functions.setdefault(composed_name, []).append(
+                    f'        .add_member_function("DownCast", {fun_expr})'
+                )
+            else:
+                free_function_parts.append(f'    ns.register_function("{composed_name}", {fun_expr});')
+
     body_parts = []
-    for class_name in [Path(h).stem for h in result.headers]:
-        is_transient = result.is_transient.get(class_name, False)
+    for class_name in all_class_names:
+        if result.entity_kind.get(class_name) == "namespace":
+            continue  # no register_type for a genuine namespace - nothing else to do
+
+        ctor_mode = result.ctor_mode.get(class_name, "value")
+        instance_methods = {
+            method_name: overloads
+            for method_name, overloads in result.accepted_methods.get(class_name, {}).items()
+            if not overloads[0][0].is_static
+        }
+
         lines = [f'    ns.register_type<{class_name}, sol::automagic_flags::none>("{class_name}")']
 
         ctors = result.accepted_ctors.get(class_name, [])
         if ctors:
-            ctor_exprs = [emit_callable_expr(c, kinds, is_transient) for c, kinds in ctors]
+            ctor_exprs = [emit_callable_expr(c, kinds, ctor_mode) for c, kinds in ctors]
             lines.append("        .add_constructors(\n            " + ",\n            ".join(ctor_exprs) + "\n        )")
 
-        for method_name, overloads in result.accepted_methods.get(class_name, {}).items():
+        for method_name, overloads in instance_methods.items():
             if len(overloads) == 1:
                 c, kinds = overloads[0]
-                fun_expr = emit_callable_expr(c, kinds, is_transient)
+                fun_expr = emit_callable_expr(c, kinds, ctor_mode)
             else:
                 fun_expr = "sol::overload(\n            " + ",\n            ".join(
-                    emit_callable_expr(c, kinds, is_transient) for c, kinds in overloads
+                    emit_callable_expr(c, kinds, ctor_mode) for c, kinds in overloads
                 ) + "\n        )"
             lines.append(f'        .add_member_function("{method_name}", {fun_expr})')
 
-        # Standard_Transient/Handle(T) support (Step 3): register the full ancestor
-        # chain so Lua's colon-call dispatch can find a method registered on a base
-        # class (e.g. Geom_Curve::Value) when called on a Handle(Derived)-returned
-        # value (e.g. a Geom_Line) - required for virtual dispatch through the base's
-        # method to reach the derived override at runtime. No dual Handle_T
-        # registration needed (unlike legacy grocc) - see occt_sol_traits.hpp.
+        lines.extend(extra_member_functions.get(class_name, []))
+
+        # Standard_Transient/Handle(T) support (Step 3, also used for plain
+        # value-type inheritance since Step 4, e.g. TopoDS_Face : TopoDS_Shape):
+        # register the full ancestor chain so Lua's colon-call dispatch (and
+        # argument-position upcasting) can find a method/accept a value via a base
+        # class not registered on the derived type itself.
         bases = result.bases.get(class_name, [])
         if bases:
             lines.append(f"        .add_bases<{', '.join(bases)}>()")
@@ -367,11 +515,14 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
 {includes}
 
+#include <memory>
+
 #include "../src/occt_ad_support.hpp"{extra_includes}
 
 void register_{result.name}(grunk::plugin_namespace& ns)
 {{
 {chr(10).join(body_parts)}
+{chr(10).join(free_function_parts)}
 }}
 """
     return header_source, cpp_source
