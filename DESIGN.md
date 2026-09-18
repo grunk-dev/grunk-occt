@@ -62,12 +62,24 @@ step (`arch: x64`) before `setup-pixi` in `.github/workflows/ci.yml`, matching g
 
 ## Test-harness shape
 
-The test harness (`tests/test_load.cpp`, growing over subsequent steps) loads the plugin via
-`grunk::plugin::load_native` and drives it through **raw Lua via `grunk::state::create_env()`**
-directly - not through `grunk::recipe`'s YAML+Lua layer. This keeps plugin-binding bugs isolated
-from the separately-young recipe layer. A `grunk::recipe`-based end-to-end test is added later
-(once several OCCT modules exist), to validate realistic recipe usage - see Step 6.5 of the
-migration plan (porting legacy plugin-using example recipes) for that milestone.
+The test harness (`tests/test_*.cpp`, one file per module, growing over subsequent steps) loads
+the plugin via `grunk::plugin::load_native` and drives it through **raw Lua via
+`grunk::state::create_env()`** directly - not through `grunk::recipe`'s YAML+Lua layer. This keeps
+plugin-binding bugs isolated from the separately-young recipe layer. A `grunk::recipe`-based
+end-to-end test is added later (once several OCCT modules exist), to validate realistic recipe
+usage - see Step 6.5 of the migration plan (porting legacy plugin-using example recipes) for that
+milestone.
+
+**Test framework: gtest** (matches both legacy grocc's own test suite and grunk's own
+`tests/cpp/`). One `runUnitTests` binary (`CMakeLists.txt`, via `find_package(GTest REQUIRED)` +
+`GTest::gtest_main`), built from all `tests/test_*.cpp` files; each contributes its own
+`TEST_F`-based suite (a `class <Module>Test : public ::testing::Test` fixture loading the plugin
+once per suite via `SetUpTestSuite`/`TearDownTestSuite`, not once per individual test case - the
+same `SetUpTestCase`-once-per-suite pattern legacy grocc's `test_gp_Pnt.cpp`/
+`test_simple_boolean_op.cpp` used, just under gtest's current `SetUpTestSuite` naming).
+`gtest_discover_tests(runUnitTests)` registers every individual `TEST_F` case as its own `ctest`
+entry - `ctest --test-dir build` reports each one (and can filter via `-R <regex>`), not one
+pass/fail per module/file.
 
 **Gotcha found while implementing Step 0's harness**: `grunk::state::create_env()`'s resulting
 environment's `__index` fallback is `original_env` (grunk's own registered-symbol table), *not*

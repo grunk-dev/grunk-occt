@@ -43,7 +43,7 @@ pixi run generate_code               # regenerate generated/ from codegen/config
 codegen/            # libclang-based code generator (see codegen/README.md)
 generated/           # its output - checked into git, compiled unconditionally
 src/                 # occt_plugin.cpp (plugin entry point) + hand-written escape hatches
-tests/               # one test executable per module, loads occt_plugin.so at runtime
+tests/               # one gtest file (TEST_F suite) per module, one runUnitTests binary total
 reference/legacy-recipes/  # legacy grocc-only example recipes, ported in Step 6.5
 ```
 
@@ -55,6 +55,7 @@ reference/legacy-recipes/  # legacy grocc-only example recipes, ported in Step 6
 | occt (OpenCASCADE) | conda-forge, pinned to `7.9.3` |
 | lua, sol2, taskflow, yaml-cpp, libparametric | conda-forge (needed to build grunk itself from source) |
 | python, pyyaml, libclang (PyPI) | conda-forge/PyPI, needed only for `codegen/` (opt-in) |
+| gtest | conda-forge, the test framework (`runUnitTests`) |
 
 ## License
 

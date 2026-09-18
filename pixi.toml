@@ -20,6 +20,7 @@ yaml-cpp = "*"
 libparametric = "*"
 python = ">=3.9"
 pyyaml = "*"
+gtest = "*"
 
 [pypi-dependencies]
 # Self-contained (bundles libclang.so + the clang.cindex Python bindings) - conda-forge's

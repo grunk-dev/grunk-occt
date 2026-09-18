@@ -16,39 +16,61 @@
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>
 
-#include <iostream>
+#include <gtest/gtest.h>
 
 namespace {
 
-bool check(bool ok, char const* what)
-{
-    if (!ok) {
-        std::cerr << "FAIL: " << what << "\n";
+class ShapesTest : public ::testing::Test {
+protected:
+    static void SetUpTestSuite()
+    {
+        state_ = new grunk::state();
+        grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
-    return ok;
-}
+
+    static void TearDownTestSuite()
+    {
+        delete state_;
+        state_ = nullptr;
+    }
+
+    static grunk::state* state_;
+};
+
+grunk::state* ShapesTest::state_ = nullptr;
 
 } // namespace
 
-int main()
+TEST_F(ShapesTest, BoxAndCylinderShapes)
 {
-    grunk::state state;
-    grunk::plugin::load_native(state, OCCT_PLUGIN_SO_PATH);
-
-    auto env = state.create_env();
-
+    auto env = state_->create_env();
     auto res = env.eval(R"(
         box_maker = occt.BRepPrimAPI_MakeBox.new(10., 10., 10.)
         -- IsDone() is checked *after* Shape() deliberately: BRepBuilderAPI_MakeShape::
         -- Shape() calls Build() lazily if not already done, so BRepPrimAPI_MakeBox's
         -- IsDone() is only guaranteed true once Shape() has actually been asked for
-        -- (unlike BRepAlgoAPI_Cut below, whose 2-shape constructor builds eagerly).
+        -- (unlike BRepAlgoAPI_Cut's own 2-shape constructor, which builds eagerly -
+        -- see BooleanCutAndExport below).
         box = box_maker:Shape()
         box_done = box_maker:IsDone()
         box_is_null = box:IsNull()
 
         cyl_maker = occt.BRepPrimAPI_MakeCylinder.new(3., 20.)
         cylinder = cyl_maker:Shape()
+        cylinder_is_null = cylinder:IsNull()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_TRUE(env.get<bool>("box_done"));
+    EXPECT_FALSE(env.get<bool>("box_is_null"));
+    EXPECT_FALSE(env.get<bool>("cylinder_is_null"));
+}
+
+TEST_F(ShapesTest, BooleanCutAndExport)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        box = occt.BRepPrimAPI_MakeBox.new(10., 10., 10.):Shape()
+        cylinder = occt.BRepPrimAPI_MakeCylinder.new(3., 20.):Shape()
 
         progress = occt.Message_ProgressRange.new()
         cut_maker = occt.BRepAlgoAPI_Cut.new(box, cylinder, progress)
@@ -56,31 +78,25 @@ int main()
         cut_done = cut_maker:IsDone()
         result_is_null = result:IsNull()
 
-        -- TopoDS.hxx's namespace-flattened DownCast helper (Step 4's spike) - box is
-        -- a genuine TopoDS_Solid under the hood (BRepPrimAPI_MakeBox always builds
-        -- one), so downcasting it back from the generic TopoDS_Shape succeeds.
-        as_solid = occt.TopoDS_Solid.DownCast(box)
-        as_solid_is_null = as_solid:IsNull()
-
         export_ok = occt.export_brep(result, "step4_cut.brep")
     )");
-    if (!res.valid()) {
-        std::cerr << "FAIL: eval failed\n";
-        return 1;
-    }
+    ASSERT_TRUE(res.valid());
+    EXPECT_TRUE(env.get<bool>("cut_done"));
+    EXPECT_FALSE(env.get<bool>("result_is_null"));
+    EXPECT_TRUE(env.get<bool>("export_ok"));
+}
 
-    bool ok = true;
-    ok &= check(env.get<bool>("box_done"), "BRepPrimAPI_MakeBox::IsDone (via add_bases through BRepBuilderAPI_MakeShape/Command)");
-    ok &= check(!env.get<bool>("box_is_null"), "BRepBuilderAPI_MakeShape::Shape() on the box (via add_bases)");
-    ok &= check(env.get<bool>("cut_done"), "BRepAlgoAPI_Cut::IsDone (own constructor unlocked by registering Message_ProgressRange)");
-    ok &= check(!env.get<bool>("result_is_null"), "BRepAlgoAPI_Cut::Shape() on the cut result");
-    ok &= check(!env.get<bool>("as_solid_is_null"), "TopoDS.hxx's TopoDS::Solid downcast helper (occt.TopoDS_Solid.DownCast)");
-    ok &= check(env.get<bool>("export_ok"), "export_brep (hand-written escape hatch wrapping BRepTools::Write)");
-
-    if (!ok) {
-        return 1;
-    }
-
-    std::cout << "OK: shapes (box/cylinder/cut boolean-op smoke test) verified\n";
-    return 0;
+// TopoDS.hxx's namespace-flattened DownCast helper (Step 4's spike) - box is a
+// genuine TopoDS_Solid under the hood (BRepPrimAPI_MakeBox always builds one), so
+// downcasting it back from the generic TopoDS_Shape succeeds.
+TEST_F(ShapesTest, TopoDsDowncastHelper)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        box = occt.BRepPrimAPI_MakeBox.new(10., 10., 10.):Shape()
+        as_solid = occt.TopoDS_Solid.DownCast(box)
+        as_solid_is_null = as_solid:IsNull()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_FALSE(env.get<bool>("as_solid_is_null"));
 }

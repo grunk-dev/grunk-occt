@@ -92,20 +92,26 @@ target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
 
 # --- test harness: loads occt_plugin via grunk::plugin::load_native and drives it
 # through raw Lua via the sol2 state directly (see DESIGN.md - deliberately not routed
-# through grunk::recipe's YAML layer yet).
+# through grunk::recipe's YAML layer yet). One gtest binary (runUnitTests), matching
+# both legacy grocc's and grunk's own test-suite convention - one test *file* per
+# module (tests/test_<module>.cpp), each contributing its own TEST_F suite, all
+# linked into a single executable; ctest discovers every individual TEST_F case via
+# gtest_discover_tests rather than one pass/fail per module.
 if(GRUNK_OCCT_TESTS)
     enable_testing()
+    find_package(GTest REQUIRED)
+    include(GoogleTest)
 
-    # One test executable per module (see DESIGN.md/migration plan's Step 6 - "one
-    # module per small PR, each with its own smoke test"), plus test_load for the
-    # bare plugin-loads-at-all check from Step 0.
-    foreach(test_name IN ITEMS test_load test_gp test_geom test_shapes)
-        add_executable(occt_plugin_${test_name} tests/${test_name}.cpp)
-        target_link_libraries(occt_plugin_${test_name} PRIVATE grunk::plugin)
-        target_compile_definitions(occt_plugin_${test_name} PRIVATE
-            OCCT_PLUGIN_SO_PATH="$<TARGET_FILE:occt_plugin>"
-        )
-        add_dependencies(occt_plugin_${test_name} occt_plugin)
-        add_test(NAME ${test_name} COMMAND occt_plugin_${test_name})
-    endforeach()
+    add_executable(runUnitTests
+        tests/test_load.cpp
+        tests/test_gp.cpp
+        tests/test_geom.cpp
+        tests/test_shapes.cpp
+    )
+    target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
+    target_compile_definitions(runUnitTests PRIVATE
+        OCCT_PLUGIN_SO_PATH="$<TARGET_FILE:occt_plugin>"
+    )
+    add_dependencies(runUnitTests occt_plugin)
+    gtest_discover_tests(runUnitTests)
 endif()
