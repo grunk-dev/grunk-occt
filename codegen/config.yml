@@ -109,3 +109,36 @@ modules:
   - name: brepalgoapi
     headers:
       - BRepAlgoAPI_Cut.hxx
+
+  - name: bnd
+    # Step 6 module expansion sweep (see DESIGN.md/migration plan) - the first new
+    # module beyond Steps 0-5's validation set:
+    #   - Bnd_Box is a plain value type (no Standard_Transient/Handle, no explicit
+    #     destructor -> "value" ctor mode) bounded by gp_Pnt/gp_Dir/gp_Trsf (gp
+    #     module) and itself (Add(Bnd_Box const&)); IsOut(gp_Lin const&)/
+    #     IsOut(gp_Pln const&) are rejected (gp_Lin/gp_Pln aren't registered yet) -
+    #     not needed for this module's own validation, left as a real, recorded
+    #     rejection rather than pulled in speculatively.
+    #   - BRepBndLib is a static-only "namespace class" (see codegen/README.md's
+    #     "Static-only 'namespace classes'") whose Add(shape, box&, ...) mutates the
+    #     existing Bnd_Box userdata passed in - the same already-supported
+    #     non-const-reference-to-a-registered-object out-param pattern Step 3's
+    #     Geom_Curve::D0 established (codegen/README.md's "Non-const-reference
+    #     ('out') parameters"). AddOBB (Bnd_OBB, unregistered) is rejected - out of
+    #     scope for this module.
+    # extra_includes (new config field, see codegen/README.md's "extra_includes"):
+    # BRepBndLib.hxx only forward-declares `class TopoDS_Shape;` (a reference
+    # parameter needs no more from BRepBndLib.hxx's own point of view) - but sol2's
+    # usertype binding for Add(shape, ...) needs TopoDS_Shape's *complete*
+    # definition in this translation unit (generated/bnd.cpp), regardless of it
+    # already being fully defined and registered elsewhere (generated/topods.cpp) -
+    # found the hard way as a real "invalid use of incomplete type" compile error.
+    # No blacklist entries: re-derived fresh per Step 6's policy rather than carried
+    # over from legacy grocc's config.yml.in (whose only Bnd-module blacklist entry,
+    # "Handle_", was the systematic dual-registration exclusion Step 0.5 already
+    # flagged as obsolete under the new Handle(T) approach).
+    headers:
+      - Bnd_Box.hxx
+      - BRepBndLib.hxx
+    extra_includes:
+      - TopoDS_Shape.hxx

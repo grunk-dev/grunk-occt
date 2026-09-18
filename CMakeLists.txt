@@ -108,6 +108,7 @@ if(GRUNK_OCCT_TESTS)
         tests/test_geom.cpp
         tests/test_shapes.cpp
         tests/test_collections.cpp
+        tests/test_bnd.cpp
     )
     target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE

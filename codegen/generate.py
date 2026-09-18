@@ -407,6 +407,7 @@ def emit_callable_expr(c: Callable, kinds: list[str], ctor_mode: str) -> str:
 class ModuleResult:
     name: str
     headers: list[str]
+    extra_includes: list[str] = field(default_factory=list)
     accepted_ctors: dict[str, list[tuple[Callable, list[str]]]] = field(default_factory=dict)
     accepted_methods: dict[str, dict[str, list[tuple[Callable, list[str]]]]] = field(default_factory=dict)
     rejected: list[tuple[Callable, str]] = field(default_factory=list)
@@ -421,12 +422,21 @@ def process_module(module: dict, occt_include_dir: Path, registered_types: set[s
     """registered_types is the set of every class name across ALL modules in this
     run (not just this module's own headers) - a type registered by module A is a
     valid parameter/return type for a callable in module B, matching how legacy
-    grocc's cross-module type visibility worked (e.g. Bnd's extra_includes: gp_*.hxx)."""
+    grocc's cross-module type visibility worked.
+
+    module["extra_includes"] (optional) is a *different* concept, also revived from
+    legacy grocc's config.yml.in: extra #include lines the generated .cpp needs for
+    a type it uses only by reference/pointer (so this module's own headers only
+    forward-declare it, e.g. BRepBndLib.hxx's `class TopoDS_Shape;`) but never
+    registers itself - sol2's own usertype binding needs the *complete* type
+    definition in this translation unit regardless of whether some other module's
+    .cpp already has it. Not a source of new registrable classes - see
+    codegen/README.md's "extra_includes" section."""
     headers = module["headers"]
     blacklist = set(module.get("blacklist", []))
     class_names = [Path(h).stem for h in headers]
 
-    result = ModuleResult(name=module["name"], headers=headers)
+    result = ModuleResult(name=module["name"], headers=headers, extra_includes=module.get("extra_includes", []))
     index = cindex.Index.create()
     clang_args = ["-x", "c++", "-std=c++17", f"-I{occt_include_dir}"]
     clang_args += [f"-isystem{d}" for d in system_cxx_include_dirs()]
@@ -495,7 +505,7 @@ def render_module(result: ModuleResult) -> tuple[str, str]:
 void register_{result.name}(grunk::plugin_namespace& ns);
 """
 
-    includes = "\n".join(f"#include <{h}>" for h in result.headers)
+    includes = "\n".join(f"#include <{h}>" for h in result.headers + result.extra_includes)
     any_transient = any(result.is_transient.values())
     any_array = any(
         k in ("array1", "array2")

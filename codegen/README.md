@@ -133,6 +133,19 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   processing any of them, so a later module's callables can reference an earlier
   module's types (e.g. `geom`'s methods take/return `gp_Pnt`/`gp_Vec`/`gp_Trsf`) -
   matches legacy grocc's cross-module type visibility.
+- **`extra_includes`** (a module's config, optional, revived from legacy grocc's
+  `config.yml.in` - Step 6): extra `#include <...>` lines added to the generated
+  `.cpp` (never the `.hpp`, and never a source of new registrable classes - these
+  headers are *not* walked for callables) for a type this module's callables use
+  only by reference/pointer, where this module's *own* headers therefore only
+  forward-declare it (e.g. `BRepBndLib.hxx`'s `class TopoDS_Shape;`, since a
+  `const TopoDS_Shape&` parameter needs no more from `BRepBndLib.hxx`'s own point
+  of view). sol2's usertype binding needs the type's *complete* definition in
+  *this* translation unit regardless of it already being fully defined and
+  registered by a different module's own `.cpp` (`generated/topods.cpp` for
+  `TopoDS_Shape`) - omitting it fails with a real "invalid use of incomplete type"
+  compile error (found on `bnd`, the first module needing it - see
+  `codegen/config.yml`'s own comment there).
 - **`automagic_flags::none`** is applied to every registered type unconditionally (see
   `../DESIGN.md`'s policy) - the generator does not (yet) have a mechanism for opting
   a specific type into fuller automagic.

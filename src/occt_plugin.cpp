@@ -9,7 +9,9 @@
 // value-type inheritance (topods), static-method/namespace flattening (also topods),
 // and the box/cylinder/cut boolean-op smoke test (brepbuilderapi/brepprimapi/
 // brepalgoapi) - see generated/*.cpp, codegen/README.md, src/geom/geom_extras.hpp,
-// src/shape_io.hpp.
+// src/shape_io.hpp. Step 5 adds NCollection_Array1/2 <-> std::vector<T> support
+// (Geom_BezierCurve, src/collections.hpp). Step 6 is the module expansion sweep -
+// bnd (Bnd_Box/BRepBndLib) is its first module.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>
@@ -21,6 +23,7 @@
 #include "../generated/brepbuilderapi.hpp"
 #include "../generated/brepprimapi.hpp"
 #include "../generated/brepalgoapi.hpp"
+#include "../generated/bnd.hpp"
 #include "gp/gp_extras.hpp"
 #include "geom/geom_extras.hpp"
 #include "shape_io.hpp"
@@ -39,6 +42,7 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_brepbuilderapi(ns);
     register_brepprimapi(ns);
     register_brepalgoapi(ns);
+    register_bnd(ns);
     register_shape_io(ns);
 }
 
