@@ -218,3 +218,27 @@ modules:
       - TopoDS_Solid.hxx
       - TopoDS_CompSolid.hxx
       - TopoDS_Compound.hxx
+
+  - name: toploc
+    # Step 6 module expansion sweep, fourth module. TopLoc_Location is a plain
+    # value type (no explicit destructor -> "value" ctor mode) representing a
+    # composite coordinate-system transform - buildable from a gp_Trsf (already
+    # registered by the gp module since Step 1). Only TopLoc_Location.hxx is
+    # registered, not the whole legacy TopLoc_*.hxx glob: TopLoc_Datum3D/
+    # ItemLocation/SListOfItemLocation/MapOfLocation/IndexedMapOfLocation/
+    # MapIteratorOfMapOfLocation are TopLoc_Location's own internal implementation
+    # detail types (hashing/list machinery), never meant to be exposed to Lua on
+    # their own.
+    #
+    # This is a more consequential module than bnd/brep/breptools: TopLoc_Location
+    # was previously *unregistered*, so every earlier module's TopLoc_Location&/
+    # const& parameter (BRep_Builder::MakeFace/MakeEdge/UpdateEdge/Continuity/...,
+    # BRep_Tool::Surface/Curve/Triangulation/Range/UVPoints/..., BRepTools::
+    # UVBounds's siblings) was rejected purely for that reason - regenerating with
+    # this module present retroactively accepts a real batch of those (recorded in
+    # DESIGN.md's own note, not re-derived here to avoid this comment going stale
+    # the next time codegen runs).
+    # No blacklist entries - operator*/operator/ are skipped automatically (name
+    # prefix, see codegen/README.md's "Known gaps"), nothing else needed excluding.
+    headers:
+      - TopLoc_Location.hxx

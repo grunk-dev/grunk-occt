@@ -35,6 +35,13 @@ void register_brep(grunk::plugin_namespace& ns)
 #else
             [](BRep_Builder const& self, TopoDS_Edge & E, const opencascade::handle<Geom_Curve> & C, const Standard_Real Tol) { self.MakeEdge(E, C, Tol); }
 #endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, TopoDS_Edge & E, const opencascade::handle<Geom_Curve> & C, const TopLoc_Location & L, sol::object Tol) { self.MakeEdge(E, C, L, occt_plugin::to_real(Tol)); }
+#else
+            [](BRep_Builder const& self, TopoDS_Edge & E, const opencascade::handle<Geom_Curve> & C, const TopLoc_Location & L, const Standard_Real Tol) { self.MakeEdge(E, C, L, Tol); }
+#endif
         
         ))
         .add_member_function("UpdateEdge", sol::overload(
@@ -43,6 +50,13 @@ void register_brep(grunk::plugin_namespace& ns)
             [](BRep_Builder const& self, const TopoDS_Edge & E, const opencascade::handle<Geom_Curve> & C, sol::object Tol) { self.UpdateEdge(E, C, occt_plugin::to_real(Tol)); }
 #else
             [](BRep_Builder const& self, const TopoDS_Edge & E, const opencascade::handle<Geom_Curve> & C, const Standard_Real Tol) { self.UpdateEdge(E, C, Tol); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, const TopoDS_Edge & E, const opencascade::handle<Geom_Curve> & C, const TopLoc_Location & L, sol::object Tol) { self.UpdateEdge(E, C, L, occt_plugin::to_real(Tol)); }
+#else
+            [](BRep_Builder const& self, const TopoDS_Edge & E, const opencascade::handle<Geom_Curve> & C, const TopLoc_Location & L, const Standard_Real Tol) { self.UpdateEdge(E, C, L, Tol); }
 #endif
         ,
             

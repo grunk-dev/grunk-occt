@@ -11,13 +11,16 @@
 // brepalgoapi) - see generated/*.cpp, codegen/README.md, src/geom/geom_extras.hpp,
 // src/shape_io.hpp. Step 5 adds NCollection_Array1/2 <-> std::vector<T> support
 // (Geom_BezierCurve, src/collections.hpp). Step 6 is the module expansion sweep -
-// bnd (Bnd_Box/BRepBndLib), brep (BRep_Builder/BRep_Tool), and breptools
-// (BRepTools) so far.
+// bnd (Bnd_Box/BRepBndLib), brep (BRep_Builder/BRep_Tool), breptools
+// (BRepTools), and toploc (TopLoc_Location) so far - toploc retroactively unlocked
+// several TopLoc_Location&/const& parameters in topods/brep that were rejected
+// before it existed (see DESIGN.md).
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>
 
 #include "../generated/gp.hpp"
+#include "../generated/toploc.hpp"
 #include "../generated/geom.hpp"
 #include "../generated/message_progress.hpp"
 #include "../generated/topods.hpp"
@@ -39,6 +42,7 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     auto ns = state.begin_plugin(info);
     register_gp(ns);
     register_gp_extras(ns);
+    register_toploc(ns);
     register_geom(ns);
     register_geom_extras(ns);
     register_message_progress(ns);

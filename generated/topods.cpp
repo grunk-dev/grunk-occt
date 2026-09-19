@@ -27,6 +27,11 @@ void register_topods(grunk::plugin_namespace& ns)
         )
         .add_member_function("IsNull", [](TopoDS_Shape const& self) -> Standard_Boolean { return self.IsNull(); })
         .add_member_function("Nullify", [](TopoDS_Shape& self) { self.Nullify(); })
+        .add_member_function("Location", sol::overload(
+            [](TopoDS_Shape const& self) -> const TopLoc_Location & { return self.Location(); },
+            [](TopoDS_Shape& self, const TopLoc_Location & theLoc, const Standard_Boolean theRaiseExc) { self.Location(theLoc, theRaiseExc); }
+        ))
+        .add_member_function("Located", [](TopoDS_Shape const& self, const TopLoc_Location & theLoc, const Standard_Boolean theRaiseExc) -> TopoDS_Shape { return self.Located(theLoc, theRaiseExc); })
         .add_member_function("Free", sol::overload(
             [](TopoDS_Shape const& self) -> Standard_Boolean { return self.Free(); },
             [](TopoDS_Shape& self, Standard_Boolean theIsFree) { self.Free(theIsFree); }
@@ -59,6 +64,8 @@ void register_topods(grunk::plugin_namespace& ns)
             [](TopoDS_Shape const& self) -> Standard_Boolean { return self.Convex(); },
             [](TopoDS_Shape& self, Standard_Boolean theIsConvex) { self.Convex(theIsConvex); }
         ))
+        .add_member_function("Move", [](TopoDS_Shape& self, const TopLoc_Location & thePosition, const Standard_Boolean theRaiseExc) { self.Move(thePosition, theRaiseExc); })
+        .add_member_function("Moved", [](TopoDS_Shape const& self, const TopLoc_Location & thePosition, const Standard_Boolean theRaiseExc) -> TopoDS_Shape { return self.Moved(thePosition, theRaiseExc); })
         .add_member_function("Reverse", [](TopoDS_Shape& self) { self.Reverse(); })
         .add_member_function("Reversed", [](TopoDS_Shape const& self) -> TopoDS_Shape { return self.Reversed(); })
         .add_member_function("Complement", [](TopoDS_Shape& self) { self.Complement(); })

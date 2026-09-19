@@ -355,3 +355,33 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   hand-written escape hatch needed - the third module in a row proving out
   `extra_includes` (this time for the seven `TopoDS_*` types `BRepTools.hxx` only
   forward-declares) rather than needing something new.
+- **`toploc`** (`TopLoc_Location` only, not the whole legacy `TopLoc_*.hxx` glob -
+  the rest are `TopLoc_Location`'s own internal list/hashing machinery, never
+  meant to be exposed to Lua on their own): 16 accepted, 5 rejected (the
+  `Handle(TopLoc_Datum3D)` constructor, operators - skipped by name prefix, not a
+  real rejection). A plain value type, buildable from a `gp_Trsf` (registered
+  since Step 1).
+  - **More consequential than bnd/brep/breptools**: `TopLoc_Location` was
+    previously *unregistered*, so every earlier module's `TopLoc_Location&`/
+    `const&` parameter or return was rejected for that reason alone. A full
+    `generate_code` regen (this is how the generator always works - `main()`
+    processes every configured module fresh every run, using one
+    `registered_types` set computed up front, see codegen/README.md's "Type
+    registration spans the whole config") retroactively **accepted 7 more
+    callables with no config/generator change of their own**: `topods` gained
+    `TopoDS_Shape::Location`/`Located`/`Move`/`Moved` (54 -> 59 accepted);
+    `brep` gained the `TopLoc_Location`-taking overloads of `BRep_Builder::
+    MakeEdge`/`UpdateEdge` (37 -> 39 accepted). `breptools`'s own `TopLoc_Location`
+    out-params (`UVBounds`'s siblings) stayed rejected regardless - each also has
+    a still-unsupported mutable `Standard_Real&`/`Bnd_Box2d&` parameter blocking
+    it too.
+  - `TopoDS_Shape.hxx` already fully `#include`s `TopLoc_Location.hxx` (not just a
+    forward declaration), so `topods`'s own `extra_includes` needed no change;
+    `BRep_Builder.hxx` only forward-declares it, but `brep`'s existing
+    `extra_includes` entry for `TopoDS_Shape.hxx` pulls in the complete
+    `TopLoc_Location` definition transitively too - neither module needed a new
+    `extra_includes` entry, confirmed by just building rather than assumed from
+    reading headers alone.
+  - `tests/test_toploc.cpp`'s `TopoDsShapeLocationRoundTrip` exercises one of the
+    retroactively-unlocked `topods` callables directly (`box:Moved(loc, true)`),
+    not just `TopLoc_Location` in isolation.
