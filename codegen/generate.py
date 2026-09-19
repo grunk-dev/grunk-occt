@@ -391,6 +391,24 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) 
     ret = (c.return_spelling or "void").strip()
     if ret == "void":
         return f"[]({all_decls}) {{ {call_expr}; }}"
+    if "&" in ret and HANDLE_PATTERN.match(strip_type(ret)):
+        # A Handle(X)-returning method/constructor that returns it by reference
+        # (e.g. GC_MakeSegment::Value() const -> const Handle(Geom_TrimmedCurve)&)
+        # is emitted as a by-value opencascade::handle<X> return instead of the raw
+        # reference - found the hard way (GC_MakeSegment/GC_MakeCircle, Step 6):
+        # pushing a bare Handle<X> onto the Lua stack by value works fine
+        # everywhere else in this project (every constructor's own Handle(X)
+        # return), but pushing one *by reference* hits a sol2 code path
+        # (unqualified_pusher::push_keyed's set_undefined_methods_on) that tries
+        # to instantiate default operator</operator== comparisons for the
+        # underlying OCCT type X itself - most OCCT geometry classes (including
+        # Geom_TrimmedCurve/Geom_Circle) don't declare either, so this fails to
+        # compile. A Handle is just a cheap-to-copy smart pointer (incrementing a
+        # refcount, O(1)), so returning by value instead is always safe and
+        # sidesteps the whole issue - unlike a plain (non-Handle) registered
+        # type's own const-reference return (e.g. Geom_BezierCurve::Pole()'s
+        # `const gp_Pnt&`), which does *not* hit this and is left untouched.
+        ret = strip_type(ret)
     return f"[]({all_decls}) -> {ret} {{ return {call_expr}; }}"
 
 

@@ -12,9 +12,14 @@
 // src/shape_io.hpp. Step 5 adds NCollection_Array1/2 <-> std::vector<T> support
 // (Geom_BezierCurve, src/collections.hpp). Step 6 is the module expansion sweep -
 // bnd (Bnd_Box/BRepBndLib), brep (BRep_Builder/BRep_Tool), breptools
-// (BRepTools), and toploc (TopLoc_Location) so far - toploc retroactively unlocked
-// several TopLoc_Location&/const& parameters in topods/brep that were rejected
-// before it existed (see DESIGN.md).
+// (BRepTools), toploc (TopLoc_Location), and gc (GC_Root/GC_MakeSegment/
+// GC_MakeCircle) so far - toploc retroactively unlocked several
+// TopLoc_Location&/const& parameters in topods/brep that were rejected before it
+// existed. gc's own Value() methods return Handle(Geom_TrimmedCurve)/
+// Handle(Geom_Circle), registered in a *different* generated file (geom.cpp) -
+// this only works because occt_plugin is built as a single translation unit (see
+// CMakeLists.txt's unity-build note and DESIGN.md's "Handle(X) return type
+// requires being in the same translation unit as X").
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>
@@ -30,6 +35,7 @@
 #include "../generated/bnd.hpp"
 #include "../generated/brep.hpp"
 #include "../generated/breptools.hpp"
+#include "../generated/gc.hpp"
 #include "gp/gp_extras.hpp"
 #include "brep/brep_extras.hpp"
 #include "geom/geom_extras.hpp"
@@ -54,6 +60,7 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_brep(ns);
     register_brep_extras(ns);
     register_breptools(ns);
+    register_gc(ns);
     register_shape_io(ns);
 }
 

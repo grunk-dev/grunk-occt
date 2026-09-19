@@ -36,23 +36,32 @@ modules:
     #
     # Geom_BoundedCurve/Geom_BezierCurve are the Step 5 validation case (collections -
     # see DESIGN.md/migration plan): the generator registers Geom_BezierCurve itself
-    # generically (add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry>() reaches
-    # Value/D0/D1/D2/D3/... via inheritance, and NbPoles/Pole/Degree/IsRational/
-    # StartPoint/EndPoint/Transform/Copy/Weight are all accepted directly, same as any
-    # other module), but both of Geom_BezierCurve's own constructors take a
-    # TColgp_Array1OfPnt const& - an OCCT array type the generator has no concept of
-    # (see codegen/README.md's "Known gaps") - so it ends up with zero accepted
-    # constructors, exactly like the abstract classes above it in the chain. The
-    # hand-written `bezier_curve` free function (src/geom/bezier.hpp) is therefore the
-    # only way to actually construct one from Lua, converting through
-    # src/collections.hpp's to_array1<gp_Pnt>() rather than ever exposing
-    # TColgp_Array1OfPnt to Lua directly.
+    # generically, including its own constructors - both take a TColgp_Array1OfPnt
+    # const&, accepted via the generator's NCollection_Array1<X> parameter support
+    # (see codegen/README.md's "NCollection_Array1/2 support"), converting through
+    # src/collections.hpp's to_array1<gp_Pnt>() and never exposing that OCCT array
+    # type to Lua directly.
+    #
+    # Geom_TrimmedCurve/Geom_Conic/Geom_Circle are Step 6's "gc" module's own
+    # prerequisites (GC_MakeSegment::Value() returns Handle(Geom_TrimmedCurve),
+    # GC_MakeCircle::Value() returns Handle(Geom_Circle)) - genuine Geom_* classes
+    # in the same inheritance family as everything else here, registered here
+    # rather than in "gc" itself (Geom_Conic has no accepted members of its own
+    # yet - gp_Ax2/gp_Elips-taking methods, unregistered - same as the
+    # empty-but-necessary Geom_Geometry/Geom_Curve above it in the chain). Safe to
+    # keep "gc" as its own separate module/generated file despite this cross-module
+    # Handle(X) reference: see CMakeLists.txt's unity-build note and DESIGN.md's
+    # "Handle(X) return type requires being in the same translation unit as X" for
+    # why that would otherwise be a real, confirmed compile error.
     headers:
       - Geom_Geometry.hxx
       - Geom_Curve.hxx
       - Geom_Line.hxx
       - Geom_BoundedCurve.hxx
       - Geom_BezierCurve.hxx
+      - Geom_TrimmedCurve.hxx
+      - Geom_Conic.hxx
+      - Geom_Circle.hxx
 
   - name: message_progress
     # Message_ProgressRange appears as a defaulted parameter across a large swath of
@@ -242,3 +251,35 @@ modules:
     # prefix, see codegen/README.md's "Known gaps"), nothing else needed excluding.
     headers:
       - TopLoc_Location.hxx
+
+  - name: gc
+    # Step 6 module expansion sweep, fifth module. GC_MakeSegment/GC_MakeCircle are
+    # two of the legacy "GC" module's construction-algorithm classes (see legacy
+    # grocc's config.yml.in) - value types (no explicit destructor), both extending
+    # GC_Root (registered here too, so add_bases<GC_Root>() dispatch can actually
+    # reach IsDone() from a Lua instance - same reasoning as registering
+    # Geom_Geometry/Geom_Curve purely so add_bases has something real to find,
+    # Status() -> gce_ErrorType stays rejected, unregistered enum).
+    #   - GC_MakeSegment(gp_Pnt, gp_Pnt) -> Value() -> Handle(Geom_TrimmedCurve) -
+    #     the other three constructors need gp_Lin, unregistered, rejected.
+    #   - GC_MakeCircle: 4 of its 7 constructors are accepted (three-point
+    #     (gp_Pnt,gp_Pnt,gp_Pnt), center+normal+radius (gp_Pnt,gp_Dir,Standard_Real),
+    #     center+point-on-axis+radius (gp_Pnt,gp_Pnt,Standard_Real), and
+    #     axis+radius (gp_Ax1,Standard_Real)) - the rest need gp_Circ/gp_Ax2,
+    #     unregistered. Value() -> Handle(Geom_Circle) - see geom module's own
+    #     Geom_Conic/Geom_Circle addition, made specifically for this. Both Value()
+    #     methods return their Handle(X) *by reference* in real OCCT
+    #     (const Handle(X)&) - the generator emits these as a by-value return
+    #     instead (see codegen/README.md's own note on this), and this module also
+    #     only compiles safely *because* of the unity build (CMakeLists.txt) -
+    #     GC_MakeSegment/GC_MakeCircle live in their own generated file, separate
+    #     from Geom_TrimmedCurve/Geom_Circle's own registration in geom.cpp; without
+    #     the unity build, this is a real, confirmed compile error (see DESIGN.md).
+    # No extra_includes needed: both headers fully #include the gp_* types they use
+    # (unlike bnd/brep/breptools/toploc's TopoDS_*/TopLoc_Location forward-decl-only
+    # situations) - confirmed by building, not assumed.
+    # No blacklist entries.
+    headers:
+      - GC_Root.hxx
+      - GC_MakeSegment.hxx
+      - GC_MakeCircle.hxx

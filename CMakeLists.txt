@@ -85,8 +85,45 @@ endif()
 # see src/occt_plugin.cpp. generated/*.cpp are checked into git (see
 # codegen/README.md) and compiled unconditionally, regardless of
 # GRUNK_OCCT_GENERATE_CODE above.
+#
+# Built as a single translation unit ("unity build" - mirrors legacy grocc's own
+# `concatenate` config option, applied here unconditionally rather than as an
+# opt-in toggle) via a generated file that #includes src/occt_plugin.cpp and every
+# generated/*.cpp, rather than compiling each as its own separate object. This is
+# not just a build-time optimization: a real sol2/grunk compile error appears
+# whenever a function/method returns a Handle(X) (opencascade::handle<X>) by value
+# in a *different* translation unit than the one that calls X's own
+# register_type<X, ...>() (X ends up needing operator</operator== it doesn't
+# have) - see DESIGN.md's "Handle(X) return type requires being in the same
+# translation unit as X" for the confirmed repro. Concatenating every generated
+# file into one TU eliminates this whole class of bug outright, so config.yml's
+# modules can be split along whatever logical lines make sense (e.g. "gc"
+# returning Handle(Geom_TrimmedCurve)/Handle(Geom_Circle), registered in "geom")
+# without having to route around this on a case-by-case basis.
+#
+# The unity file itself is a generated build artifact (not checked in, unlike
+# generated/*.cpp themselves) - written under CMAKE_BINARY_DIR, same as any other
+# build output. Regenerated at configure time; like the GLOB above, reconfigure
+# (not just rebuild) after adding a *new* generated/*.cpp file so it picks up the
+# new #include line.
 file(GLOB GENERATED_SOURCES ${CMAKE_SOURCE_DIR}/generated/*.cpp)
-add_library(occt_plugin SHARED src/occt_plugin.cpp ${GENERATED_SOURCES})
+
+set(OCCT_PLUGIN_UNITY_CPP "${CMAKE_BINARY_DIR}/occt_plugin_unity.cpp")
+set(_unity_lines "// AUTO-GENERATED unity build file - see CMakeLists.txt. Do not edit or commit.\n")
+string(APPEND _unity_lines "#include \"${CMAKE_SOURCE_DIR}/src/occt_plugin.cpp\"\n")
+foreach(_generated_src ${GENERATED_SOURCES})
+    string(APPEND _unity_lines "#include \"${_generated_src}\"\n")
+endforeach()
+file(WRITE "${OCCT_PLUGIN_UNITY_CPP}" "${_unity_lines}")
+
+add_library(occt_plugin SHARED "${OCCT_PLUGIN_UNITY_CPP}")
+# The unity file's own #includes aren't visible to CMake's dependency scanner from
+# its own path alone - list src/occt_plugin.cpp and every generated/*.cpp as
+# OBJECT_DEPENDS so editing any of them still triggers a rebuild without a
+# reconfigure.
+set_source_files_properties("${OCCT_PLUGIN_UNITY_CPP}" PROPERTIES
+    OBJECT_DEPENDS "${CMAKE_SOURCE_DIR}/src/occt_plugin.cpp;${GENERATED_SOURCES}"
+)
 target_link_libraries(occt_plugin PRIVATE grunk::plugin ${OpenCASCADE_LIBRARIES})
 target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
 
@@ -112,6 +149,7 @@ if(GRUNK_OCCT_TESTS)
         tests/test_brep.cpp
         tests/test_breptools.cpp
         tests/test_toploc.cpp
+        tests/test_gc.cpp
     )
     target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE

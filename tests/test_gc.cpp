@@ -1,0 +1,96 @@
+// SPDX-FileCopyrightText: 2026 Jan Kleinert <jan.kleinert@dlr.de>
+//
+// SPDX-License-Identifier: MPL-2.0
+
+// Step 6 milestone: fifth module expansion sweep addition (see DESIGN.md/migration
+// plan). GC_MakeSegment/GC_MakeCircle are registered as part of the geom module
+// (generated/geom.cpp), not their own file - see DESIGN.md's "Handle(X) return type
+// requires being registered in the same generated .cpp as X itself" for why.
+
+#include <grunk/dynamic.hpp>
+#include <grunk/plugin.hpp>
+
+#include <gtest/gtest.h>
+
+namespace {
+
+class GcTest : public ::testing::Test {
+protected:
+    static void SetUpTestSuite()
+    {
+        state_ = new grunk::state();
+        grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
+    }
+
+    static void TearDownTestSuite()
+    {
+        delete state_;
+        state_ = nullptr;
+    }
+
+    static grunk::state* state_;
+};
+
+grunk::state* GcTest::state_ = nullptr;
+
+} // namespace
+
+TEST_F(GcTest, MakeSegmentBetweenTwoPoints)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        p1 = occt.gp_Pnt.new(0., 0., 0.)
+        p2 = occt.gp_Pnt.new(3., 4., 0.)
+
+        maker = occt.GC_MakeSegment.new(p1, p2)
+        is_done = maker:IsDone()
+
+        segment = maker:Value()
+        -- The trimmed curve's parametrization is arc-length along the underlying
+        -- (infinite) line, not normalized [0, 1] - Value(FirstParameter()) is P1,
+        -- Value(LastParameter()) is P2 (confirmed empirically: querying at a
+        -- literal 1.0 instead lands 1 unit from P1 towards P2, not at P2 itself).
+        first = segment:FirstParameter()
+        last = segment:LastParameter()
+        start = segment:Value(first)
+        finish = segment:Value(last)
+
+        sx = start:X(); sy = start:Y(); sz = start:Z()
+        fx = finish:X(); fy = finish:Y(); fz = finish:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_TRUE(env.get<bool>("is_done"));
+    EXPECT_DOUBLE_EQ(env.get<double>("sx"), 0.);
+    EXPECT_DOUBLE_EQ(env.get<double>("sy"), 0.);
+    EXPECT_DOUBLE_EQ(env.get<double>("sz"), 0.);
+    EXPECT_DOUBLE_EQ(env.get<double>("fx"), 3.);
+    EXPECT_DOUBLE_EQ(env.get<double>("fy"), 4.);
+    EXPECT_DOUBLE_EQ(env.get<double>("fz"), 0.);
+}
+
+// GC_MakeCircle's axis+radius constructor - Value() returns Handle(Geom_Circle),
+// reached via add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>()
+// for a colon-call to Value(u) (inherited from Geom_Curve).
+TEST_F(GcTest, MakeCircleFromAxisAndRadius)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        origin = occt.gp_Pnt.new(0., 0., 0.)
+        z_axis = occt.gp_Dir.new(0., 0., 1.)
+        axis = occt.gp_Ax1.new(origin, z_axis)
+
+        maker = occt.GC_MakeCircle.new(axis, 5.0)
+        is_done = maker:IsDone()
+
+        circle = maker:Value()
+        p0 = circle:Value(0.0)
+        p0x = p0:X(); p0y = p0:Y(); p0z = p0:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_TRUE(env.get<bool>("is_done"));
+    // A circle of radius 5 centered at the origin, in the XY plane (normal = Z),
+    // passes through (5, 0, 0) at parameter 0.
+    EXPECT_NEAR(env.get<double>("p0x"), 5., 1e-9);
+    EXPECT_NEAR(env.get<double>("p0y"), 0., 1e-9);
+    EXPECT_NEAR(env.get<double>("p0z"), 0., 1e-9);
+}

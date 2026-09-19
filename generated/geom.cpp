@@ -9,6 +9,9 @@
 #include <Geom_Line.hxx>
 #include <Geom_BoundedCurve.hxx>
 #include <Geom_BezierCurve.hxx>
+#include <Geom_TrimmedCurve.hxx>
+#include <Geom_Conic.hxx>
+#include <Geom_Circle.hxx>
 
 #include <memory>
 
@@ -316,5 +319,162 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Transform", [](Geom_BezierCurve& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BezierCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_TrimmedCurve, sol::automagic_flags::none>("Geom_TrimmedCurve")
+        .add_constructors(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const opencascade::handle<Geom_Curve> & C, sol::object U1, sol::object U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense, theAdjustPeriodic)); }
+#else
+            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2, Sense, theAdjustPeriodic)); }
+#endif
+        
+        )
+        .add_member_function("Reverse", [](Geom_TrimmedCurve& self) { self.Reverse(); })
+        .add_member_function("ReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve const& self, sol::object U) -> Standard_Real { return self.ReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_TrimmedCurve const& self, const Standard_Real U) -> Standard_Real { return self.ReversedParameter(U); }
+#endif
+        )
+        .add_member_function("SetTrim", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve& self, sol::object U1, sol::object U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) { self.SetTrim(occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense, theAdjustPeriodic); }
+#else
+            [](Geom_TrimmedCurve& self, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) { self.SetTrim(U1, U2, Sense, theAdjustPeriodic); }
+#endif
+        )
+        .add_member_function("BasisCurve", [](Geom_TrimmedCurve const& self) -> opencascade::handle<Geom_Curve> { return self.BasisCurve(); })
+        .add_member_function("IsCN", [](Geom_TrimmedCurve const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
+        .add_member_function("EndPoint", [](Geom_TrimmedCurve const& self) -> gp_Pnt { return self.EndPoint(); })
+        .add_member_function("FirstParameter", [](Geom_TrimmedCurve const& self) -> Standard_Real { return self.FirstParameter(); })
+        .add_member_function("IsClosed", [](Geom_TrimmedCurve const& self) -> Standard_Boolean { return self.IsClosed(); })
+        .add_member_function("IsPeriodic", [](Geom_TrimmedCurve const& self) -> Standard_Boolean { return self.IsPeriodic(); })
+        .add_member_function("Period", [](Geom_TrimmedCurve const& self) -> Standard_Real { return self.Period(); })
+        .add_member_function("LastParameter", [](Geom_TrimmedCurve const& self) -> Standard_Real { return self.LastParameter(); })
+        .add_member_function("StartPoint", [](Geom_TrimmedCurve const& self) -> gp_Pnt { return self.StartPoint(); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve const& self, sol::object U, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), P); }
+#else
+            [](Geom_TrimmedCurve const& self, const Standard_Real U, gp_Pnt & P) { self.D0(U, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1) { self.D1(occt_plugin::to_real(U), P, V1); }
+#else
+            [](Geom_TrimmedCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1) { self.D1(U, P, V1); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(occt_plugin::to_real(U), P, V1, V2); }
+#else
+            [](Geom_TrimmedCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(U, P, V1, V2); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(occt_plugin::to_real(U), P, V1, V2, V3); }
+#else
+            [](Geom_TrimmedCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(U, P, V1, V2, V3); }
+#endif
+        )
+        .add_member_function("DN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve const& self, sol::object U, const Standard_Integer N) -> gp_Vec { return self.DN(occt_plugin::to_real(U), N); }
+#else
+            [](Geom_TrimmedCurve const& self, const Standard_Real U, const Standard_Integer N) -> gp_Vec { return self.DN(U, N); }
+#endif
+        )
+        .add_member_function("Transform", [](Geom_TrimmedCurve& self, const gp_Trsf & T) { self.Transform(T); })
+        .add_member_function("TransformedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve const& self, sol::object U, const gp_Trsf & T) -> Standard_Real { return self.TransformedParameter(occt_plugin::to_real(U), T); }
+#else
+            [](Geom_TrimmedCurve const& self, const Standard_Real U, const gp_Trsf & T) -> Standard_Real { return self.TransformedParameter(U, T); }
+#endif
+        )
+        .add_member_function("ParametricTransformation", [](Geom_TrimmedCurve const& self, const gp_Trsf & T) -> Standard_Real { return self.ParametricTransformation(T); })
+        .add_member_function("Copy", [](Geom_TrimmedCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_Conic, sol::automagic_flags::none>("Geom_Conic")
+        .add_member_function("SetAxis", [](Geom_Conic& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](Geom_Conic& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("Axis", [](Geom_Conic const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Location", [](Geom_Conic const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Eccentricity", [](Geom_Conic const& self) -> Standard_Real { return self.Eccentricity(); })
+        .add_member_function("XAxis", [](Geom_Conic const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](Geom_Conic const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Reverse", [](Geom_Conic& self) { self.Reverse(); })
+        .add_member_function("ReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Conic const& self, sol::object U) -> Standard_Real { return self.ReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_Conic const& self, const Standard_Real U) -> Standard_Real { return self.ReversedParameter(U); }
+#endif
+        )
+        .add_member_function("IsCN", [](Geom_Conic const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
+        .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_Circle, sol::automagic_flags::none>("Geom_Circle")
+        .add_member_function("SetRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Circle& self, sol::object R) { self.SetRadius(occt_plugin::to_real(R)); }
+#else
+            [](Geom_Circle& self, const Standard_Real R) { self.SetRadius(R); }
+#endif
+        )
+        .add_member_function("Radius", [](Geom_Circle const& self) -> Standard_Real { return self.Radius(); })
+        .add_member_function("ReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Circle const& self, sol::object U) -> Standard_Real { return self.ReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_Circle const& self, const Standard_Real U) -> Standard_Real { return self.ReversedParameter(U); }
+#endif
+        )
+        .add_member_function("Eccentricity", [](Geom_Circle const& self) -> Standard_Real { return self.Eccentricity(); })
+        .add_member_function("FirstParameter", [](Geom_Circle const& self) -> Standard_Real { return self.FirstParameter(); })
+        .add_member_function("LastParameter", [](Geom_Circle const& self) -> Standard_Real { return self.LastParameter(); })
+        .add_member_function("IsClosed", [](Geom_Circle const& self) -> Standard_Boolean { return self.IsClosed(); })
+        .add_member_function("IsPeriodic", [](Geom_Circle const& self) -> Standard_Boolean { return self.IsPeriodic(); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Circle const& self, sol::object U, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), P); }
+#else
+            [](Geom_Circle const& self, const Standard_Real U, gp_Pnt & P) { self.D0(U, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Circle const& self, sol::object U, gp_Pnt & P, gp_Vec & V1) { self.D1(occt_plugin::to_real(U), P, V1); }
+#else
+            [](Geom_Circle const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1) { self.D1(U, P, V1); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Circle const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(occt_plugin::to_real(U), P, V1, V2); }
+#else
+            [](Geom_Circle const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(U, P, V1, V2); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Circle const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(occt_plugin::to_real(U), P, V1, V2, V3); }
+#else
+            [](Geom_Circle const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(U, P, V1, V2, V3); }
+#endif
+        )
+        .add_member_function("DN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Circle const& self, sol::object U, const Standard_Integer N) -> gp_Vec { return self.DN(occt_plugin::to_real(U), N); }
+#else
+            [](Geom_Circle const& self, const Standard_Real U, const Standard_Integer N) -> gp_Vec { return self.DN(U, N); }
+#endif
+        )
+        .add_member_function("Transform", [](Geom_Circle& self, const gp_Trsf & T) { self.Transform(T); })
+        .add_member_function("Copy", [](Geom_Circle const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_function("Geom_BezierCurve_MaxDegree", []() -> Standard_Integer { return Geom_BezierCurve::MaxDegree(); });
 }

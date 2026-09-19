@@ -385,3 +385,79 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   - `tests/test_toploc.cpp`'s `TopoDsShapeLocationRoundTrip` exercises one of the
     retroactively-unlocked `topods` callables directly (`box:Moved(loc, true)`),
     not just `TopLoc_Location` in isolation.
+- **`gc`** (`GC_Root`, `GC_MakeSegment`, `GC_MakeCircle`): two of legacy grocc's
+  "GC" construction-algorithm classes, both extending `GC_Root` (registered here
+  too, so `add_bases<GC_Root>()` dispatch can reach `IsDone()`). 8 accepted, 8
+  rejected - `GC_MakeSegment`'s other three constructors need `gp_Lin`
+  (unregistered); 3 of `GC_MakeCircle`'s 7 constructors need `gp_Circ`/`gp_Ax2`
+  (also unregistered). `Value()` returns `Handle(Geom_TrimmedCurve)`/
+  `Handle(Geom_Circle)` - this surfaced a real, general compile-time limitation,
+  described next.
+
+## Handle(X) return type requires being in the same translation unit as X
+
+Found while adding `gc`: `GC_MakeSegment`/`GC_MakeCircle`'s `Value()` methods (in
+their own `generated/gc.cpp`) return `Handle(Geom_TrimmedCurve)`/`Handle(Geom_Circle)`
+by value - types registered in a *different* generated file, `generated/geom.cpp`.
+Compiling `gc.cpp` on its own failed with:
+
+```
+error: no match for call to '(std::less<void>) (Geom_TrimmedCurve&, Geom_TrimmedCurve&)'
+error: no match for 'operator<' (operand types are 'Geom_TrimmedCurve' and 'Geom_TrimmedCurve')
+```
+
+(and the `equal_to`/`operator==` equivalent). `Geom_TrimmedCurve`/`Geom_Circle`
+declare neither operator - unremarkable, almost no OCCT geometry class does, and
+plenty of other `Handle(X)`-for-such-an-X returns already work fine elsewhere in
+this project (e.g. `Geom_BezierCurve::Copy() const -> Handle(Geom_Geometry)`,
+structurally identical: a single, non-overloaded `add_member_function` returning a
+`Handle(X)` where `X` also lacks comparison operators).
+
+**Confirmed empirically, not just theorized**: compiling `generated/geom.cpp` in
+isolation (`g++ -fsyntax-only`) always succeeds, including `Geom_TrimmedCurve`'s
+*own* constructor (also `Handle(Geom_TrimmedCurve)`-returning). Moving
+`GC_MakeSegment`/`GC_MakeCircle`'s registrations bodily into `geom.cpp` (as a
+one-off test, not the shipped fix) made the whole error disappear. So the
+determining factor is genuinely "is this Handle(X)-returning code being compiled in
+the same translation unit as X's own `register_type<X, ...>()` call" - not anything
+about `X` itself, `automagic_flags`, or whether the return is by value vs. by
+reference (both were tried and ruled out; see the traced instantiation chain below).
+
+The instantiation chain runs through sol2's own fallback path for a value pushed
+onto the Lua stack whose usertype metatable might not exist yet:
+`unqualified_pusher::push_keyed` -> `set_undefined_methods_on<Handle<X>>` ->
+`insert_default_registrations<Handle<X>>` -> `comparsion_operator_wrap<Handle<X>,
+std::less<>>`, whose body dereferences the handle down to `X&` before comparing.
+`insert_default_registrations` gates this whole block on `is_automagical<T>::value`,
+which (per `sol/types.hpp`) is essentially always `true` for an ordinary class and
+does not appear to depend on the `automagic_flags` passed to `X`'s own
+`register_type<X, Flags>()` at all - so *why* this succeeds when compiled alongside
+`X`'s own registration, in the same `.cpp`, was not fully root-caused (a
+`SOL_SAFE_FUNCTION_CALLS`/instantiation-context-dependent SFINAE check is the most
+likely mechanism, by analogy with the Debug/Release discrepancy in
+[grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283), but this
+wasn't confirmed the same way). Deliberately **not** filed as a grunk issue - this
+is specific to how this project structures Handle(T)-heavy OCCT bindings across
+multiple generated files, not a general grunk/sol2 usage pattern - so it's recorded
+here instead.
+
+**Fix**: `occt_plugin` is built as a single translation unit (a "unity build" -
+`CMakeLists.txt` generates `${CMAKE_BINARY_DIR}/occt_plugin_unity.cpp`, `#include`ing
+`src/occt_plugin.cpp` and every `generated/*.cpp`, and compiles only that one file,
+rather than each `generated/*.cpp` as its own translation unit). This mirrors legacy
+grocc's own `concatenate` config option (`config.yml.in`'s `settings.concatenate`),
+applied here unconditionally rather than as an opt-in toggle. It eliminates the
+*whole class* of this bug outright - `config.yml`'s modules can be split along
+whatever logical lines make sense (matching legacy's own module boundaries, e.g. `gc`
+staying separate from `geom` despite returning its types) without having to route
+around this compile error module-by-module as more cross-referencing modules are
+added in later Step 6 sweeps. The generated unity file is a build artifact (like any
+`.o`), not checked in - written under `CMAKE_BINARY_DIR`, already covered by
+`.gitignore`'s `/build/` entry.
+
+Trade-off, accepted deliberately: incremental rebuild cost goes up slightly (editing
+any one `generated/*.cpp` now recompiles the whole plugin as one translation unit
+instead of just that file's own object) - acceptable since `generated/` is normally
+regenerated wholesale via the codegen tool, not hand-edited file-by-file, and this is
+a plugin loaded once per process, not something rebuilt every few seconds during
+day-to-day development.
