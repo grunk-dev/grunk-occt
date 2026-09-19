@@ -468,14 +468,27 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
     looking up the method name against the object's own registered base-class
     chain, whereas satisfying a `Handle(Base) const&` *function parameter* would
     require sol2 to reconstruct a brand-new `Handle(Base)` value from the stored
-    `Handle(Derived)` userdata, which `src/occt_sol_traits.hpp`'s
-    `unique_usertype_traits<opencascade::handle<T>>` specialization (ported
-    verbatim from the `cad_autodiff` example, never previously exercised this way)
-    doesn't currently support. **Not fixed here** - same category of "confirmed,
-    documented, deferred" issue as the Debug/Release `Handle(T)` upcast bug above
-    ([grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283)), and
-    this one is OCCT/Handle-specific in the same way the unity-build issue was, so
-    it stays here rather than becoming a grunk issue. Consequence: `GeomAPI_
+    `Handle(Derived)` userdata. Root-caused with an isolated, OCCT/grunk-free sol2
+    repro: this is a genuine **sol2 3.5.0 limitation**, not specific to
+    `src/occt_sol_traits.hpp`'s `unique_usertype_traits<opencascade::handle<T>>`
+    specialization - sol2's own built-in `std::shared_ptr<T>` hits the identical
+    gates/crash for a `Derived` satisfying a `Base` parameter, so this isn't
+    something a different trait implementation could fix on its own. **Not fixed
+    here** - tracked as
+    [grunk-dev/grunk-occt#1](https://github.com/grunk-dev/grunk-occt/issues/1)
+    (full sol2-internals writeup and the recommended fix), deliberately kept as an
+    *occt-specific generator customization point* rather than a generic generator
+    feature: `codegen/generate.py` is planned to eventually move into the `grunk`
+    repo itself so other plugins can reuse it (see the migration plan's own
+    "long-term toolkit... explicitly out of scope" decision, already deferred once)
+    - this Handle(T)/base-casting problem is entirely specific to OCCT's handle
+    idiom, not something a hypothetical future non-OCCT plugin using the same
+    generator core would ever hit, so its fix belongs in this repo's own
+    generator config/extension point when the move happens, not baked into a
+    shared core. Different category from the Debug/Release `Handle(T)` upcast bug
+    above ([grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283)),
+    which stays a grunk issue since it's about grunk/sol2's own build configuration,
+    not a generator-emitted-code shape decision. Consequence: `GeomAPI_
     ProjectPointOnCurve`/`ProjectPointOnCurve`-shaped APIs taking a `Handle(Geom_
     Curve)`/`Handle(Geom_Surface)` parameter remain registered (still valid, useful
     C++) but are not currently *callable from Lua* with any real curve/surface -
