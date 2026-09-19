@@ -344,3 +344,12 @@ modules:
       - GeomAPI_ExtremaCurveCurve
       - GeomAPI_ExtremaCurveSurface
       - GeomAPI_ProjectPointOnSurf
+
+  - name: brepfilletapi
+    # Step 6 module expansion sweep, ninth module. Legacy grocc's own config.yml.in
+    # wildcarded this whole module (BRepFilletAPI_*.hxx) with no blacklist entries
+    # at all - re-derived fresh per Step 6 policy (i.e. verified rather than just
+    # carried forward, per this repo's own stated practice), and confirmed to still
+    # need none.
+    headers:
+      - BRepFilletAPI_*.hxx

@@ -500,6 +500,29 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
     `GeomAPI_PointsToBSplineSurface::Interpolate` takes a 2D grid of `gp_Pnt` (via
     Step 5's `NCollection_Array2<gp_Pnt>` conversion), no `Handle(Geom_*)` parameter
     involved.
+- **`brepfilletapi`** (`BRepFilletAPI_*`, whole-module wildcard): legacy grocc's own
+  `config.yml.in` wildcarded this whole module too, with **no** blacklist entries at
+  all - re-derived fresh per Step 6 policy (verified, not just carried forward) and
+  confirmed to still need none. 106 accepted, 30 rejected (unregistered enums/
+  `Handle(Law_Function)`/`Handle(TopOpeBRepBuild_HBuilder)`, `TopTools_ListOfShape`/
+  `TopTools_SequenceOfShape` returns, mutable `Standard_Real&` out-params - same
+  categories as prior modules).
+  - `BRepFilletAPI_MakeFillet` has **zero** accepted constructors: its only real
+    constructor takes a trailing `ChFi3d_FilletShape` with a default value (this
+    generator doesn't expand default arguments - see codegen/README.md's "Known
+    gaps"), so it's rejected outright - same category as `geomapi`'s own
+    `GeomAPI_PointsToBSpline` (blocked by a trailing `GeomAbs_Shape` default). It
+    stays registered (its other members are still real, valid C++) but isn't
+    instantiable from Lua today.
+  - `BRepFilletAPI_MakeChamfer(const TopoDS_Shape&)` has no such trailing default
+    enum, so it's the module's actual smoke-test candidate. Its `Add(Dis, E)` needs
+    a `TopoDS_Edge` - extended `src/topexp_extras.hpp` with `occt.first_edge(shape)`,
+    symmetric with the existing `first_face`. `tests/test_brepfilletapi.cpp`'s
+    `ChamferOneEdgeOfBox` chamfers one edge of the Step 4b box and passed first try.
+  - This was the last module from the migration plan's own Step 6 list (`Bnd`,
+    `BRep`, `BRepTools`, `BRepOffsetAPI`, `Geom`, `GeomAPI`, `BRepFilletAPI`, `GC`,
+    `TopLoc`) - Step 6's module expansion sweep is now complete; Step 6.5 (porting
+    legacy plugin-using example recipes) is next.
 
 ## Handle(X) return type requires being in the same translation unit as X
 

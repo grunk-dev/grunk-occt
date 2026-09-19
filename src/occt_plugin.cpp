@@ -14,8 +14,9 @@
 // bnd (Bnd_Box/BRepBndLib), brep (BRep_Builder/BRep_Tool), breptools
 // (BRepTools), toploc (TopLoc_Location), gc (GC_Root/GC_MakeSegment/
 // GC_MakeCircle), brepoffsetapi (BRepOffsetAPI_*, whole-module wildcard), and
-// geomapi (GeomAPI_*, whole-module wildcard) so far - toploc retroactively unlocked
-// several TopLoc_Location&/const& parameters in topods/brep that were rejected before it
+// geomapi (GeomAPI_*, whole-module wildcard), and brepfilletapi (BRepFilletAPI_*,
+// whole-module wildcard) so far - toploc retroactively unlocked several
+// TopLoc_Location&/const& parameters in topods/brep that were rejected before it
 // existed. gc's own Value() methods return Handle(Geom_TrimmedCurve)/
 // Handle(Geom_Circle), registered in a *different* generated file (geom.cpp) -
 // this only works because occt_plugin is built as a single translation unit (see
@@ -39,6 +40,7 @@
 #include "../generated/gc.hpp"
 #include "../generated/brepoffsetapi.hpp"
 #include "../generated/geomapi.hpp"
+#include "../generated/brepfilletapi.hpp"
 #include "gp/gp_extras.hpp"
 #include "brep/brep_extras.hpp"
 #include "geom/geom_extras.hpp"
@@ -67,6 +69,7 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_gc(ns);
     register_brepoffsetapi(ns);
     register_geomapi(ns);
+    register_brepfilletapi(ns);
     register_shape_io(ns);
     register_topexp_extras(ns);
 }

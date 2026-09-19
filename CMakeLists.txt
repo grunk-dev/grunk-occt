@@ -162,6 +162,7 @@ if(GRUNK_OCCT_TESTS)
         tests/test_gp_wildcard.cpp
         tests/test_brepoffsetapi.cpp
         tests/test_geomapi.cpp
+        tests/test_brepfilletapi.cpp
     )
     target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE
