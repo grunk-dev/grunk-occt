@@ -317,3 +317,30 @@ modules:
       - BRepOffsetAPI_*.hxx
     blacklist:
       - BRepOffsetAPI_FindContigousEdges
+
+  - name: geomapi
+    # Step 6 module expansion sweep, seventh module. Legacy grocc's own
+    # config.yml.in wildcarded this whole module (GeomAPI_*.hxx) too, with one
+    # blacklist entry (GeomAPI_Interpolate::ClearTangents - a Windows link error,
+    # legacy's own comment notes the definition seems to be missing from OCCT's own
+    # GeomAPI_Interpolate.cxx); re-derived fresh per Step 6 policy rather than
+    # carried forward uncritically - see DESIGN.md for whether it's still warranted
+    # here (a real OCCT library gap, not a toolchain/generator artifact, so likely
+    # still applies, but confirmed rather than assumed).
+    headers:
+      - GeomAPI_*.hxx
+    blacklist:
+      - GeomAPI_Interpolate::ClearTangents
+      # A real, new generator gap found here (see DESIGN.md): each of these three
+      # holds an Extrema_Ext{CC,CS,PS} member whose own implicit move/copy
+      # constructor is deleted (a private field deep in its own dependency chain
+      # forces this) - but none of the three has an *explicit* destructor of its
+      # own or in its base chain, so owns_resource_unsafely's existing heuristic
+      # (which only checks for that) doesn't route them to the unique_ptr ctor
+      # mode, and the plain by-value ctor mode fails to compile. Detecting genuine
+      # move/copy-constructibility would need full semantic analysis libclang's
+      # cursor-level AST walk doesn't give us - out of scope for this pass;
+      # blacklisted as bare class names rather than taught to the generator.
+      - GeomAPI_ExtremaCurveCurve
+      - GeomAPI_ExtremaCurveSurface
+      - GeomAPI_ProjectPointOnSurf

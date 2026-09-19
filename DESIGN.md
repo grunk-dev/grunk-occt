@@ -434,6 +434,59 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
     Step 4b smoke test's own cylinder (not the box - a box's sharp corners were
     tried too before isolating the real cause, a closed vs. non-closed input, not
     corner geometry).
+- **`geomapi`** (`GeomAPI_*`, whole-module wildcard): legacy grocc's own
+  `config.yml.in` wildcarded this whole module too, with one blacklist entry
+  (`GeomAPI_Interpolate::ClearTangents` - legacy's own comment notes it's a Windows
+  link error, the definition apparently missing from OCCT's own
+  `GeomAPI_Interpolate.cxx`); re-derived fresh per Step 6 policy and kept, same
+  reasoning as `brepoffsetapi`'s carried-forward entry (a real OCCT library gap, not
+  a toolchain/generator artifact).
+  - **A new generator gap**: `GeomAPI_ExtremaCurveCurve`, `GeomAPI_ExtremaCurveSurface`,
+    and `GeomAPI_ProjectPointOnSurf` each hold an `Extrema_Ext{CC,CS,PS}` member whose
+    own implicit move/copy constructor is deleted (a private field deep in its own
+    dependency chain forces this), but none of the three has an *explicit* destructor
+    of its own or anywhere in its base chain - so `owns_resource_unsafely` (which only
+    checks for an explicit destructor, see its own doc comment under "Copying an
+    algorithm/builder class segfaults") doesn't route them to the `unique_ptr` ctor
+    mode, and the plain by-value ctor mode fails to compile
+    (`use of deleted function ...(&&)`/`use of deleted function ...(&)`). Detecting
+    genuine move/copy-constructibility in general would need full semantic analysis
+    beyond what libclang's cursor-level AST walk gives us - out of scope for this
+    pass; blacklisted as bare class names (`codegen/config.yml`) rather than taught
+    to the generator. 68 accepted before this blacklist addition, 40 after.
+  - **A second, more consequential new limitation, found writing this module's own
+    test**: `GeomAPI_ProjectPointOnCurve`'s constructor/`Init` take a
+    `Handle(Geom_Curve) const&` - but `Geom_Curve` is abstract, so the only way to
+    supply one from Lua is to upcast a registered concrete subtype's Handle (e.g.
+    `Handle(Geom_Line)`). This fails at the sol2 dispatch layer: `"no matching
+    function call takes this number of arguments and the specified types"` -
+    confirmed both via the constructor and via a separate `:Init()` call on a
+    default-constructed instance (ruling out a constructor-overload-set-specific
+    issue). This is a different mechanism from the Handle(Derived) upcast that
+    *does* work today - calling an inherited *method* through `add_bases`
+    (`test_geom.cpp`'s `ValueViaInheritedGeomCurve`) - because that dispatches by
+    looking up the method name against the object's own registered base-class
+    chain, whereas satisfying a `Handle(Base) const&` *function parameter* would
+    require sol2 to reconstruct a brand-new `Handle(Base)` value from the stored
+    `Handle(Derived)` userdata, which `src/occt_sol_traits.hpp`'s
+    `unique_usertype_traits<opencascade::handle<T>>` specialization (ported
+    verbatim from the `cad_autodiff` example, never previously exercised this way)
+    doesn't currently support. **Not fixed here** - same category of "confirmed,
+    documented, deferred" issue as the Debug/Release `Handle(T)` upcast bug above
+    ([grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283)), and
+    this one is OCCT/Handle-specific in the same way the unity-build issue was, so
+    it stays here rather than becoming a grunk issue. Consequence: `GeomAPI_
+    ProjectPointOnCurve`/`ProjectPointOnCurve`-shaped APIs taking a `Handle(Geom_
+    Curve)`/`Handle(Geom_Surface)` parameter remain registered (still valid, useful
+    C++) but are not currently *callable from Lua* with any real curve/surface -
+    this will recur for any future module accepting a `Geom_Curve`/`Geom_Surface`
+    handle as a parameter (not just as a return value or `self`), e.g.
+    `BRep_Builder::MakeEdge`'s own `Handle(Geom_Curve)` overloads (accepted by the
+    generator, never yet exercised from Lua either). `tests/test_geomapi.cpp`'s own
+    `InterpolateBSplineSurfaceFromPointGrid` sidesteps this entirely -
+    `GeomAPI_PointsToBSplineSurface::Interpolate` takes a 2D grid of `gp_Pnt` (via
+    Step 5's `NCollection_Array2<gp_Pnt>` conversion), no `Handle(Geom_*)` parameter
+    involved.
 
 ## Handle(X) return type requires being in the same translation unit as X
 
