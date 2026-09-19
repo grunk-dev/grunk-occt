@@ -227,7 +227,9 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_constructors(
             []() { return gp_Ax22d(); },
             [](const gp_Pnt2d & theP, const gp_Dir2d & theVx, const gp_Dir2d & theVy) { return gp_Ax22d(theP, theVx, theVy); },
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theV) { return gp_Ax22d(theP, theV); },
             [](const gp_Pnt2d & theP, const gp_Dir2d & theV, const Standard_Boolean theIsSense) { return gp_Ax22d(theP, theV, theIsSense); },
+            [](const gp_Ax2d & theA) { return gp_Ax22d(theA); },
             [](const gp_Ax2d & theA, const Standard_Boolean theIsSense) { return gp_Ax22d(theA, theIsSense); }
         )
         .add_member_function("SetAxis", [](gp_Ax22d& self, const gp_Ax22d & theA1) { self.SetAxis(theA1); })
@@ -549,6 +551,13 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Circ2d, sol::automagic_flags::none>("gp_Circ2d")
         .add_constructors(
             []() { return gp_Circ2d(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theXAxis, sol::object theRadius) { return gp_Circ2d(theXAxis, occt_plugin::to_real(theRadius)); }
+#else
+            [](const gp_Ax2d & theXAxis, const Standard_Real theRadius) { return gp_Circ2d(theXAxis, theRadius); }
+#endif
+        ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2d & theXAxis, sol::object theRadius, const Standard_Boolean theIsSense) { return gp_Circ2d(theXAxis, occt_plugin::to_real(theRadius), theIsSense); }
@@ -1127,6 +1136,13 @@ void register_gp(grunk::plugin_namespace& ns)
             []() { return gp_Elips2d(); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Elips2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Elips2d(theMajorAxis, theMajorRadius, theMinorRadius); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
 #else
             [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, theMajorRadius, theMinorRadius, theIsSense); }
@@ -1434,6 +1450,13 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Hypr2d, sol::automagic_flags::none>("gp_Hypr2d")
         .add_constructors(
             []() { return gp_Hypr2d(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Hypr2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Hypr2d(theMajorAxis, theMajorRadius, theMinorRadius); }
+#endif
+        ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Hypr2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
@@ -1968,6 +1991,13 @@ void register_gp(grunk::plugin_namespace& ns)
             []() { return gp_Parab2d(); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theMirrorAxis, sol::object theFocalLength) { return gp_Parab2d(theMirrorAxis, occt_plugin::to_real(theFocalLength)); }
+#else
+            [](const gp_Ax2d & theMirrorAxis, const Standard_Real theFocalLength) { return gp_Parab2d(theMirrorAxis, theFocalLength); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2d & theMirrorAxis, sol::object theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, occt_plugin::to_real(theFocalLength), theSense); }
 #else
             [](const gp_Ax2d & theMirrorAxis, const Standard_Real theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, theFocalLength, theSense); }
@@ -1980,6 +2010,7 @@ void register_gp(grunk::plugin_namespace& ns)
             [](const gp_Ax22d & theAxes, const Standard_Real theFocalLength) { return gp_Parab2d(theAxes, theFocalLength); }
 #endif
         ,
+            [](const gp_Ax2d & theDirectrix, const gp_Pnt2d & theFocus) { return gp_Parab2d(theDirectrix, theFocus); },
             [](const gp_Ax2d & theDirectrix, const gp_Pnt2d & theFocus, const Standard_Boolean theSense) { return gp_Parab2d(theDirectrix, theFocus, theSense); }
         )
         .add_member_function("SetFocal", 

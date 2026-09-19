@@ -188,6 +188,14 @@ class Param:
     # kind() uses that (name == "") to deliberately keep NCollection_Array1/2
     # support parameter-only for now - see kind()'s own comment.
     canonical: str = ""
+    # Whether the real C++ declaration gives this parameter a default value (e.g.
+    # `Standard_Boolean Copy = Standard_False`) - see param_has_default() for how
+    # this is actually detected via libclang, and Callable.accepted_arities() for
+    # what it unlocks (default-argument expansion, Step 6.5). Only ever True for a
+    # genuine parameter (populated by collect_class_callables/
+    # collect_namespace_callables), never for the synthetic Param
+    # Callable.rejection_reason/accepted_arities construct to check a return type.
+    has_default: bool = False
 
     @property
     def base(self) -> str:
@@ -272,6 +280,45 @@ class Callable:
             if Param(self.return_spelling, "").kind(registered_types, registered_enums) is None:
                 return f"unsupported return type '{self.return_spelling.strip()}'"
         return None
+
+    def accepted_arities(self, registered_types: set[str], registered_enums: set[str]) -> list[int]:
+        """Every number of leading parameters this callable can be called with from
+        Lua, in ascending order - normally just [len(self.params)] (today's
+        all-or-nothing behavior, when nothing is defaulted), but more than one value
+        when trailing parameters have real C++ default values: this generator
+        doesn't need to know the *value* of a defaulted trailing parameter, only
+        that it has one - a shorter overload can simply omit it from the emitted
+        call expression and let C++ itself apply the real default at the actual
+        call site (see param_has_default()). Mirrors legacy grocc's own generator,
+        which used the same trick for the same reason (see DESIGN.md's
+        "Default-argument expansion (Step 6.5)"). Returns [] if nothing is
+        reachable at all - either the return type itself is unsupported (no arity
+        helps that), or even the shortest reachable prefix still needs an
+        unsupported parameter that has no default to fall back on.
+
+        Because C++ requires every defaulted parameter to be trailing (you can
+        never have a non-default parameter after a default one), the reachable
+        arities always form one contiguous range [s, m]: m is the length of the
+        longest prefix of individually-supported parameters (kind() is not None -
+        the same check rejection_reason() already made all-or-nothing), and s is
+        the start of the longest trailing run of parameters that all have a
+        default (so anything from there on can be dropped). s > m means the first
+        unsupported parameter has no default to fall back on - nothing is
+        reachable, same as today's plain rejection."""
+        if self.return_spelling is not None and self.return_spelling.strip() != "void":
+            if Param(self.return_spelling, "").kind(registered_types, registered_enums) is None:
+                return []
+        n = len(self.params)
+        kinds = [p.kind(registered_types, registered_enums) for p in self.params]
+        m = 0
+        while m < n and kinds[m] is not None:
+            m += 1
+        s = n
+        while s > 0 and self.params[s - 1].has_default:
+            s -= 1
+        if s > m:
+            return []
+        return list(range(s, m + 1))
 
 
 @dataclass
@@ -389,6 +436,30 @@ def parse_headers(headers: list[str], occt_include_dir: Path, clang_args: list[s
         cache[header] = ParsedHeader(tu, discover_entities(tu, header_path))
 
 
+# A PARM_DECL cursor's own children always include a REF cursor for its *type*
+# (TYPE_REF for a named class/enum/typedef, TEMPLATE_REF for a template, none at
+# all for a bare fundamental type like Standard_Real/size_t) - none of those three
+# indicate a default value. Any *other* child kind appearing on a parameter is the
+# default-value expression itself (confirmed empirically against real OCCT headers
+# - see DESIGN.md's "Default-argument expansion": CXX_BOOL_LITERAL_EXPR for
+# `Standard_Boolean Copy = Standard_False`, INTEGER_LITERAL/FLOATING_LITERAL for a
+# numeric default, DECL_REF_EXPR for an enum-constant default like
+# `ChFi3d_FilletShape FShape = ChFi3d_Rational`, UNEXPOSED_EXPR for a
+# temporary-object default like `Message_ProgressRange theRange =
+# Message_ProgressRange()`). libclang has no dedicated "has a default value" query
+# on a parameter cursor, so this is the standard heuristic other libclang-based
+# tools use for the same question.
+NON_DEFAULT_CHILD_KINDS = {
+    cindex.CursorKind.TYPE_REF,
+    cindex.CursorKind.TEMPLATE_REF,
+    cindex.CursorKind.NAMESPACE_REF,
+}
+
+
+def param_has_default(arg_cursor: cindex.Cursor) -> bool:
+    return any(child.kind not in NON_DEFAULT_CHILD_KINDS for child in arg_cursor.get_children())
+
+
 def collect_namespace_callables(namespace_cursors: list[cindex.Cursor], ns_name: str) -> list[Callable]:
     """Returns every free FUNCTION_DECL directly inside the given namespace
     fragment(s) as unfiltered, is_static=True Callables (see codegen/README.md's
@@ -401,7 +472,8 @@ def collect_namespace_callables(namespace_cursors: list[cindex.Cursor], ns_name:
                 continue
             if child.spelling.startswith("operator"):
                 continue  # operators not handled yet - see codegen/README.md's "Known gaps"
-            params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling)
+            params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling,
+                             has_default=param_has_default(arg))
                       for i, arg in enumerate(child.get_arguments())]
             callables.append(Callable(ns_name, "method", child.spelling, params,
                                        child.result_type.spelling, is_const=False, is_static=True))
@@ -504,7 +576,8 @@ def collect_class_callables(target: cindex.Cursor, class_name: str) -> list[Call
         else:
             continue
 
-        params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling)
+        params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling,
+                         has_default=param_has_default(arg))
                   for i, arg in enumerate(child.get_arguments())]
         callables.append(Callable(class_name, kind, cpp_name, params, return_spelling, is_const, is_static))
     return callables
@@ -693,16 +766,23 @@ def process_module(module: dict, cache: dict[str, ParsedHeader], registered_type
                     result.blacklisted.append(c)
                     continue
 
-                reason = c.rejection_reason(registered_types, registered_enums)
-                if reason is not None:
-                    result.rejected.append((c, reason))
+                arities = c.accepted_arities(registered_types, registered_enums)
+                if not arities:
+                    result.rejected.append((c, c.rejection_reason(registered_types, registered_enums)))
                     continue
 
-                kinds = [p.kind(registered_types, registered_enums) for p in c.params]
-                if c.kind == "constructor":
-                    result.accepted_ctors.setdefault(name, []).append((c, kinds))
-                else:
-                    result.accepted_methods[name].setdefault(c.cpp_name, []).append((c, kinds))
+                # One (Callable, kinds) entry per reachable arity - see
+                # accepted_arities()'s own doc comment (default-argument expansion,
+                # Step 6.5): a shorter kinds list here means emit_lambda emits a
+                # shorter parameter list, dropping trailing arguments this call
+                # simply never passes and letting C++ apply their real defaults.
+                full_kinds = [p.kind(registered_types, registered_enums) for p in c.params]
+                for i in arities:
+                    kinds = full_kinds[:i]
+                    if c.kind == "constructor":
+                        result.accepted_ctors.setdefault(name, []).append((c, kinds))
+                    else:
+                        result.accepted_methods[name].setdefault(c.cpp_name, []).append((c, kinds))
 
     return result
 

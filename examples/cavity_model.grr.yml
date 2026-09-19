@@ -32,7 +32,6 @@ parameters:
 steps: |
   cyl2_dir = occt.gp_Dir.new(cyl2_dir_x, cyl2_dir_y, cyl2_dir_z)
   x_axis = occt.gp_Dir.new(1.0, 0.0, 0.0)
-  progress = occt.Message_ProgressRange.new()
 
   angle_rad = occt.pi() * angle_deg / 180.0
 
@@ -83,9 +82,14 @@ steps: |
   o = occt.gp_Pnt.new(0.0, 0.0, 0.0)
   d = occt.gp_Dir.new(-1.0, 0.0, 0.0)
   ax = occt.gp_Ax1.new(o, d)
-  revol = occt.BRepPrimAPI_MakeRevol.new(transformed_face, ax, angle_rad, false):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  -- BRepPrimAPI_MakeRevol's trailing Copy (default Standard_False) is omitted -
+  -- see occt_helpers.lua's own top comment on default-argument expansion.
+  revol = occt.BRepPrimAPI_MakeRevol.new(transformed_face, ax, angle_rad):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
-  cavity_cyl1 = occt.BRepAlgoAPI_Fuse.new(revol, cylinder1, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  -- BRepAlgoAPI_Fuse/Cut's trailing Message_ProgressRange (default an empty range)
+  -- is likewise omitted below throughout - see DESIGN.md's "Default-argument
+  -- expansion".
+  cavity_cyl1 = occt.BRepAlgoAPI_Fuse.new(revol, cylinder1):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
   -- The second cylinder is clipped by a half-space starting at x_min so it doesn't
   -- poke out the far side of the cavity, then fused in too.
@@ -95,9 +99,9 @@ steps: |
   halfspace_pln = occt.gp_Pln.new(x_min_pnt, x_axis)
   halfspace_face = occt.BRepBuilderAPI_MakeFace.new(halfspace_pln):Face()
   halfspace = occt.BRepPrimAPI_MakeHalfSpace.new(halfspace_face, halfspace_pnt):Solid()
-  cylinder2_cut = occt.BRepAlgoAPI_Cut.new(cylinder2, halfspace, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  cylinder2_cut = occt.BRepAlgoAPI_Cut.new(cylinder2, halfspace):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
-  cavity = occt.BRepAlgoAPI_Fuse.new(cavity_cyl1, cylinder2_cut, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  cavity = occt.BRepAlgoAPI_Fuse.new(cavity_cyl1, cylinder2_cut):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
   ok = occt.export_brep(cavity, "cavity_model.brep")
 outputs:

@@ -50,19 +50,143 @@ void register_geomapi(grunk::plugin_namespace& ns)
         .add_member_function("NbLines", [](GeomAPI_IntSS const& self) -> Standard_Integer { return self.NbLines(); })
         .add_member_function("Line", [](GeomAPI_IntSS const& self, const Standard_Integer Index) -> opencascade::handle<Geom_Curve> { return self.Line(Index); });
     ns.register_type<GeomAPI_Interpolate, sol::automagic_flags::none>("GeomAPI_Interpolate")
-        .add_member_function("Load", [](GeomAPI_Interpolate& self, const gp_Vec & InitialTangent, const gp_Vec & FinalTangent, const Standard_Boolean Scale) { self.Load(InitialTangent, FinalTangent, Scale); })
+        .add_member_function("Load", sol::overload(
+            [](GeomAPI_Interpolate& self, const gp_Vec & InitialTangent, const gp_Vec & FinalTangent) { self.Load(InitialTangent, FinalTangent); },
+            [](GeomAPI_Interpolate& self, const gp_Vec & InitialTangent, const gp_Vec & FinalTangent, const Standard_Boolean Scale) { self.Load(InitialTangent, FinalTangent, Scale); }
+        ))
         .add_member_function("Perform", [](GeomAPI_Interpolate& self) { self.Perform(); })
         .add_member_function("IsDone", [](GeomAPI_Interpolate const& self) -> Standard_Boolean { return self.IsDone(); });
     ns.register_type<GeomAPI_PointsToBSpline, sol::automagic_flags::none>("GeomAPI_PointsToBSpline")
         .add_constructors(
-            []() { return GeomAPI_PointsToBSpline(); }
+            []() { return GeomAPI_PointsToBSpline(); },
+            [](std::vector<gp_Pnt> const& Points) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points)); },
+            [](std::vector<gp_Pnt> const& Points, const Standard_Integer DegMin) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), DegMin); },
+            [](std::vector<gp_Pnt> const& Points, const Standard_Integer DegMin, const Standard_Integer DegMax) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), DegMin, DegMax); },
+            [](std::vector<gp_Pnt> const& Points, std::vector<double> const& Parameters) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), occt_plugin::to_array1(Parameters)); },
+            [](std::vector<gp_Pnt> const& Points, std::vector<double> const& Parameters, const Standard_Integer DegMin) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), occt_plugin::to_array1(Parameters), DegMin); },
+            [](std::vector<gp_Pnt> const& Points, std::vector<double> const& Parameters, const Standard_Integer DegMin, const Standard_Integer DegMax) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), occt_plugin::to_array1(Parameters), DegMin, DegMax); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](std::vector<gp_Pnt> const& Points, sol::object Weight1, sol::object Weight2, sol::object Weight3) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3)); }
+#else
+            [](std::vector<gp_Pnt> const& Points, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), Weight1, Weight2, Weight3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](std::vector<gp_Pnt> const& Points, sol::object Weight1, sol::object Weight2, sol::object Weight3, const Standard_Integer DegMax) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3), DegMax); }
+#else
+            [](std::vector<gp_Pnt> const& Points, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3, const Standard_Integer DegMax) { return GeomAPI_PointsToBSpline(occt_plugin::to_array1(Points), Weight1, Weight2, Weight3, DegMax); }
+#endif
+        
         )
+        .add_member_function("Init", sol::overload(
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points) { self.Init(occt_plugin::to_array1(Points)); },
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, const Standard_Integer DegMin) { self.Init(occt_plugin::to_array1(Points), DegMin); },
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, const Standard_Integer DegMin, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array1(Points), DegMin, DegMax); },
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, std::vector<double> const& Parameters) { self.Init(occt_plugin::to_array1(Points), occt_plugin::to_array1(Parameters)); },
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, std::vector<double> const& Parameters, const Standard_Integer DegMin) { self.Init(occt_plugin::to_array1(Points), occt_plugin::to_array1(Parameters), DegMin); },
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, std::vector<double> const& Parameters, const Standard_Integer DegMin, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array1(Points), occt_plugin::to_array1(Parameters), DegMin, DegMax); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, sol::object Weight1, sol::object Weight2, sol::object Weight3) { self.Init(occt_plugin::to_array1(Points), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3)); }
+#else
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3) { self.Init(occt_plugin::to_array1(Points), Weight1, Weight2, Weight3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, sol::object Weight1, sol::object Weight2, sol::object Weight3, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array1(Points), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3), DegMax); }
+#else
+            [](GeomAPI_PointsToBSpline& self, std::vector<gp_Pnt> const& Points, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array1(Points), Weight1, Weight2, Weight3, DegMax); }
+#endif
+        
+        ))
         .add_member_function("IsDone", [](GeomAPI_PointsToBSpline const& self) -> Standard_Boolean { return self.IsDone(); });
     ns.register_type<GeomAPI_PointsToBSplineSurface, sol::automagic_flags::none>("GeomAPI_PointsToBSplineSurface")
         .add_constructors(
-            []() { return GeomAPI_PointsToBSplineSurface(); }
+            []() { return GeomAPI_PointsToBSplineSurface(); },
+            [](std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols)); },
+            [](std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Integer DegMin) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), DegMin); },
+            [](std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Integer DegMin, const Standard_Integer DegMax) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), DegMin, DegMax); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, sol::object Weight1, sol::object Weight2, sol::object Weight3) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3)); }
+#else
+            [](std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), Weight1, Weight2, Weight3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, sol::object Weight1, sol::object Weight2, sol::object Weight3, const Standard_Integer DegMax) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3), DegMax); }
+#else
+            [](std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3, const Standard_Integer DegMax) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), Weight1, Weight2, Weight3, DegMax); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, sol::object X0, sol::object dX, sol::object Y0, sol::object dY) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), occt_plugin::to_real(X0), occt_plugin::to_real(dX), occt_plugin::to_real(Y0), occt_plugin::to_real(dY)); }
+#else
+            [](std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, const Standard_Real X0, const Standard_Real dX, const Standard_Real Y0, const Standard_Real dY) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), X0, dX, Y0, dY); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, sol::object X0, sol::object dX, sol::object Y0, sol::object dY, const Standard_Integer DegMin) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), occt_plugin::to_real(X0), occt_plugin::to_real(dX), occt_plugin::to_real(Y0), occt_plugin::to_real(dY), DegMin); }
+#else
+            [](std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, const Standard_Real X0, const Standard_Real dX, const Standard_Real Y0, const Standard_Real dY, const Standard_Integer DegMin) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), X0, dX, Y0, dY, DegMin); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, sol::object X0, sol::object dX, sol::object Y0, sol::object dY, const Standard_Integer DegMin, const Standard_Integer DegMax) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), occt_plugin::to_real(X0), occt_plugin::to_real(dX), occt_plugin::to_real(Y0), occt_plugin::to_real(dY), DegMin, DegMax); }
+#else
+            [](std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, const Standard_Real X0, const Standard_Real dX, const Standard_Real Y0, const Standard_Real dY, const Standard_Integer DegMin, const Standard_Integer DegMax) { return GeomAPI_PointsToBSplineSurface(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), X0, dX, Y0, dY, DegMin, DegMax); }
+#endif
+        
         )
+        .add_member_function("Init", sol::overload(
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols) { self.Init(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols)); },
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Integer DegMin) { self.Init(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), DegMin); },
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Integer DegMin, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), DegMin, DegMax); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, sol::object X0, sol::object dX, sol::object Y0, sol::object dY) { self.Init(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), occt_plugin::to_real(X0), occt_plugin::to_real(dX), occt_plugin::to_real(Y0), occt_plugin::to_real(dY)); }
+#else
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, const Standard_Real X0, const Standard_Real dX, const Standard_Real Y0, const Standard_Real dY) { self.Init(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), X0, dX, Y0, dY); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, sol::object X0, sol::object dX, sol::object Y0, sol::object dY, const Standard_Integer DegMin) { self.Init(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), occt_plugin::to_real(X0), occt_plugin::to_real(dX), occt_plugin::to_real(Y0), occt_plugin::to_real(dY), DegMin); }
+#else
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, const Standard_Real X0, const Standard_Real dX, const Standard_Real Y0, const Standard_Real dY, const Standard_Integer DegMin) { self.Init(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), X0, dX, Y0, dY, DegMin); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, sol::object X0, sol::object dX, sol::object Y0, sol::object dY, const Standard_Integer DegMin, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), occt_plugin::to_real(X0), occt_plugin::to_real(dX), occt_plugin::to_real(Y0), occt_plugin::to_real(dY), DegMin, DegMax); }
+#else
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<double> const& ZPoints_flat, Standard_Integer ZPoints_rows, Standard_Integer ZPoints_cols, const Standard_Real X0, const Standard_Real dX, const Standard_Real Y0, const Standard_Real dY, const Standard_Integer DegMin, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array2(ZPoints_flat, ZPoints_rows, ZPoints_cols), X0, dX, Y0, dY, DegMin, DegMax); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, sol::object Weight1, sol::object Weight2, sol::object Weight3) { self.Init(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3)); }
+#else
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3) { self.Init(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), Weight1, Weight2, Weight3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, sol::object Weight1, sol::object Weight2, sol::object Weight3, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), occt_plugin::to_real(Weight1), occt_plugin::to_real(Weight2), occt_plugin::to_real(Weight3), DegMax); }
+#else
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Real Weight1, const Standard_Real Weight2, const Standard_Real Weight3, const Standard_Integer DegMax) { self.Init(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), Weight1, Weight2, Weight3, DegMax); }
+#endif
+        
+        ))
         .add_member_function("Interpolate", sol::overload(
+            [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols) { self.Interpolate(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols)); },
             [](GeomAPI_PointsToBSplineSurface& self, std::vector<gp_Pnt> const& Points_flat, Standard_Integer Points_rows, Standard_Integer Points_cols, const Standard_Boolean thePeriodic) { self.Interpolate(occt_plugin::to_array2(Points_flat, Points_rows, Points_cols), thePeriodic); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)

@@ -55,8 +55,6 @@ recipes:
       radius: 1.0
       box_ratio: 0.5
     steps: |
-      progress = occt.Message_ProgressRange.new()
-
       box_width = 2.0 * box_ratio * radius
       half_box_width = box_ratio * radius
       half_box_width_neg = -half_box_width
@@ -83,7 +81,7 @@ recipes:
       y_axis = occt.gp_Dir.new(0.0, 1.0, 0.0)
       ax1_y = occt.gp_Ax1.new(origin, y_axis)
       dome_wedge_top_uncut = occt_helpers.rotate(dome_wedge_top_segment, ax1_y, ninetydeg_neg)
-      dome_wedge_top = occt.BRepAlgoAPI_Cut.new(dome_wedge_top_uncut, dome_core, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      dome_wedge_top = occt.BRepAlgoAPI_Cut.new(dome_wedge_top_uncut, dome_core):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
       -- The dome's four side wedges: one spherical wedge, trimmed against the
       -- core, then rotated 90 degrees three more times around the default
@@ -101,7 +99,7 @@ recipes:
       side_segment_builder.angle2_end = angle2_end_side
       dome_wedge_side_segment = side_segment_builder.segment
 
-      dome_wedge_side0 = occt.BRepAlgoAPI_Cut.new(dome_wedge_side_segment, dome_core, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      dome_wedge_side0 = occt.BRepAlgoAPI_Cut.new(dome_wedge_side_segment, dome_core):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
       default_axis = occt.gp_Ax1.new()
       dome_wedge_side1 = occt_helpers.rotate(dome_wedge_side0, default_axis, ninetydeg)
@@ -126,7 +124,6 @@ recipes:
           angle1 = angle1_end - angle1_start
           angle2 = angle2_end - angle2_start
           origin = occt.gp_Pnt.new(0.0, 0.0, 0.0)
-          progress = occt.Message_ProgressRange.new()
 
           cr1 = occt.cos(angle1_start) * radius
           sr1 = occt.sin(angle1_start) * radius
@@ -142,7 +139,7 @@ recipes:
           ax_2 = occt.gp_Ax2.new(origin, dir21, dir22)
           wedge_2 = occt.BRepPrimAPI_MakeSphere.new(ax_2, radius, angle2):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
-          segment = occt.BRepAlgoAPI_Common.new(wedge_1, wedge_2, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+          segment = occt.BRepAlgoAPI_Common.new(wedge_1, wedge_2):as(occt.BRepBuilderAPI_MakeShape):Shape()
         outputs:
           segment: segment
   cylinder:
@@ -167,11 +164,14 @@ recipes:
       cylinder_face2 = occt_helpers.rotate(cylinder_face1, default_axis, ninetydeg)
       cylinder_face3 = occt_helpers.rotate(cylinder_face2, default_axis, ninetydeg)
 
+      -- BRepPrimAPI_MakePrism's trailing Copy/Canonize (defaults Standard_False/
+      -- Standard_True) are omitted below - see DESIGN.md's "Default-argument
+      -- expansion".
       zdir = occt.gp_Vec.new(0.0, 0.0, cylinder_height)
-      cylinder_segment0 = occt.BRepPrimAPI_MakePrism.new(cylinder_face0, zdir, false, true):as(occt.BRepBuilderAPI_MakeShape):Shape()
-      cylinder_segment1 = occt.BRepPrimAPI_MakePrism.new(cylinder_face1, zdir, false, true):as(occt.BRepBuilderAPI_MakeShape):Shape()
-      cylinder_segment2 = occt.BRepPrimAPI_MakePrism.new(cylinder_face2, zdir, false, true):as(occt.BRepBuilderAPI_MakeShape):Shape()
-      cylinder_segment3 = occt.BRepPrimAPI_MakePrism.new(cylinder_face3, zdir, false, true):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      cylinder_segment0 = occt.BRepPrimAPI_MakePrism.new(cylinder_face0, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      cylinder_segment1 = occt.BRepPrimAPI_MakePrism.new(cylinder_face1, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      cylinder_segment2 = occt.BRepPrimAPI_MakePrism.new(cylinder_face2, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      cylinder_segment3 = occt.BRepPrimAPI_MakePrism.new(cylinder_face3, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
       box_width = 2.0 * box_ratio * radius
       cylinder_core_untranslated = occt.BRepPrimAPI_MakeBox.new(box_width, box_width, cylinder_height):as(occt.BRepBuilderAPI_MakeShape):Shape()

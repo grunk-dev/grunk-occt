@@ -123,7 +123,14 @@ void register_bnd(grunk::plugin_namespace& ns)
         .add_member_function("FinitePart", [](Bnd_Box const& self) -> Bnd_Box { return self.FinitePart(); })
         .add_member_function("HasFinitePart", [](Bnd_Box const& self) -> Standard_Boolean { return self.HasFinitePart(); });
     ns.register_type<BRepBndLib, sol::automagic_flags::none>("BRepBndLib");
-    ns.register_function("BRepBndLib_Add", [](const TopoDS_Shape & S, Bnd_Box & B, const Standard_Boolean useTriangulation) { BRepBndLib::Add(S, B, useTriangulation); });
+    ns.register_function("BRepBndLib_Add", sol::overload(
+        [](const TopoDS_Shape & S, Bnd_Box & B) { BRepBndLib::Add(S, B); },
+        [](const TopoDS_Shape & S, Bnd_Box & B, const Standard_Boolean useTriangulation) { BRepBndLib::Add(S, B, useTriangulation); }
+    ));
     ns.register_function("BRepBndLib_AddClose", [](const TopoDS_Shape & S, Bnd_Box & B) { BRepBndLib::AddClose(S, B); });
-    ns.register_function("BRepBndLib_AddOptimal", [](const TopoDS_Shape & S, Bnd_Box & B, const Standard_Boolean useTriangulation, const Standard_Boolean useShapeTolerance) { BRepBndLib::AddOptimal(S, B, useTriangulation, useShapeTolerance); });
+    ns.register_function("BRepBndLib_AddOptimal", sol::overload(
+        [](const TopoDS_Shape & S, Bnd_Box & B) { BRepBndLib::AddOptimal(S, B); },
+        [](const TopoDS_Shape & S, Bnd_Box & B, const Standard_Boolean useTriangulation) { BRepBndLib::AddOptimal(S, B, useTriangulation); },
+        [](const TopoDS_Shape & S, Bnd_Box & B, const Standard_Boolean useTriangulation, const Standard_Boolean useShapeTolerance) { BRepBndLib::AddOptimal(S, B, useTriangulation, useShapeTolerance); }
+    ));
 }

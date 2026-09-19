@@ -101,13 +101,19 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
         .add_member_function("RelativeAbscissa", [](BRepFilletAPI_MakeChamfer const& self, const Standard_Integer IC, const TopoDS_Vertex & V) -> Standard_Real { return self.RelativeAbscissa(IC, V); })
         .add_member_function("ClosedAndTangent", [](BRepFilletAPI_MakeChamfer const& self, const Standard_Integer IC) -> Standard_Boolean { return self.ClosedAndTangent(IC); })
         .add_member_function("Closed", [](BRepFilletAPI_MakeChamfer const& self, const Standard_Integer IC) -> Standard_Boolean { return self.Closed(IC); })
-        .add_member_function("Build", [](BRepFilletAPI_MakeChamfer& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepFilletAPI_MakeChamfer& self) { self.Build(); },
+            [](BRepFilletAPI_MakeChamfer& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("Reset", [](BRepFilletAPI_MakeChamfer& self) { self.Reset(); })
         .add_member_function("IsDeleted", [](BRepFilletAPI_MakeChamfer& self, const TopoDS_Shape & F) -> Standard_Boolean { return self.IsDeleted(F); })
         .add_member_function("Simulate", [](BRepFilletAPI_MakeChamfer& self, const Standard_Integer IC) { self.Simulate(IC); })
         .add_member_function("NbSurf", [](BRepFilletAPI_MakeChamfer const& self, const Standard_Integer IC) -> Standard_Integer { return self.NbSurf(IC); })
         .add_bases<BRepFilletAPI_LocalOperation, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepFilletAPI_MakeFillet, sol::automagic_flags::none>("BRepFilletAPI_MakeFillet")
+        .add_constructors(
+            [](const TopoDS_Shape & S) { return std::make_unique<BRepFilletAPI_MakeFillet>(S); }
+        )
         .add_member_function("SetParams", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepFilletAPI_MakeFillet& self, sol::object Tang, sol::object Tesp, sol::object T2d, sol::object TApp3d, sol::object TolApp2d, sol::object Fleche) { self.SetParams(occt_plugin::to_real(Tang), occt_plugin::to_real(Tesp), occt_plugin::to_real(T2d), occt_plugin::to_real(TApp3d), occt_plugin::to_real(TolApp2d), occt_plugin::to_real(Fleche)); }
@@ -185,7 +191,10 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
         .add_member_function("RelativeAbscissa", [](BRepFilletAPI_MakeFillet const& self, const Standard_Integer IC, const TopoDS_Vertex & V) -> Standard_Real { return self.RelativeAbscissa(IC, V); })
         .add_member_function("ClosedAndTangent", [](BRepFilletAPI_MakeFillet const& self, const Standard_Integer IC) -> Standard_Boolean { return self.ClosedAndTangent(IC); })
         .add_member_function("Closed", [](BRepFilletAPI_MakeFillet const& self, const Standard_Integer IC) -> Standard_Boolean { return self.Closed(IC); })
-        .add_member_function("Build", [](BRepFilletAPI_MakeFillet& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepFilletAPI_MakeFillet& self) { self.Build(); },
+            [](BRepFilletAPI_MakeFillet& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("Reset", [](BRepFilletAPI_MakeFillet& self) { self.Reset(); })
         .add_member_function("IsDeleted", [](BRepFilletAPI_MakeFillet& self, const TopoDS_Shape & F) -> Standard_Boolean { return self.IsDeleted(F); })
         .add_member_function("NbSurfaces", [](BRepFilletAPI_MakeFillet const& self) -> Standard_Integer { return self.NbSurfaces(); })
@@ -263,7 +272,10 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
         .add_member_function("HasDescendant", [](BRepFilletAPI_MakeFillet2d const& self, const TopoDS_Edge & E) -> Standard_Boolean { return self.HasDescendant(E); })
         .add_member_function("DescendantEdge", [](BRepFilletAPI_MakeFillet2d const& self, const TopoDS_Edge & E) -> const TopoDS_Edge & { return self.DescendantEdge(E); })
         .add_member_function("BasisEdge", [](BRepFilletAPI_MakeFillet2d const& self, const TopoDS_Edge & E) -> const TopoDS_Edge & { return self.BasisEdge(E); })
-        .add_member_function("Build", [](BRepFilletAPI_MakeFillet2d& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepFilletAPI_MakeFillet2d& self) { self.Build(); },
+            [](BRepFilletAPI_MakeFillet2d& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
 
 }

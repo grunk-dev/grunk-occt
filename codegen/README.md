@@ -238,6 +238,44 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     `Standard_Boolean` for parameter/return-type purposes (see the type list
     above) - passed through as a plain value, no conversion needed in the emitted
     lambda body.
+- **Default-argument expansion** (Step 6.5, revives legacy grocc's own generator's
+  same trick): a C++ declaration with N trailing default-valued parameters (e.g.
+  `BRepBuilderAPI_Transform(shape, trsf, Copy = Standard_False)`, `BRepAlgoAPI_Cut
+  (S1, S2, theRange = Message_ProgressRange())`) is emitted as multiple overloads,
+  one per reachable arity, instead of the earlier all-or-nothing behavior (accept
+  only if every parameter is individually supported, otherwise reject the whole
+  callable). Crucially, the generator never needs to know a default's actual
+  *value* - a shorter overload simply omits the trailing parameter(s) from the
+  emitted call expression and lets C++ itself apply the real default at that call
+  site, exactly as if Lua code had never provided anything for it.
+  - `param_has_default()` detects a default via `PARM_DECL`'s own child cursors:
+    every parameter has a `TYPE_REF`/`TEMPLATE_REF` child for its *type* (or none,
+    for a bare fundamental type) - a *default* shows up as an additional, distinct
+    child kind (`CXX_BOOL_LITERAL_EXPR`, `INTEGER_LITERAL`, `FLOATING_LITERAL`,
+    `DECL_REF_EXPR` for an enum-constant default, `UNEXPOSED_EXPR` for a
+    temporary-object default like `Message_ProgressRange()`) - confirmed
+    empirically against real OCCT headers, not from documentation (libclang has no
+    dedicated "has a default" query on a parameter cursor).
+  - `Callable.accepted_arities()` computes the reachable range directly: `m` is the
+    length of the longest prefix of individually-supported parameters (the same
+    check that used to be all-or-nothing), `s` is the start of the longest
+    trailing run of defaulted parameters. Because C++ requires every defaulted
+    parameter to be trailing, the reachable arities always form one contiguous
+    range `[s, m]` - `s > m` means the first unsupported parameter has no default
+    to fall back on, i.e. today's plain rejection, unchanged.
+  - An unsupported *and* defaulted trailing parameter doesn't need to be
+    individually understood at all, since it's never touched: e.g.
+    `GeomAPI_PointsToBSpline(Points, DegMin=3, DegMax=8, Continuity=GeomAbs_C2,
+    Tol3D=1e-3)` unlocks 3 usable overloads (`Points`, `Points, DegMin`, `Points,
+    DegMin, DegMax`) purely from this feature, even though `GeomAbs_Shape` isn't a
+    registered enum anywhere yet - `Continuity`/`Tol3D` simply aren't reachable
+    until it is, without blocking the three that already are.
+  - Not deduplicated against other, independently-declared overloads of the same
+    method that happen to erase to an identical parameter-kind sequence at some
+    arity - not yet hit in practice (would show up as a real sol2/C++ compile
+    error, not silently); re-derive a targeted fix (most likely a blacklist entry
+    for whichever narrower overload should lose) if it ever is, per this project's
+    own "confirmed by building, not assumed" policy.
 - **`extra_includes`** (a module's config, optional, revived from legacy grocc's
   `config.yml.in` - Step 6): extra `#include <...>` lines added to the generated
   `.cpp` (never the `.hpp`, and never a source of new registrable classes - these
@@ -292,10 +330,6 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     underneath. **Only detected within a single module's own class set** - a
     collision between a static/namespace function in one module and a class
     registered in a *different* module wouldn't be caught (not yet hit in practice).
-- **No default-argument expansion.** Legacy grocc's generator expanded a method with
-  N trailing default arguments into N+1 overloads; this generator does not (a method
-  with a default argument is still fully accepted/emitted, it just always requires
-  every argument explicitly from Lua - no arity-reduced overloads are synthesized).
 - **Toolchain include-path discovery is GCC/Clang-only** (`system_cxx_include_dirs()`
   probes `$CXX`/`c++` with `-E -x c++ -v -`, parsing the "#include <...> search starts
   here" block - this doesn't work for MSVC). Not a blocker today since codegen is

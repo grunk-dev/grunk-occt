@@ -34,18 +34,42 @@ void register_breptools(grunk::plugin_namespace& ns)
         [](const TopoDS_Shape & S) { BRepTools::Update(S); }
     ));
     ns.register_function("BRepTools_UpdateFaceUVPoints", [](const TopoDS_Face & theF) { BRepTools::UpdateFaceUVPoints(theF); });
-    ns.register_function("BRepTools_Clean", [](const TopoDS_Shape & theShape, const Standard_Boolean theForce) { BRepTools::Clean(theShape, theForce); });
+    ns.register_function("BRepTools_Clean", sol::overload(
+        [](const TopoDS_Shape & theShape) { BRepTools::Clean(theShape); },
+        [](const TopoDS_Shape & theShape, const Standard_Boolean theForce) { BRepTools::Clean(theShape, theForce); }
+    ));
     ns.register_function("BRepTools_CleanGeometry", [](const TopoDS_Shape & theShape) { BRepTools::CleanGeometry(theShape); });
     ns.register_function("BRepTools_RemoveUnusedPCurves", [](const TopoDS_Shape & S) { BRepTools::RemoveUnusedPCurves(S); });
-    ns.register_function("BRepTools_Triangulation", 
+    ns.register_function("BRepTools_Triangulation", sol::overload(
+        
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const TopoDS_Shape & theShape, sol::object theLinDefl) -> Standard_Boolean { return BRepTools::Triangulation(theShape, occt_plugin::to_real(theLinDefl)); }
+#else
+            [](const TopoDS_Shape & theShape, const Standard_Real theLinDefl) -> Standard_Boolean { return BRepTools::Triangulation(theShape, theLinDefl); }
+#endif
+        ,
+        
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const TopoDS_Shape & theShape, sol::object theLinDefl, const Standard_Boolean theToCheckFreeEdges) -> Standard_Boolean { return BRepTools::Triangulation(theShape, occt_plugin::to_real(theLinDefl), theToCheckFreeEdges); }
 #else
             [](const TopoDS_Shape & theShape, const Standard_Real theLinDefl, const Standard_Boolean theToCheckFreeEdges) -> Standard_Boolean { return BRepTools::Triangulation(theShape, theLinDefl, theToCheckFreeEdges); }
 #endif
-        );
-    ns.register_function("BRepTools_UnloadTriangulation", [](const TopoDS_Shape & theShape, const Standard_Integer theTriangulationIdx) -> Standard_Boolean { return BRepTools::UnloadTriangulation(theShape, theTriangulationIdx); });
-    ns.register_function("BRepTools_ActivateTriangulation", [](const TopoDS_Shape & theShape, const Standard_Integer theTriangulationIdx, const Standard_Boolean theToActivateStrictly) -> Standard_Boolean { return BRepTools::ActivateTriangulation(theShape, theTriangulationIdx, theToActivateStrictly); });
+        
+    ));
+    ns.register_function("BRepTools_LoadTriangulation", sol::overload(
+        [](const TopoDS_Shape & theShape) -> Standard_Boolean { return BRepTools::LoadTriangulation(theShape); },
+        [](const TopoDS_Shape & theShape, const Standard_Integer theTriangulationIdx) -> Standard_Boolean { return BRepTools::LoadTriangulation(theShape, theTriangulationIdx); },
+        [](const TopoDS_Shape & theShape, const Standard_Integer theTriangulationIdx, const Standard_Boolean theToSetAsActive) -> Standard_Boolean { return BRepTools::LoadTriangulation(theShape, theTriangulationIdx, theToSetAsActive); }
+    ));
+    ns.register_function("BRepTools_UnloadTriangulation", sol::overload(
+        [](const TopoDS_Shape & theShape) -> Standard_Boolean { return BRepTools::UnloadTriangulation(theShape); },
+        [](const TopoDS_Shape & theShape, const Standard_Integer theTriangulationIdx) -> Standard_Boolean { return BRepTools::UnloadTriangulation(theShape, theTriangulationIdx); }
+    ));
+    ns.register_function("BRepTools_ActivateTriangulation", sol::overload(
+        [](const TopoDS_Shape & theShape, const Standard_Integer theTriangulationIdx) -> Standard_Boolean { return BRepTools::ActivateTriangulation(theShape, theTriangulationIdx); },
+        [](const TopoDS_Shape & theShape, const Standard_Integer theTriangulationIdx, const Standard_Boolean theToActivateStrictly) -> Standard_Boolean { return BRepTools::ActivateTriangulation(theShape, theTriangulationIdx, theToActivateStrictly); }
+    ));
+    ns.register_function("BRepTools_LoadAllTriangulations", [](const TopoDS_Shape & theShape) -> Standard_Boolean { return BRepTools::LoadAllTriangulations(theShape); });
     ns.register_function("BRepTools_UnloadAllTriangulations", [](const TopoDS_Shape & theShape) -> Standard_Boolean { return BRepTools::UnloadAllTriangulations(theShape); });
     ns.register_function("BRepTools_Compare", sol::overload(
         [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) -> Standard_Boolean { return BRepTools::Compare(V1, V2); },
@@ -53,5 +77,8 @@ void register_breptools(grunk::plugin_namespace& ns)
     ));
     ns.register_function("BRepTools_OuterWire", [](const TopoDS_Face & F) -> TopoDS_Wire { return BRepTools::OuterWire(F); });
     ns.register_function("BRepTools_IsReallyClosed", [](const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Boolean { return BRepTools::IsReallyClosed(E, F); });
-    ns.register_function("BRepTools_RemoveInternals", [](TopoDS_Shape & theS, const Standard_Boolean theForce) { BRepTools::RemoveInternals(theS, theForce); });
+    ns.register_function("BRepTools_RemoveInternals", sol::overload(
+        [](TopoDS_Shape & theS) { BRepTools::RemoveInternals(theS); },
+        [](TopoDS_Shape & theS, const Standard_Boolean theForce) { BRepTools::RemoveInternals(theS, theForce); }
+    ));
 }

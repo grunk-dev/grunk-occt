@@ -331,6 +331,20 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_constructors(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const opencascade::handle<Geom_Curve> & C, sol::object U1, sol::object U2) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2))); }
+#else
+            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real U1, const Standard_Real U2) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2)); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const opencascade::handle<Geom_Curve> & C, sol::object U1, sol::object U2, const Standard_Boolean Sense) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense)); }
+#else
+            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2, Sense)); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const opencascade::handle<Geom_Curve> & C, sol::object U1, sol::object U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense, theAdjustPeriodic)); }
 #else
             [](const opencascade::handle<Geom_Curve> & C, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2, Sense, theAdjustPeriodic)); }
@@ -345,13 +359,29 @@ void register_geom(grunk::plugin_namespace& ns)
             [](Geom_TrimmedCurve const& self, const Standard_Real U) -> Standard_Real { return self.ReversedParameter(U); }
 #endif
         )
-        .add_member_function("SetTrim", 
+        .add_member_function("SetTrim", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve& self, sol::object U1, sol::object U2) { self.SetTrim(occt_plugin::to_real(U1), occt_plugin::to_real(U2)); }
+#else
+            [](Geom_TrimmedCurve& self, const Standard_Real U1, const Standard_Real U2) { self.SetTrim(U1, U2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_TrimmedCurve& self, sol::object U1, sol::object U2, const Standard_Boolean Sense) { self.SetTrim(occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense); }
+#else
+            [](Geom_TrimmedCurve& self, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense) { self.SetTrim(U1, U2, Sense); }
+#endif
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](Geom_TrimmedCurve& self, sol::object U1, sol::object U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) { self.SetTrim(occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense, theAdjustPeriodic); }
 #else
             [](Geom_TrimmedCurve& self, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) { self.SetTrim(U1, U2, Sense, theAdjustPeriodic); }
 #endif
-        )
+        
+        ))
         .add_member_function("BasisCurve", [](Geom_TrimmedCurve const& self) -> opencascade::handle<Geom_Curve> { return self.BasisCurve(); })
         .add_member_function("IsCN", [](Geom_TrimmedCurve const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
         .add_member_function("EndPoint", [](Geom_TrimmedCurve const& self) -> gp_Pnt { return self.EndPoint(); })

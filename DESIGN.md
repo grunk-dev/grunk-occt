@@ -508,10 +508,12 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   `TopTools_SequenceOfShape` returns, mutable `Standard_Real&` out-params - same
   categories as prior modules).
   - `BRepFilletAPI_MakeFillet` has **zero** accepted constructors: its only real
-    constructor takes a trailing `ChFi3d_FilletShape` with a default value (this
-    generator doesn't expand default arguments - see codegen/README.md's "Known
-    gaps"), so it's rejected outright - same category as `geomapi`'s own
-    `GeomAPI_PointsToBSpline` (blocked by a trailing `GeomAbs_Shape` default). It
+    constructor takes a trailing `ChFi3d_FilletShape` with a default value (at
+    this point in the project, the generator didn't yet expand default arguments -
+    **superseded by Step 6.5's "Default-argument expansion" section below**, which
+    gives it a real constructor), so it's rejected outright - same category as
+    `geomapi`'s own `GeomAPI_PointsToBSpline` (also blocked by a trailing
+    `GeomAbs_Shape` default at the time, also fixed by that same section). It
     stays registered (its other members are still real, valid C++) but isn't
     instantiable from Lua today.
   - `BRepFilletAPI_MakeChamfer(const TopoDS_Shape&)` has no such trailing default
@@ -845,3 +847,40 @@ hand-authored recipes - a poor fit for hand-porting, and explicitly called out a
 `brepalgoapi`, `message_progress`) plus sub-recipes 3 levels deep and a shared
 module - the documentation/integration-test goals of this milestone are already
 met without them.
+
+### Default-argument expansion
+
+Writing the example recipes kept running into the generator's own all-or-nothing
+handling of a C++ default value: `BRepAlgoAPI_Cut(S1, S2, theRange =
+Message_ProgressRange())` needed a real `Message_ProgressRange` from Lua every
+single time (the `message_progress` module - Step 6 - exists purely because of
+this), and `BRepFilletAPI_MakeFillet(S, FShape = ChFi3d_Rational)` had **zero**
+accepted constructors at all (its only constructor's sole non-defaulted parameter
+came right before the unsupported, but genuinely optional, `ChFi3d_FilletShape`).
+Both are the same underlying gap: this generator never expanded a defaulted
+trailing parameter into a shorter overload the way legacy grocc's own generator
+did - it just required every parameter, defaulted or not, from Lua.
+
+Fixed by teaching the generator to detect a real C++ default value per parameter
+(`param_has_default()`, via a libclang child-cursor heuristic - a `PARM_DECL`'s
+own children include a `TYPE_REF`/`TEMPLATE_REF` for its *type*; a default value
+shows up as an additional, different child kind entirely, confirmed empirically
+against real OCCT headers rather than assumed) and emit one overload per reachable
+argument count (`Callable.accepted_arities()`) instead of one all-or-nothing
+decision. Crucially, the generator never needs to know the default's actual
+*value* - a shorter overload just omits the trailing parameter(s) it doesn't pass,
+and C++ itself supplies the real default at that call site. Full mechanism and
+worked examples in `codegen/README.md`'s own "Default-argument expansion" section.
+
+Concrete, immediate unlocks from one regeneration, no config changes needed:
+`BRepFilletAPI_MakeFillet` gets a real constructor for the first time (previously
+completely uninstantiable from Lua); `BRepAlgoAPI_Cut`/`Fuse`/`Common` no longer
+require an explicit `Message_ProgressRange` argument (gained a 2-arg overload -
+`message_progress`'s own module docstring is now more "why this module still
+exists for the cases that do want one explicitly" than "why every boolean op
+needs one"); `GeomAPI_PointsToBSpline` gained three real, callable overloads. Net
+effect across the whole config, one regeneration, zero other changes: `gp`
+1255→1262, `geom` 148→152, `brepbuilderapi` 210→248, `brepprimapi` 87→99,
+`brepalgoapi` 55→76, `bnd` 52→55, `brep` 49→50, `breptools` 22→31, `geomapi`
+40→74, `brepfilletapi` 106→110 accepted. Verified: full regeneration, clean
+rebuild, all 35 tests plus both example recipes still pass with zero regressions.

@@ -54,34 +54,41 @@
 -- own ":value()" calls below): a plain top-level parameter (shape/vec/axis/...)
 -- already arrives unwrapped, but a table's individual elements do not.
 
+-- BRepBuilderAPI_Transform's trailing theCopyGeom/theCopyMesh (both = Standard_False
+-- by default) are omitted below - grunk-occt's code generator now expands trailing
+-- default-valued C++ parameters into shorter overloads (see ../../DESIGN.md's
+-- "Default-argument expansion"), so the 2-arg (shape, trsf) form already means
+-- exactly the same thing as explicitly passing (shape, trsf, false, false) used to.
+
 function translate(shape, vec)
     local trsf = occt.gp_Trsf.new()
     trsf:SetTranslation(vec)
-    return occt.BRepBuilderAPI_Transform.new(shape, trsf, false, false):Shape()
+    return occt.BRepBuilderAPI_Transform.new(shape, trsf):Shape()
 end
 
 function rotate(shape, axis, angle)
     local trsf = occt.gp_Trsf.new()
     trsf:SetRotation(axis, angle)
-    return occt.BRepBuilderAPI_Transform.new(shape, trsf, false, false):Shape()
+    return occt.BRepBuilderAPI_Transform.new(shape, trsf):Shape()
 end
 
 function mirror_point(shape, point)
     local trsf = occt.gp_Trsf.new()
     trsf:SetMirror(point)
-    return occt.BRepBuilderAPI_Transform.new(shape, trsf, false, false):Shape()
+    return occt.BRepBuilderAPI_Transform.new(shape, trsf):Shape()
 end
 
 -- Builds a closed planar face from an ordered list of gp_Pnt (a Lua array/table),
 -- via BRepBuilderAPI_MakePolygon (Add one point at a time, then Close) followed by
--- BRepBuilderAPI_MakeFace on the resulting wire.
+-- BRepBuilderAPI_MakeFace on the resulting wire. BRepBuilderAPI_MakeFace's own
+-- trailing OnlyPlane (default Standard_False) is likewise omitted below.
 function polygon_face(points)
     local mp = occt.BRepBuilderAPI_MakePolygon.new()
     for i = 1, #points do
         mp:Add(points[i]:value())
     end
     mp:Close()
-    return occt.BRepBuilderAPI_MakeFace.new(mp:Wire(), false):Face()
+    return occt.BRepBuilderAPI_MakeFace.new(mp:Wire()):Face()
 end
 
 -- Builds a face from an ordered list of already-built TopoDS_Edge (a Lua
@@ -92,7 +99,7 @@ function wire_face(edges)
     for i = 1, #edges do
         mw:Add(edges[i]:value())
     end
-    return occt.BRepBuilderAPI_MakeFace.new(mw:Wire(), false):Face()
+    return occt.BRepBuilderAPI_MakeFace.new(mw:Wire()):Face()
 end
 
 -- Builds a TopoDS_Compound out of an arbitrary list of shapes (a Lua array/table),

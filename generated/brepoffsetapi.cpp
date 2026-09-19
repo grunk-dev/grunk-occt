@@ -34,17 +34,29 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         )
         .add_member_function("Clear", [](BRepOffsetAPI_DraftAngle& self) { self.Clear(); })
         .add_member_function("Init", [](BRepOffsetAPI_DraftAngle& self, const TopoDS_Shape & S) { self.Init(S); })
-        .add_member_function("Add", 
+        .add_member_function("Add", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_DraftAngle& self, const TopoDS_Face & F, const gp_Dir & Direction, sol::object Angle, const gp_Pln & NeutralPlane) { self.Add(F, Direction, occt_plugin::to_real(Angle), NeutralPlane); }
+#else
+            [](BRepOffsetAPI_DraftAngle& self, const TopoDS_Face & F, const gp_Dir & Direction, const Standard_Real Angle, const gp_Pln & NeutralPlane) { self.Add(F, Direction, Angle, NeutralPlane); }
+#endif
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_DraftAngle& self, const TopoDS_Face & F, const gp_Dir & Direction, sol::object Angle, const gp_Pln & NeutralPlane, const Standard_Boolean Flag) { self.Add(F, Direction, occt_plugin::to_real(Angle), NeutralPlane, Flag); }
 #else
             [](BRepOffsetAPI_DraftAngle& self, const TopoDS_Face & F, const gp_Dir & Direction, const Standard_Real Angle, const gp_Pln & NeutralPlane, const Standard_Boolean Flag) { self.Add(F, Direction, Angle, NeutralPlane, Flag); }
 #endif
-        )
+        
+        ))
         .add_member_function("AddDone", [](BRepOffsetAPI_DraftAngle const& self) -> Standard_Boolean { return self.AddDone(); })
         .add_member_function("Remove", [](BRepOffsetAPI_DraftAngle& self, const TopoDS_Face & F) { self.Remove(F); })
         .add_member_function("ProblematicShape", [](BRepOffsetAPI_DraftAngle const& self) -> const TopoDS_Shape & { return self.ProblematicShape(); })
-        .add_member_function("Build", [](BRepOffsetAPI_DraftAngle& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_DraftAngle& self) { self.Build(); },
+            [](BRepOffsetAPI_DraftAngle& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("CorrectWires", [](BRepOffsetAPI_DraftAngle& self) { self.CorrectWires(); })
         .add_member_function("ModifiedShape", [](BRepOffsetAPI_DraftAngle const& self, const TopoDS_Shape & S) -> TopoDS_Shape { return self.ModifiedShape(S); })
         .add_bases<BRepBuilderAPI_ModifyShape, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
@@ -58,14 +70,28 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
 #endif
         
         )
-        .add_member_function("SetOptions", 
+        .add_member_function("SetOptions", sol::overload(
+            [](BRepOffsetAPI_MakeDraft& self) { self.SetOptions(); },
+            [](BRepOffsetAPI_MakeDraft& self, const BRepBuilderAPI_TransitionMode Style) { self.SetOptions(Style); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeDraft& self, const BRepBuilderAPI_TransitionMode Style, sol::object AngleMin) { self.SetOptions(Style, occt_plugin::to_real(AngleMin)); }
+#else
+            [](BRepOffsetAPI_MakeDraft& self, const BRepBuilderAPI_TransitionMode Style, const Standard_Real AngleMin) { self.SetOptions(Style, AngleMin); }
+#endif
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_MakeDraft& self, const BRepBuilderAPI_TransitionMode Style, sol::object AngleMin, sol::object AngleMax) { self.SetOptions(Style, occt_plugin::to_real(AngleMin), occt_plugin::to_real(AngleMax)); }
 #else
             [](BRepOffsetAPI_MakeDraft& self, const BRepBuilderAPI_TransitionMode Style, const Standard_Real AngleMin, const Standard_Real AngleMax) { self.SetOptions(Style, AngleMin, AngleMax); }
 #endif
-        )
-        .add_member_function("SetDraft", [](BRepOffsetAPI_MakeDraft& self, const Standard_Boolean IsInternal) { self.SetDraft(IsInternal); })
+        
+        ))
+        .add_member_function("SetDraft", sol::overload(
+            [](BRepOffsetAPI_MakeDraft& self) { self.SetDraft(); },
+            [](BRepOffsetAPI_MakeDraft& self, const Standard_Boolean IsInternal) { self.SetDraft(IsInternal); }
+        ))
         .add_member_function("Perform", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -74,20 +100,65 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeDraft& self, const Standard_Real LengthMax) { self.Perform(LengthMax); }
 #endif
         ,
+            [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape) { self.Perform(StopShape); },
             [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape, const Standard_Boolean KeepOutSide) { self.Perform(StopShape, KeepOutSide); }
         ))
         .add_member_function("Shell", [](BRepOffsetAPI_MakeDraft const& self) -> TopoDS_Shell { return self.Shell(); })
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_MakeEvolved, sol::automagic_flags::none>("BRepOffsetAPI_MakeEvolved")
         .add_constructors(
-            []() { return std::make_unique<BRepOffsetAPI_MakeEvolved>(); }
+            []() { return std::make_unique<BRepOffsetAPI_MakeEvolved>(); },
+            [](const TopoDS_Shape & theSpine, const TopoDS_Wire & theProfile) { return std::make_unique<BRepOffsetAPI_MakeEvolved>(theSpine, theProfile); }
         )
-        .add_member_function("Build", [](BRepOffsetAPI_MakeEvolved& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MakeEvolved& self) { self.Build(); },
+            [](BRepOffsetAPI_MakeEvolved& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("Top", [](BRepOffsetAPI_MakeEvolved const& self) -> const TopoDS_Shape & { return self.Top(); })
         .add_member_function("Bottom", [](BRepOffsetAPI_MakeEvolved const& self) -> const TopoDS_Shape & { return self.Bottom(); })
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_MakeFilling, sol::automagic_flags::none>("BRepOffsetAPI_MakeFilling")
         .add_constructors(
+            []() { return std::make_unique<BRepOffsetAPI_MakeFilling>(); },
+            [](const Standard_Integer Degree) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree); },
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur); },
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter); },
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, sol::object Tol2d) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, occt_plugin::to_real(Tol2d)); }
+#else
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, const Standard_Real Tol2d) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, Tol2d); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, sol::object Tol2d, sol::object Tol3d) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d)); }
+#else
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, const Standard_Real Tol2d, const Standard_Real Tol3d) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, Tol2d, Tol3d); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, sol::object Tol2d, sol::object Tol3d, sol::object TolAng) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d), occt_plugin::to_real(TolAng)); }
+#else
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, const Standard_Real Tol2d, const Standard_Real Tol3d, const Standard_Real TolAng) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, Tol2d, Tol3d, TolAng); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, sol::object Tol2d, sol::object Tol3d, sol::object TolAng, sol::object TolCurv) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d), occt_plugin::to_real(TolAng), occt_plugin::to_real(TolCurv)); }
+#else
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, const Standard_Real Tol2d, const Standard_Real Tol3d, const Standard_Real TolAng, const Standard_Real TolCurv) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, Tol2d, Tol3d, TolAng, TolCurv); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, sol::object Tol2d, sol::object Tol3d, sol::object TolAng, sol::object TolCurv, const Standard_Integer MaxDeg) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d), occt_plugin::to_real(TolAng), occt_plugin::to_real(TolCurv), MaxDeg); }
+#else
+            [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, const Standard_Real Tol2d, const Standard_Real Tol3d, const Standard_Real TolAng, const Standard_Real TolCurv, const Standard_Integer MaxDeg) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, Tol2d, Tol3d, TolAng, TolCurv, MaxDeg); }
+#endif
+        ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie, sol::object Tol2d, sol::object Tol3d, sol::object TolAng, sol::object TolCurv, const Standard_Integer MaxDeg, const Standard_Integer MaxSegments) { return std::make_unique<BRepOffsetAPI_MakeFilling>(Degree, NbPtsOnCur, NbIter, Anisotropie, occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d), occt_plugin::to_real(TolAng), occt_plugin::to_real(TolCurv), MaxDeg, MaxSegments); }
@@ -96,18 +167,55 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
 #endif
         
         )
-        .add_member_function("SetConstrParam", 
+        .add_member_function("SetConstrParam", sol::overload(
+            [](BRepOffsetAPI_MakeFilling& self) { self.SetConstrParam(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeFilling& self, sol::object Tol2d) { self.SetConstrParam(occt_plugin::to_real(Tol2d)); }
+#else
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Real Tol2d) { self.SetConstrParam(Tol2d); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeFilling& self, sol::object Tol2d, sol::object Tol3d) { self.SetConstrParam(occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d)); }
+#else
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Real Tol2d, const Standard_Real Tol3d) { self.SetConstrParam(Tol2d, Tol3d); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeFilling& self, sol::object Tol2d, sol::object Tol3d, sol::object TolAng) { self.SetConstrParam(occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d), occt_plugin::to_real(TolAng)); }
+#else
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Real Tol2d, const Standard_Real Tol3d, const Standard_Real TolAng) { self.SetConstrParam(Tol2d, Tol3d, TolAng); }
+#endif
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_MakeFilling& self, sol::object Tol2d, sol::object Tol3d, sol::object TolAng, sol::object TolCurv) { self.SetConstrParam(occt_plugin::to_real(Tol2d), occt_plugin::to_real(Tol3d), occt_plugin::to_real(TolAng), occt_plugin::to_real(TolCurv)); }
 #else
             [](BRepOffsetAPI_MakeFilling& self, const Standard_Real Tol2d, const Standard_Real Tol3d, const Standard_Real TolAng, const Standard_Real TolCurv) { self.SetConstrParam(Tol2d, Tol3d, TolAng, TolCurv); }
 #endif
-        )
-        .add_member_function("SetResolParam", [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie) { self.SetResolParam(Degree, NbPtsOnCur, NbIter, Anisotropie); })
-        .add_member_function("SetApproxParam", [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer MaxDeg, const Standard_Integer MaxSegments) { self.SetApproxParam(MaxDeg, MaxSegments); })
+        
+        ))
+        .add_member_function("SetResolParam", sol::overload(
+            [](BRepOffsetAPI_MakeFilling& self) { self.SetResolParam(); },
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer Degree) { self.SetResolParam(Degree); },
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer Degree, const Standard_Integer NbPtsOnCur) { self.SetResolParam(Degree, NbPtsOnCur); },
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter) { self.SetResolParam(Degree, NbPtsOnCur, NbIter); },
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer Degree, const Standard_Integer NbPtsOnCur, const Standard_Integer NbIter, const Standard_Boolean Anisotropie) { self.SetResolParam(Degree, NbPtsOnCur, NbIter, Anisotropie); }
+        ))
+        .add_member_function("SetApproxParam", sol::overload(
+            [](BRepOffsetAPI_MakeFilling& self) { self.SetApproxParam(); },
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer MaxDeg) { self.SetApproxParam(MaxDeg); },
+            [](BRepOffsetAPI_MakeFilling& self, const Standard_Integer MaxDeg, const Standard_Integer MaxSegments) { self.SetApproxParam(MaxDeg, MaxSegments); }
+        ))
         .add_member_function("LoadInitSurface", [](BRepOffsetAPI_MakeFilling& self, const TopoDS_Face & Surf) { self.LoadInitSurface(Surf); })
         .add_member_function("Add", [](BRepOffsetAPI_MakeFilling& self, const gp_Pnt & Point) -> Standard_Integer { return self.Add(Point); })
-        .add_member_function("Build", [](BRepOffsetAPI_MakeFilling& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MakeFilling& self) { self.Build(); },
+            [](BRepOffsetAPI_MakeFilling& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("IsDone", [](BRepOffsetAPI_MakeFilling const& self) -> Standard_Boolean { return self.IsDone(); })
         .add_member_function("G0Error", sol::overload(
             [](BRepOffsetAPI_MakeFilling const& self) -> Standard_Real { return self.G0Error(); },
@@ -124,18 +232,36 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_MakeOffset, sol::automagic_flags::none>("BRepOffsetAPI_MakeOffset")
         .add_constructors(
-            []() { return std::make_unique<BRepOffsetAPI_MakeOffset>(); }
+            []() { return std::make_unique<BRepOffsetAPI_MakeOffset>(); },
+            [](const TopoDS_Face & Spine) { return std::make_unique<BRepOffsetAPI_MakeOffset>(Spine); },
+            [](const TopoDS_Wire & Spine) { return std::make_unique<BRepOffsetAPI_MakeOffset>(Spine); }
         )
+        .add_member_function("Init", sol::overload(
+            [](BRepOffsetAPI_MakeOffset& self, const TopoDS_Face & Spine) { self.Init(Spine); },
+            [](BRepOffsetAPI_MakeOffset& self) { self.Init(); }
+        ))
         .add_member_function("SetApprox", [](BRepOffsetAPI_MakeOffset& self, const Standard_Boolean ToApprox) { self.SetApprox(ToApprox); })
         .add_member_function("AddWire", [](BRepOffsetAPI_MakeOffset& self, const TopoDS_Wire & Spine) { self.AddWire(Spine); })
-        .add_member_function("Perform", 
+        .add_member_function("Perform", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeOffset& self, sol::object Offset) { self.Perform(occt_plugin::to_real(Offset)); }
+#else
+            [](BRepOffsetAPI_MakeOffset& self, const Standard_Real Offset) { self.Perform(Offset); }
+#endif
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_MakeOffset& self, sol::object Offset, sol::object Alt) { self.Perform(occt_plugin::to_real(Offset), occt_plugin::to_real(Alt)); }
 #else
             [](BRepOffsetAPI_MakeOffset& self, const Standard_Real Offset, const Standard_Real Alt) { self.Perform(Offset, Alt); }
 #endif
-        )
-        .add_member_function("Build", [](BRepOffsetAPI_MakeOffset& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        
+        ))
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MakeOffset& self) { self.Build(); },
+            [](BRepOffsetAPI_MakeOffset& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_MakeOffsetShape, sol::automagic_flags::none>("BRepOffsetAPI_MakeOffsetShape")
         .add_constructors(
@@ -148,14 +274,27 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeOffsetShape& self, const TopoDS_Shape & theS, const Standard_Real theOffsetValue) { self.PerformBySimple(theS, theOffsetValue); }
 #endif
         )
-        .add_member_function("Build", [](BRepOffsetAPI_MakeOffsetShape& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("PerformByJoin", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeOffsetShape& self, const TopoDS_Shape & S, sol::object Offset, sol::object Tol) { self.PerformByJoin(S, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol)); }
+#else
+            [](BRepOffsetAPI_MakeOffsetShape& self, const TopoDS_Shape & S, const Standard_Real Offset, const Standard_Real Tol) { self.PerformByJoin(S, Offset, Tol); }
+#endif
+        )
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MakeOffsetShape& self) { self.Build(); },
+            [](BRepOffsetAPI_MakeOffsetShape& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("IsDeleted", [](BRepOffsetAPI_MakeOffsetShape& self, const TopoDS_Shape & S) -> Standard_Boolean { return self.IsDeleted(S); })
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_MakePipe, sol::automagic_flags::none>("BRepOffsetAPI_MakePipe")
         .add_constructors(
             [](const TopoDS_Wire & Spine, const TopoDS_Shape & Profile) { return std::make_unique<BRepOffsetAPI_MakePipe>(Spine, Profile); }
         )
-        .add_member_function("Build", [](BRepOffsetAPI_MakePipe& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MakePipe& self) { self.Build(); },
+            [](BRepOffsetAPI_MakePipe& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("FirstShape", [](BRepOffsetAPI_MakePipe& self) -> TopoDS_Shape { return self.FirstShape(); })
         .add_member_function("LastShape", [](BRepOffsetAPI_MakePipe& self) -> TopoDS_Shape { return self.LastShape(); })
         .add_member_function("Generated", [](BRepOffsetAPI_MakePipe& self, const TopoDS_Shape & SSpine, const TopoDS_Shape & SProfile) -> TopoDS_Shape { return self.Generated(SSpine, SProfile); })
@@ -166,31 +305,60 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](const TopoDS_Wire & Spine) { return std::make_unique<BRepOffsetAPI_MakePipeShell>(Spine); }
         )
         .add_member_function("SetMode", sol::overload(
+            [](BRepOffsetAPI_MakePipeShell& self) { self.SetMode(); },
             [](BRepOffsetAPI_MakePipeShell& self, const Standard_Boolean IsFrenet) { self.SetMode(IsFrenet); },
             [](BRepOffsetAPI_MakePipeShell& self, const gp_Ax2 & Axe) { self.SetMode(Axe); },
             [](BRepOffsetAPI_MakePipeShell& self, const gp_Dir & BiNormal) { self.SetMode(BiNormal); },
-            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & SpineSupport) -> Standard_Boolean { return self.SetMode(SpineSupport); }
+            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & SpineSupport) -> Standard_Boolean { return self.SetMode(SpineSupport); },
+            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Wire & AuxiliarySpine, const Standard_Boolean CurvilinearEquivalence) { self.SetMode(AuxiliarySpine, CurvilinearEquivalence); }
         ))
         .add_member_function("SetDiscreteMode", [](BRepOffsetAPI_MakePipeShell& self) { self.SetDiscreteMode(); })
         .add_member_function("Add", sol::overload(
+            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile) { self.Add(Profile); },
+            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const Standard_Boolean WithContact) { self.Add(Profile, WithContact); },
             [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const Standard_Boolean WithContact, const Standard_Boolean WithCorrection) { self.Add(Profile, WithContact, WithCorrection); },
+            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const TopoDS_Vertex & Location) { self.Add(Profile, Location); },
+            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const TopoDS_Vertex & Location, const Standard_Boolean WithContact) { self.Add(Profile, Location, WithContact); },
             [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const TopoDS_Vertex & Location, const Standard_Boolean WithContact, const Standard_Boolean WithCorrection) { self.Add(Profile, Location, WithContact, WithCorrection); }
         ))
         .add_member_function("Delete", [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile) { self.Delete(Profile); })
         .add_member_function("IsReady", [](BRepOffsetAPI_MakePipeShell const& self) -> Standard_Boolean { return self.IsReady(); })
         .add_member_function("GetStatus", [](BRepOffsetAPI_MakePipeShell const& self) -> BRepBuilderAPI_PipeError { return self.GetStatus(); })
-        .add_member_function("SetTolerance", 
+        .add_member_function("SetTolerance", sol::overload(
+            [](BRepOffsetAPI_MakePipeShell& self) { self.SetTolerance(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakePipeShell& self, sol::object Tol3d) { self.SetTolerance(occt_plugin::to_real(Tol3d)); }
+#else
+            [](BRepOffsetAPI_MakePipeShell& self, const Standard_Real Tol3d) { self.SetTolerance(Tol3d); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakePipeShell& self, sol::object Tol3d, sol::object BoundTol) { self.SetTolerance(occt_plugin::to_real(Tol3d), occt_plugin::to_real(BoundTol)); }
+#else
+            [](BRepOffsetAPI_MakePipeShell& self, const Standard_Real Tol3d, const Standard_Real BoundTol) { self.SetTolerance(Tol3d, BoundTol); }
+#endif
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_MakePipeShell& self, sol::object Tol3d, sol::object BoundTol, sol::object TolAngular) { self.SetTolerance(occt_plugin::to_real(Tol3d), occt_plugin::to_real(BoundTol), occt_plugin::to_real(TolAngular)); }
 #else
             [](BRepOffsetAPI_MakePipeShell& self, const Standard_Real Tol3d, const Standard_Real BoundTol, const Standard_Real TolAngular) { self.SetTolerance(Tol3d, BoundTol, TolAngular); }
 #endif
-        )
+        
+        ))
         .add_member_function("SetMaxDegree", [](BRepOffsetAPI_MakePipeShell& self, const Standard_Integer NewMaxDegree) { self.SetMaxDegree(NewMaxDegree); })
         .add_member_function("SetMaxSegments", [](BRepOffsetAPI_MakePipeShell& self, const Standard_Integer NewMaxSegments) { self.SetMaxSegments(NewMaxSegments); })
         .add_member_function("SetForceApproxC1", [](BRepOffsetAPI_MakePipeShell& self, const Standard_Boolean ForceApproxC1) { self.SetForceApproxC1(ForceApproxC1); })
-        .add_member_function("SetTransitionMode", [](BRepOffsetAPI_MakePipeShell& self, const BRepBuilderAPI_TransitionMode Mode) { self.SetTransitionMode(Mode); })
-        .add_member_function("Build", [](BRepOffsetAPI_MakePipeShell& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("SetTransitionMode", sol::overload(
+            [](BRepOffsetAPI_MakePipeShell& self) { self.SetTransitionMode(); },
+            [](BRepOffsetAPI_MakePipeShell& self, const BRepBuilderAPI_TransitionMode Mode) { self.SetTransitionMode(Mode); }
+        ))
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MakePipeShell& self) { self.Build(); },
+            [](BRepOffsetAPI_MakePipeShell& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("MakeSolid", [](BRepOffsetAPI_MakePipeShell& self) -> Standard_Boolean { return self.MakeSolid(); })
         .add_member_function("FirstShape", [](BRepOffsetAPI_MakePipeShell& self) -> TopoDS_Shape { return self.FirstShape(); })
         .add_member_function("LastShape", [](BRepOffsetAPI_MakePipeShell& self) -> TopoDS_Shape { return self.LastShape(); })
@@ -208,13 +376,19 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & theS, const Standard_Real theOffsetValue) { self.MakeThickSolidBySimple(theS, theOffsetValue); }
 #endif
         )
-        .add_member_function("Build", [](BRepOffsetAPI_MakeThickSolid& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MakeThickSolid& self) { self.Build(); },
+            [](BRepOffsetAPI_MakeThickSolid& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_bases<BRepOffsetAPI_MakeOffsetShape, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_MiddlePath, sol::automagic_flags::none>("BRepOffsetAPI_MiddlePath")
         .add_constructors(
             [](const TopoDS_Shape & aShape, const TopoDS_Shape & StartShape, const TopoDS_Shape & EndShape) { return std::make_unique<BRepOffsetAPI_MiddlePath>(aShape, StartShape, EndShape); }
         )
-        .add_member_function("Build", [](BRepOffsetAPI_MiddlePath& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_MiddlePath& self) { self.Build(); },
+            [](BRepOffsetAPI_MiddlePath& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_NormalProjection, sol::automagic_flags::none>("BRepOffsetAPI_NormalProjection")
         .add_constructors(
@@ -230,9 +404,18 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_NormalProjection& self, const Standard_Real MaxDist) { self.SetMaxDistance(MaxDist); }
 #endif
         )
-        .add_member_function("SetLimit", [](BRepOffsetAPI_NormalProjection& self, const Standard_Boolean FaceBoundaries) { self.SetLimit(FaceBoundaries); })
-        .add_member_function("Compute3d", [](BRepOffsetAPI_NormalProjection& self, const Standard_Boolean With3d) { self.Compute3d(With3d); })
-        .add_member_function("Build", [](BRepOffsetAPI_NormalProjection& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("SetLimit", sol::overload(
+            [](BRepOffsetAPI_NormalProjection& self) { self.SetLimit(); },
+            [](BRepOffsetAPI_NormalProjection& self, const Standard_Boolean FaceBoundaries) { self.SetLimit(FaceBoundaries); }
+        ))
+        .add_member_function("Compute3d", sol::overload(
+            [](BRepOffsetAPI_NormalProjection& self) { self.Compute3d(); },
+            [](BRepOffsetAPI_NormalProjection& self, const Standard_Boolean With3d) { self.Compute3d(With3d); }
+        ))
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_NormalProjection& self) { self.Build(); },
+            [](BRepOffsetAPI_NormalProjection& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("IsDone", [](BRepOffsetAPI_NormalProjection const& self) -> Standard_Boolean { return self.IsDone(); })
         .add_member_function("Projection", [](BRepOffsetAPI_NormalProjection const& self) -> const TopoDS_Shape & { return self.Projection(); })
         .add_member_function("Couple", [](BRepOffsetAPI_NormalProjection const& self, const TopoDS_Edge & E) -> const TopoDS_Shape & { return self.Couple(E); })
@@ -240,6 +423,9 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_ThruSections, sol::automagic_flags::none>("BRepOffsetAPI_ThruSections")
         .add_constructors(
+            []() { return std::make_unique<BRepOffsetAPI_ThruSections>(); },
+            [](const Standard_Boolean isSolid) { return std::make_unique<BRepOffsetAPI_ThruSections>(isSolid); },
+            [](const Standard_Boolean isSolid, const Standard_Boolean ruled) { return std::make_unique<BRepOffsetAPI_ThruSections>(isSolid, ruled); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const Standard_Boolean isSolid, const Standard_Boolean ruled, sol::object pres3d) { return std::make_unique<BRepOffsetAPI_ThruSections>(isSolid, ruled, occt_plugin::to_real(pres3d)); }
@@ -248,16 +434,24 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
 #endif
         
         )
-        .add_member_function("Init", 
+        .add_member_function("Init", sol::overload(
+            [](BRepOffsetAPI_ThruSections& self) { self.Init(); },
+            [](BRepOffsetAPI_ThruSections& self, const Standard_Boolean isSolid) { self.Init(isSolid); },
+            [](BRepOffsetAPI_ThruSections& self, const Standard_Boolean isSolid, const Standard_Boolean ruled) { self.Init(isSolid, ruled); },
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_ThruSections& self, const Standard_Boolean isSolid, const Standard_Boolean ruled, sol::object pres3d) { self.Init(isSolid, ruled, occt_plugin::to_real(pres3d)); }
 #else
             [](BRepOffsetAPI_ThruSections& self, const Standard_Boolean isSolid, const Standard_Boolean ruled, const Standard_Real pres3d) { self.Init(isSolid, ruled, pres3d); }
 #endif
-        )
+        
+        ))
         .add_member_function("AddWire", [](BRepOffsetAPI_ThruSections& self, const TopoDS_Wire & wire) { self.AddWire(wire); })
         .add_member_function("AddVertex", [](BRepOffsetAPI_ThruSections& self, const TopoDS_Vertex & aVertex) { self.AddVertex(aVertex); })
-        .add_member_function("CheckCompatibility", [](BRepOffsetAPI_ThruSections& self, const Standard_Boolean check) { self.CheckCompatibility(check); })
+        .add_member_function("CheckCompatibility", sol::overload(
+            [](BRepOffsetAPI_ThruSections& self) { self.CheckCompatibility(); },
+            [](BRepOffsetAPI_ThruSections& self, const Standard_Boolean check) { self.CheckCompatibility(check); }
+        ))
         .add_member_function("SetSmoothing", [](BRepOffsetAPI_ThruSections& self, const Standard_Boolean UseSmoothing) { self.SetSmoothing(UseSmoothing); })
         .add_member_function("SetCriteriumWeight", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -269,7 +463,10 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         .add_member_function("SetMaxDegree", [](BRepOffsetAPI_ThruSections& self, const Standard_Integer MaxDeg) { self.SetMaxDegree(MaxDeg); })
         .add_member_function("MaxDegree", [](BRepOffsetAPI_ThruSections const& self) -> Standard_Integer { return self.MaxDegree(); })
         .add_member_function("UseSmoothing", [](BRepOffsetAPI_ThruSections const& self) -> Standard_Boolean { return self.UseSmoothing(); })
-        .add_member_function("Build", [](BRepOffsetAPI_ThruSections& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("Build", sol::overload(
+            [](BRepOffsetAPI_ThruSections& self) { self.Build(); },
+            [](BRepOffsetAPI_ThruSections& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
+        ))
         .add_member_function("FirstShape", [](BRepOffsetAPI_ThruSections const& self) -> const TopoDS_Shape & { return self.FirstShape(); })
         .add_member_function("LastShape", [](BRepOffsetAPI_ThruSections const& self) -> const TopoDS_Shape & { return self.LastShape(); })
         .add_member_function("GeneratedFace", [](BRepOffsetAPI_ThruSections const& self, const TopoDS_Shape & Edge) -> TopoDS_Shape { return self.GeneratedFace(Edge); })

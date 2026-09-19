@@ -79,6 +79,13 @@ void register_brep(grunk::plugin_namespace& ns)
         .add_member_function("Range", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, const TopoDS_Edge & E, sol::object First, sol::object Last) { self.Range(E, occt_plugin::to_real(First), occt_plugin::to_real(Last)); }
+#else
+            [](BRep_Builder const& self, const TopoDS_Edge & E, const Standard_Real First, const Standard_Real Last) { self.Range(E, First, Last); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRep_Builder const& self, const TopoDS_Edge & E, sol::object First, sol::object Last, const Standard_Boolean Only3d) { self.Range(E, occt_plugin::to_real(First), occt_plugin::to_real(Last), Only3d); }
 #else
             [](BRep_Builder const& self, const TopoDS_Edge & E, const Standard_Real First, const Standard_Real Last, const Standard_Boolean Only3d) { self.Range(E, First, Last, Only3d); }

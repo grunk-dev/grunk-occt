@@ -85,11 +85,16 @@ modules:
 
   - name: message_progress
     # Message_ProgressRange appears as a defaulted parameter across a large swath of
-    # OCCT's own API (BRepTools::Write, BRepAlgoAPI_Cut's own constructor, ...) - this
-    # generator doesn't expand default arguments (see codegen/README.md's "Known
-    # gaps"), so every parameter must be supplied explicitly from Lua. Registering
-    # this tiny, always-default-constructible type (rather than teaching the
-    # generator default-argument expansion) unlocks all of those call sites at once.
+    # OCCT's own API (BRepTools::Write, BRepAlgoAPI_Cut's own constructor, ...).
+    # Originally registered because the generator couldn't expand default arguments
+    # at all (every parameter had to come from Lua, defaulted or not) - since Step
+    # 6.5's default-argument expansion (see codegen/README.md and DESIGN.md), most
+    # of those call sites now also have a shorter overload that omits it entirely
+    # and lets C++ apply the real default. Still worth keeping registered: it's a
+    # real, useful escape hatch for the (rarer) call sites that genuinely want to
+    # pass a real progress range explicitly (or where a *non-trailing* defaulted
+    # parameter still forces it into the accepted arity), and this tiny,
+    # always-default-constructible type costs nothing to keep around.
     headers:
       - Message_ProgressRange.hxx
 
