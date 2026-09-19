@@ -59,7 +59,16 @@ SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
 
 [target.osx-64.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
-SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
+# CMAKE_OSX_DEPLOYMENT_TARGET=13.3 works around a real macOS SDK availability gap,
+# unrelated to GRUNK_WITH_TASKFLOW above: scikit-build-core's own wheel build
+# defaults to a conservative `-mmacosx-version-min=13.0` (redistributable-wheel
+# convention, unlike grunk-occt's own plain CMake build above, which just inherits
+# the ambient toolchain's much newer native default and never hits this) - but
+# grunk/core/parametric_core.hpp's own std::to_chars(double, ...) call needs
+# libc++'s floating-point <charconv> support, only available from macOS 13.3 (the
+# compiler's own diagnostic names the exact version: "'to_chars' is unavailable:
+# introduced in macOS 13.3"). 13.3 is the precise, minimal fix - not a guess.
+SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF;CMAKE_OSX_DEPLOYMENT_TARGET=13.3"
 
 [tasks]
 configure = { cmd = [
