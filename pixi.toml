@@ -27,15 +27,39 @@ gtest = "*"
 # own `libclang` package is the bare C library only, no Python bindings. See
 # codegen/README.md.
 libclang = "*"
+# grunk's own Python bindings, needed by examples/run_example.py (see its own
+# README.md) - built from source (scikit-build-core + nanobind, per grunk's own
+# pyproject.toml) since grunk has no published PyPI release yet (same reason
+# CMakeLists.txt's own FetchContent pins a commit instead of a version tag). Pinned
+# to the *exact same* commit as CMakeLists.txt's own GIT_TAG - bump both together,
+# never independently, or the C++ occt_plugin.so and the Python `grunk` package
+# loading it could disagree about the plugin ABI.
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "c16f519888eae62564145b1ba4c025c1e6dcc6c2" }
 
 [target.win-64.activation.env]
 CMAKE_PREFIX_PATH = "%CONDA_PREFIX%/Library"
+# Needed only while building grunk's Python bindings above: grunk's default CMake
+# option GRUNK_WITH_TASKFLOW=ON pulls in Taskflow, whose use of C++20
+# `concept`/`iter_value_t` etc. fails to compile in this environment (found the hard
+# way - not a grunk-occt problem, grunk's own default build hits it too) -
+# CMakeLists.txt's own FetchContent of grunk already disables this
+# (`GRUNK_WITH_TASKFLOW OFF`) for the C++ side, since occt_plugin never needs
+# Taskflow's multithreaded grunk::core execution either; this is the equivalent
+# override for the separate pip/scikit-build-core build of grunk's Python package
+# (SKBUILD_CMAKE_DEFINE is scikit-build-core's own documented env-var override for a
+# CMake -D define - see its settings/sources.py). grunk's own find_package(parametric
+# REQUIRED) needs no separate parametric_DIR - conda-forge's libparametric package
+# (already a dependency, above) ships its CMake config under this same
+# CMAKE_PREFIX_PATH entry, which CMake's own config-mode search already checks.
+SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
 
 [target.linux-64.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
+SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
 
 [target.osx-64.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
+SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
 
 [tasks]
 configure = { cmd = [
@@ -57,5 +81,19 @@ generate_code = { cmd = "cmake --build build --target generate_code", descriptio
 test = { cmd = "ctest --test-dir build --output-on-failure", depends-on = ["build"], description = "Run the test harness." }
 
 [tasks.all]
-depends-on = ["configure", "build", "test"]
-description = "Configure, build, and test."
+depends-on = ["configure", "build", "test", "run_examples"]
+description = "Configure, build, test, and run the examples."
+
+# run_examples is platform-specific only in the plugin filename it passes to
+# run_example.py (see examples/run_example.py's own argv[1]) - CMake's own default
+# shared-library naming convention differs per platform (occt_plugin's CMakeLists.txt
+# doesn't override it): libocct_plugin.so (Linux), libocct_plugin.dylib (macOS),
+# occt_plugin.dll (Windows, no "lib" prefix by default).
+[target.linux-64.tasks]
+run_examples = { cmd = "python examples/run_example.py build/libocct_plugin.so", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
+
+[target.osx-64.tasks]
+run_examples = { cmd = "python examples/run_example.py build/libocct_plugin.dylib", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
+
+[target.win-64.tasks]
+run_examples = { cmd = "python examples/run_example.py build/occt_plugin.dll", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }

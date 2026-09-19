@@ -6,10 +6,16 @@
 
 #include <BRep_Builder.hxx>
 #include <BRep_Tool.hxx>
+#include <TopoDS_Builder.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Vertex.hxx>
 #include <TopoDS_Edge.hxx>
 #include <TopoDS_Face.hxx>
+#include <TopoDS_Wire.hxx>
+#include <TopoDS_Shell.hxx>
+#include <TopoDS_Solid.hxx>
+#include <TopoDS_CompSolid.hxx>
+#include <TopoDS_Compound.hxx>
 
 #include <memory>
 
@@ -139,6 +145,14 @@ void register_brep(grunk::plugin_namespace& ns)
         ))
         .add_bases<TopoDS_Builder>();
     ns.register_type<BRep_Tool, sol::automagic_flags::none>("BRep_Tool");
+    ns.register_type<TopoDS_Builder, sol::automagic_flags::none>("TopoDS_Builder")
+        .add_member_function("MakeWire", [](TopoDS_Builder const& self, TopoDS_Wire & W) { self.MakeWire(W); })
+        .add_member_function("MakeShell", [](TopoDS_Builder const& self, TopoDS_Shell & S) { self.MakeShell(S); })
+        .add_member_function("MakeSolid", [](TopoDS_Builder const& self, TopoDS_Solid & S) { self.MakeSolid(S); })
+        .add_member_function("MakeCompSolid", [](TopoDS_Builder const& self, TopoDS_CompSolid & C) { self.MakeCompSolid(C); })
+        .add_member_function("MakeCompound", [](TopoDS_Builder const& self, TopoDS_Compound & C) { self.MakeCompound(C); })
+        .add_member_function("Add", [](TopoDS_Builder const& self, TopoDS_Shape & S, const TopoDS_Shape & C) { self.Add(S, C); })
+        .add_member_function("Remove", [](TopoDS_Builder const& self, TopoDS_Shape & S, const TopoDS_Shape & C) { self.Remove(S, C); });
     ns.register_function("BRep_Tool_IsClosed", sol::overload(
         [](const TopoDS_Shape & S) -> Standard_Boolean { return BRep_Tool::IsClosed(S); },
         [](const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Boolean { return BRep_Tool::IsClosed(E, F); }

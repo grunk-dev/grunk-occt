@@ -46,3 +46,6 @@ jobs:
 
       - name: Test
         run: pixi run test
+
+      - name: Run examples
+        run: pixi run run_examples

@@ -1,0 +1,152 @@
+# SPDX-FileCopyrightText: 2026 Jan Kleinert <jan.kleinert@dlr.de>
+#
+# SPDX-License-Identifier: MPL-2.0
+
+# Ported from legacy grocc's own cavity_model.grr.yml (see
+# ../reference/legacy-recipes/cavity_model.grr.yml and its README) - a gas turbine
+# cavity: a revolved sketch fused with one cylinder, then a second (rotated,
+# translated) cylinder cut by a half-space and fused in too. See ../README.md for
+# how to run this with run_example.py.
+uses:
+  grunk: 0.5.0
+  occt: 0.1.0
+  occt_helpers: "1.0.0"
+parameters:
+  cavity_h: 50.0
+  dw: 1.0
+  x_min: -20.0
+  cavity_w: 20.8
+  dh: 1.0
+  cyl2_radius: 3.0
+  cyl2_dir_x: -0.6666666666666666
+  cyl2_dir_y: 0.3333333333333333
+  cyl2_dir_z: -0.6666666666666666
+  radius: 150.0
+  angle_deg: 30.0
+  cyl1_radius: 1.5
+  cyl1_height: 20.0
+  cyl1_dh: 0.33
+  cyl2_height: 50.0
+  cyl2_dh: 0.5
+  cyl2_shift: -10.0
+steps: |
+  cyl2_dir = occt.gp_Dir.new(cyl2_dir_x, cyl2_dir_y, cyl2_dir_z)
+  x_axis = occt.gp_Dir.new(1.0, 0.0, 0.0)
+  progress = occt.Message_ProgressRange.new()
+
+  angle_rad = occt.pi() * angle_deg / 180.0
+
+  -- First cylinder: positioned on a circle of radius (radius + cyl1_dh*cavity_h)
+  -- around the revolution axis, offset by half the sweep angle.
+  cyl1_pos_r = radius + cyl1_dh * cavity_h
+  cyl1_pos_x = 0.75 * cavity_w
+  cyl1_pos_y = cyl1_pos_r * occt.cos(angle_rad / 2.0)
+  cyl1_pos_z = -cyl1_pos_r * occt.sin(angle_rad / 2.0)
+  cyl1_origin = occt.gp_Pnt.new(cyl1_pos_x, cyl1_pos_y, cyl1_pos_z)
+
+  cyl1_builder = recipes.cylinder()
+  cyl1_builder.radius = cyl1_radius
+  cyl1_builder.height = cyl1_height
+  cyl1_builder.origin = cyl1_origin
+  cylinder1 = cyl1_builder.cylinder
+
+  -- Second cylinder: same construction, own radius/dh, then translated along its
+  -- own direction by cyl2_shift.
+  cyl2_pos_r = radius + cyl2_dh * cavity_h
+  cyl2_pos_x = dw
+  cyl2_pos_y = cyl2_pos_r * occt.cos(angle_rad / 2.0)
+  cyl2_pos_z = -cyl2_pos_r * occt.sin(angle_rad / 2.0)
+  cyl2_origin = occt.gp_Pnt.new(cyl2_pos_x, cyl2_pos_y, cyl2_pos_z)
+
+  cyl2_builder = recipes.cylinder()
+  cyl2_builder.radius = cyl2_radius
+  cyl2_builder.height = cyl2_height
+  cyl2_builder.direction = cyl2_dir
+  cyl2_builder.origin = cyl2_origin
+  cylinder2_tmp = cyl2_builder.cylinder
+
+  cyl2_shift_vec = occt.gp_Vec.new(cyl2_dir:X() * cyl2_shift, cyl2_dir:Y() * cyl2_shift, cyl2_dir:Z() * cyl2_shift)
+  cylinder2 = occt_helpers.translate(cylinder2_tmp, cyl2_shift_vec)
+
+  -- The cavity's own cross-section, built by the cavity_sketch sub-recipe, moved
+  -- out to the revolution radius and swept around the x axis.
+  sketch_builder = recipes.cavity_sketch()
+  sketch_builder.cavity_h = cavity_h
+  sketch_builder.dw = dw
+  sketch_builder.cavity_w = cavity_w
+  sketch_builder.dh = dh
+  cavity_face = sketch_builder.face
+
+  sketch_translation = occt.gp_Vec.new(0.0, radius, 0.0)
+  transformed_face = occt_helpers.translate(cavity_face, sketch_translation)
+
+  o = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+  d = occt.gp_Dir.new(-1.0, 0.0, 0.0)
+  ax = occt.gp_Ax1.new(o, d)
+  revol = occt.BRepPrimAPI_MakeRevol.new(transformed_face, ax, angle_rad, false):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  cavity_cyl1 = occt.BRepAlgoAPI_Fuse.new(revol, cylinder1, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  -- The second cylinder is clipped by a half-space starting at x_min so it doesn't
+  -- poke out the far side of the cavity, then fused in too.
+  x_min2 = x_min * 2.0
+  halfspace_pnt = occt.gp_Pnt.new(x_min2, 0.0, 0.0)
+  x_min_pnt = occt.gp_Pnt.new(x_min, 0.0, 0.0)
+  halfspace_pln = occt.gp_Pln.new(x_min_pnt, x_axis)
+  halfspace_face = occt.BRepBuilderAPI_MakeFace.new(halfspace_pln):Face()
+  halfspace = occt.BRepPrimAPI_MakeHalfSpace.new(halfspace_face, halfspace_pnt):Solid()
+  cylinder2_cut = occt.BRepAlgoAPI_Cut.new(cylinder2, halfspace, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  cavity = occt.BRepAlgoAPI_Fuse.new(cavity_cyl1, cylinder2_cut, progress):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  ok = occt.export_brep(cavity, "cavity_model.brep")
+outputs:
+  cavity: cavity
+  ok: ok
+recipes:
+  cavity_sketch:
+    uses:
+      grunk: 0.5.0
+      occt: 0.1.0
+      occt_helpers: "1.0.0"
+    parameters:
+      cavity_h: 1.0
+      dw: 0.1
+      dh: 0.1
+      cavity_w: 1.0
+    steps: |
+      width = cavity_w + dw
+      h1 = cavity_h - dh
+
+      p0 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+      p1 = occt.gp_Pnt.new(width, 0.0, 0.0)
+      p2 = occt.gp_Pnt.new(width, cavity_h, 0.0)
+      p3 = occt.gp_Pnt.new(0.0, cavity_h, 0.0)
+      p4 = occt.gp_Pnt.new(0.0, h1, 0.0)
+      p5 = occt.gp_Pnt.new(dw, h1, 0.0)
+      p6 = occt.gp_Pnt.new(dw, dh, 0.0)
+      p7 = occt.gp_Pnt.new(0.0, dh, 0.0)
+
+      -- occt_helpers.polygon_face expects a plain Lua array (indexable 1..#points),
+      -- not a std::vector<gp_Pnt> (that's occt.gp_Pnt.as_vec's own, different job -
+      -- feeding a C++ function that specifically wants std::vector<gp_Pnt>, e.g.
+      -- Geom_BezierCurve.new).
+      outline = {p0, p1, p2, p3, p4, p5, p6, p7}
+      face = occt_helpers.polygon_face(outline)
+    outputs:
+      face: face
+  cylinder:
+    uses:
+      grunk: 0.5.0
+      occt: 0.1.0
+    parameters:
+      origin: occt.gp_Pnt.new(0.0, 0.0, 0.0)
+      direction: occt.gp_Dir.new(1.0, 0.0, 0.0)
+      direction2: occt.gp_Dir.new(0.0, 1.0, 0.0)
+      radius: 1.0
+      height: 1.0
+    steps: |
+      ax2 = occt.gp_Ax2.new(origin, direction, direction2)
+      cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, radius, height):as(occt.BRepBuilderAPI_MakeShape):Shape()
+    outputs:
+      cylinder: cylinder

@@ -671,3 +671,177 @@ in this environment - confirmed only that the generator-expression gating doesn'
 regress the Linux build, and that `/bigobj` is CMake's own long-standing, standard
 remedy for exactly this MSVC error class; real confirmation is Windows CI itself
 going green on this fix.
+
+## Step 6.5: example recipes, and a real gap between recipe-level and module-level dynamic dispatch
+
+`examples/cavity_model.grr.yml` and `examples/tank_model.grr.yml` (see
+`examples/README.md`) port legacy grocc's own recipes of the same name to the new
+`grunk::recipe` YAML+Lua format, sharing one small pure-Lua grunk plugin
+(`examples/plugins/occt_helpers.lua`, declared explicitly in each recipe/
+sub-recipe's own `uses:` block - see `examples/README.md`'s "Why a plugin, not a
+shared module" for why it's a plugin rather than a module registered ambiently by
+the runner) loaded by `examples/run_example.py` (grunk's Python bindings - no
+bundled `ctest` integration coverage for this script, since building grunk's
+Python bindings isn't currently part of `grunk-occt`'s own CMake/pixi setup).
+Getting there needed:
+
+- **Widening `brepbuilderapi`/`brepprimapi`/`brepalgoapi`/`gc` to whole-module
+  wildcards** (matching legacy grocc's own config, same pattern as `brepoffsetapi`/
+  `geomapi`/`brepfilletapi` before them) - the two recipes need `MakeFace`/
+  `MakePolygon`/`MakeWire`/`MakeEdge`/`Transform`, `MakeRevol`/`MakeHalfSpace`/
+  `MakeSphere`/`MakePrism`, `Fuse`/`Common`, and `GC_MakeArcOfCircle`, none of which
+  the Step 4b hand-picked subsets included. Needed a new generator feature to get
+  there: `expand_headers`'s `exclude_headers` (`codegen/config.yml`'s
+  `exclude_headers:` key) - `BRepBuilderAPI_CellFilter.hxx`/`VertexInspector.hxx`/
+  `FastSewing.hxx`/`BndBoxTreeSelector.hxx` don't even *parse* standalone
+  (`NCollection_CellFilter<gp_XY>`/`NCollection_UBTree` instantiated without
+  `gp_XY`'s own header) - a hard clang error the existing blacklist mechanism can't
+  reach (blacklist only excludes a symbol *after* its header parses).
+- **`TopoDS_Builder` was never actually registered**, despite `brep`'s own config
+  comment claiming "nothing it declares is needed from Lua" - wrong, found while
+  writing `occt_helpers.compound`: `MakeCompound`/`Add` (needed to assemble a
+  `TopoDS_Compound`) live on `TopoDS_Builder`, not `BRep_Builder` itself. Corrected
+  by adding `TopoDS_Builder.hxx` to the `brep` module's own headers - the base class
+  must be *registered*, with its own real member functions, for `add_bases<...>()`
+  dispatch to have anything to find; it is not enough for the type to just be
+  visible/complete for pointer casting, contrary to that comment's prior claim.
+- **`src/math_extras.hpp`** (`occt.cos`/`sin`/`sqrt`/`pi`) - grunk's Lua state only
+  opens `sol::lib::base` (`grunk/dynamic/state.hpp`), not `sol::lib::math`, so
+  angle-based positioning (both recipes need real trigonometry) had nothing to call
+  without this.
+- **`src/gc/gc_extras.hpp`** (`occt.edge_from_arc`) - `tank_model`'s
+  `cylinder_segment` sub-recipe needs `GC_MakeArcOfCircle::Value()` (returns
+  `Handle(Geom_TrimmedCurve)`) fed into `BRepBuilderAPI_MakeEdge` (only accepts
+  `Handle(Geom_Curve)`, the abstract base) - the exact "Handle(Derived) does not
+  satisfy a Handle(Base) parameter" sol2 limitation tracked as
+  [grunk-dev/grunk-occt#1](https://github.com/grunk-dev/grunk-occt/issues/1). Rather
+  than wait on that fix, this one call site is done entirely in C++ (construct the
+  arc, build the edge from it, return only the finished `TopoDS_Edge`), so the
+  Handle upcast happens inside plain C++, never crossing into sol2's argument
+  matching at all.
+
+### Recipe-level dynamic dispatch does not walk `add_bases<...>()` - module-level dispatch does
+
+The single most surprising discovery of this milestone, found the hard way writing
+`cavity_model.grr.yml`'s `cylinder` sub-recipe:
+
+```lua
+-- fails: "Feature: type "occt.BRepPrimAPI_MakeCylinder" has no member "Shape" -
+--         use :as(Type) explicitly if this is intentional."
+cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, radius, height):Shape()
+```
+
+`Shape()` is a real, accepted, generated member function - just not *directly* on
+`BRepPrimAPI_MakeCylinder`'s own usertype, only reached via
+`add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>()` (see
+`generated/brepprimapi.cpp`). That distinction matters because a recipe's own
+`steps:`/`recipes:` Lua runs in grunk's "decorated"/parametric environment, where
+every value is a `DynamicFeature`, and `DynamicFeature`'s own `__index` metamethod
+(`grunk/dynamic/state.hpp`) resolves `feature:SomeMethod(...)` by looking `SomeMethod`
+up **directly in the exact type recorded at construction time** (`m_type_registry
+[type_hint]`, a flat table lookup) - it does not walk sol2's own C++ inheritance
+metadata the way a plain, undecorated Lua call does. This is not a grunk-occt bug;
+it is documented, intentional behavior with its own escape hatch, `DynamicFeature::
+as(usertype_table)`:
+
+```lua
+-- works: :as() re-points the lookup at BRepBuilderAPI_MakeShape's own method
+-- table instead of BRepPrimAPI_MakeCylinder's.
+cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, radius, height)
+    :as(occt.BRepBuilderAPI_MakeShape):Shape()
+```
+
+Every `BRepPrimAPI_Make*`/`BRepAlgoAPI_*`/`BRepBuilderAPI_Transform` call in both
+ported recipes needs this `:as(occt.BRepBuilderAPI_MakeShape):Shape()` form
+whenever it appears directly in a recipe's own `steps:`/`recipes:` (never inside a
+module - see below).
+
+**Module/plugin bodies do not have this problem** - confirmed empirically, not
+assumed: `examples/plugins/occt_helpers.lua`'s own `translate`/`rotate`/
+`mirror_point` call `occt.BRepBuilderAPI_Transform.new(...):Shape()` with the
+*plain* form, no `:as()`, and it works (a pure-Lua plugin, loaded via
+`state.load_lua_plugin_file`, is a thin wrapper over `run_module_file` - same
+execution semantics as a plain module for everything below). A module/plugin call
+is one opaque, non-parametric compute node from the calling recipe's point of view
+(see the plugin `uses:`/Modules section in `grunk`'s own README/docs) - internally,
+its own `occt.*` calls run as ordinary, undecorated values, and plain sol2 dispatch
+*does* walk `add_bases<...>()` correctly, the same as every raw-Lua
+`tests/test_*.cpp` string in this whole project. First attempted the opposite fix
+(adding a `shape_of()` wrapper *inside* the module, calling `:as()` there) - that
+fails too, with `attempt to call a nil value (method 'as')`, because by the time a
+value crosses **into** a module/plugin call as one of its parameters, it has
+already been unwrapped to a plain object - there is no `DynamicFeature` left inside
+one for `:as()` (a `DynamicFeature`-only method) to be called on at all. `:as()`
+can only ever be used directly in a recipe's own `steps:`/`recipes:`, never inside
+a module or plugin.
+
+**A related, narrower gotcha in the same area**: a module/plugin parameter that is
+a *table* of features (e.g. `occt_helpers.polygon_face(points)`, `points` built as
+`{p0, p1, ...}` directly in a recipe's own `steps:`) only has its *top-level*
+unwrapping done automatically at the call boundary - the table itself arrives as a
+plain Lua table, but each individual element inside it is still the original
+`DynamicFeature`:
+
+```lua
+-- fails: "no matching function call takes this number of arguments and the
+--         specified types" - points[i] is a DynamicFeature, not a raw gp_Pnt.
+mp:Add(points[i])
+
+-- works: DynamicFeature::value() unwraps it to the raw grunk::object first.
+mp:Add(points[i]:value())
+```
+
+`polygon_face`/`wire_face`/`compound` (`occt_helpers.lua`) all need this
+`:value()` call on each table element for exactly this reason; a plain top-level
+parameter (`shape`, `vec`, `axis`, ...) never needs it.
+
+**Relationship to grunk-dev/grunk#269/#270**: that PR added `DynamicFeature`'s
+type-hint storage in the first place - before it, `feature:method(...)` colon-call
+syntax on a type-erased, not-yet-evaluated `DynamicFeature` couldn't work at all
+(see #269's own issue text: the whole point was making `feature:method()` resolve
+without evaluating `feature`, which breaks lazy evaluation). It was never about,
+and its own issue text never mentions, walking a type's C++ inheritance
+(`add_bases<...>()`) chain - `DynamicFeature::__index`'s lookup
+(`m_type_registry[type_hint][key]`, `grunk/dynamic/state.hpp`) is a flat,
+exact-type table lookup by design, the same way `sol::usertype::add_bases<...>()`
+(`grunk/dynamic/usertype_proxy.hpp`) only ever sets `ut[sol::base_classes]` for
+sol2's own casting - two independent mechanisms that were never wired together.
+grunk's own history already has one precedent for exactly this shape of gap
+(commit `428b3a4`, predating #270: "When registering base class member functions,
+we have to register them explicitly by adding a base class or by wrapping it with
+the derived class as first argument to be recognized as a member function") - this
+generator's own heavy reliance on `add_bases<...>()` for code reuse (nearly every
+accepted OCCT class reaches `Shape()`/`IsDone()` this way) is what makes the gap
+show up constantly here, in a way a smaller, less inheritance-heavy plugin
+wouldn't. Filed as
+[grunk-dev/grunk#285](https://github.com/grunk-dev/grunk/issues/285) - unlike the
+OCCT/`Handle(T)` sol2 issue above, this one is entirely about grunk's own
+dynamic-dispatch design, not anything OCCT-specific, so it belongs in `grunk`
+itself, not here.
+
+**grunk-occt follow-up reminder, once #285 lands**: revisit
+`examples/cavity_model.grr.yml`/`examples/tank_model.grr.yml`/`examples/plugins/
+occt_helpers.lua` and drop the now-unnecessary
+`:as(occt.BRepBuilderAPI_MakeShape):Shape()`-style casts sprinkled through both -
+they'll still work (an explicit `:as()` never becomes *wrong*, just redundant once
+`add_bases<...>()` is walked automatically), but the plain `:Shape()` form will be
+simpler and match every other colon-call in these recipes. Not urgent, not
+blocking anything - purely a cleanup once the upstream fix is available.
+
+Not filed as a grunk issue - both behaviors are grunk's own documented, deliberate
+design (see `state.hpp`'s own doc comments on `Feature.__index`/`DynamicFeature::
+as`), not bugs; this section exists so the next recipe written against `occt_plugin`
+doesn't have to rediscover it from a cryptic runtime error.
+
+### `fuel_D150.grr`/`fuelsystem.grr.yml` - not ported
+
+See `examples/README.md`'s own note: both are large (1800+ line), auto-exported
+parameter dumps (already characterized that way in
+`reference/legacy-recipes/README.md`, from before this milestone started), not
+hand-authored recipes - a poor fit for hand-porting, and explicitly called out as
+"not useful as documentation" rather than silently dropped. `cavity_model.grr.yml`/
+`tank_model.grr.yml` already exercise every module either fuel recipe would add
+(`gp`, `geom`/`gc`, `topods`, `brep`, `brepbuilderapi`, `brepprimapi`,
+`brepalgoapi`, `message_progress`) plus sub-recipes 3 levels deep and a shared
+module - the documentation/integration-test goals of this milestone are already
+met without them.
