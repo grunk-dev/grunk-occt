@@ -9,12 +9,17 @@ declarative config (codegen/config.yml) and emits grunk plugin registration code
 add_member_function API.
 
 See codegen/README.md for the full design (what's accepted, what's rejected and why,
-known gaps) - this is a deliberately narrow MVP (Step 2 of the migration plan): one
-class per header (matched by filename stem, true for every OCCT gp_* header),
+known gaps) - this is a deliberately narrow MVP (Step 2 of the migration plan):
 constructors/instance methods only, and only a small allowlist of "simple" parameter/
 return types can be bound generically. Anything else is silently skipped and reported
 in the summary printed at the end of a run - review that output when adding a new
 module, since it's the primary way to discover what needs a hand-written escape hatch.
+
+A module's `headers` list accepts glob patterns (e.g. "gp_*.hxx") as well as literal
+filenames, expanded against --occt-include-dir - see expand_headers(). Each matched
+header is scanned for every class/struct/enum/namespace *directly* declared in it (not
+just one matching the filename stem, and not anything nested or only transitively
+included) - see discover_entities().
 """
 
 from __future__ import annotations
@@ -51,6 +56,54 @@ def system_cxx_include_dirs() -> list[str]:
     if not match:
         return []
     return [line.strip() for line in match.group(1).splitlines() if line.strip()]
+
+def expand_headers(patterns: list[str], occt_include_dir: Path) -> tuple[list[str], set[str]]:
+    """Expands a module's `headers` list: a literal filename is kept as-is (and must
+    exist), a glob pattern (contains any of *?[) is matched against
+    occt_include_dir and expanded to every matching filename, sorted for a
+    deterministic, reviewable diff. Revives legacy grocc's own config.yml.in
+    convention (`gp_*.hxx`) - our own config previously enumerated every header by
+    hand, which both undersold how many OCCT types are one glob away and made
+    growing a module tedious. Deduplicates across all patterns in the list (in case
+    two overlap) while preserving first-seen order.
+
+    Returns (headers, glob_matched) - glob_matched is the subset that came from a
+    wildcard rather than being named explicitly, which process_module uses to
+    decide how strict to be about a header defining nothing this generator cares
+    about (see its own docstring): a hand-picked literal header with zero
+    class/struct/enum/namespace definitions is almost certainly a typo/mistake and
+    stays a hard error, but a glob is *expected* to occasionally sweep in a header
+    that doesn't declare a real type at all - e.g. gp_*.hxx matching gp_Vec2f.hxx,
+    which is only `typedef NCollection_Vec2<Standard_ShortReal> gp_Vec2f;` - which
+    should be skipped quietly rather than failing the whole run.
+
+    Known hazard (see DESIGN.md): a prefix-style glob can accidentally sweep in an
+    unrelated header family with the same filename prefix (e.g. `TopoDS*.hxx` would
+    also match `TopoDSToStep_*.hxx`, a completely different OCCT package) - the
+    blacklist mechanism (a bare ClassName) is the way to exclude something an
+    over-eager glob picked up, same as excluding anything else this generator
+    shouldn't bind."""
+    seen: set[str] = set()
+    result: list[str] = []
+    glob_matched: set[str] = set()
+    for pattern in patterns:
+        is_glob = any(ch in pattern for ch in "*?[")
+        if is_glob:
+            matches = sorted(p.name for p in occt_include_dir.glob(pattern))
+            if not matches:
+                raise RuntimeError(f"header glob {pattern!r} matched no files in {occt_include_dir}")
+        else:
+            if not (occt_include_dir / pattern).exists():
+                raise RuntimeError(f"header {pattern!r} not found in {occt_include_dir}")
+            matches = [pattern]
+        for m in matches:
+            if is_glob:
+                glob_matched.add(m)
+            if m not in seen:
+                seen.add(m)
+                result.append(m)
+    return result, glob_matched
+
 
 STANDARD_REAL = "Standard_Real"
 PASSTHROUGH_TYPES = {"Standard_Integer", "Standard_Boolean"}
@@ -131,7 +184,7 @@ class Param:
     def is_mutable_ref(self) -> bool:
         return "&" in self.spelling and "const" not in self.spelling
 
-    def kind(self, registered_types: set[str]) -> str | None:
+    def kind(self, registered_types: set[str], registered_enums: set[str]) -> str | None:
         # Non-const-reference ("out") parameters ARE supported here, but only when
         # the base type is itself an OCCT object/Handle usertype - Lua/sol2 userdata
         # for a registered class already has stable, mutable identity (the same
@@ -150,6 +203,12 @@ class Param:
         if self.base == STANDARD_REAL:
             return None if self.is_mutable_ref else "real"
         if self.base in PASSTHROUGH_TYPES:
+            return None if self.is_mutable_ref else "passthrough"
+        # A plain C-style enum (e.g. GeomAbs_Shape) - sol2 marshals it as a plain
+        # value with zero special-casing needed in the emitted lambda body (see
+        # codegen/README.md's "Enum support"), exactly like Standard_Integer/
+        # Boolean above - reuses the "passthrough" kind rather than a new one.
+        if self.base in registered_enums:
             return None if self.is_mutable_ref else "passthrough"
         if self.base in registered_types:
             return "object"
@@ -192,29 +251,129 @@ class Callable:
     is_const: bool
     is_static: bool = False  # static class method, or a namespace free function - no "self"
 
-    def rejection_reason(self, registered_types: set[str]) -> str | None:
+    def rejection_reason(self, registered_types: set[str], registered_enums: set[str]) -> str | None:
         for p in self.params:
-            if p.kind(registered_types) is None:
+            if p.kind(registered_types, registered_enums) is None:
                 return f"unsupported parameter type '{p.spelling.strip()}'"
         if self.return_spelling is not None and self.return_spelling.strip() != "void":
-            if Param(self.return_spelling, "").kind(registered_types) is None:
+            if Param(self.return_spelling, "").kind(registered_types, registered_enums) is None:
                 return f"unsupported return type '{self.return_spelling.strip()}'"
         return None
 
 
-def find_namespace_definitions(tu: cindex.TranslationUnit, name: str, header_path: Path) -> list[cindex.Cursor]:
-    """Finds every NAMESPACE-kind fragment named `name` whose location is exactly
-    header_path (OCCT namespaces like `TopoDS` - see codegen/README.md's "Static-only
-    'namespace classes'" - are declared in one block per header in practice, but a
-    namespace can legally be reopened, so this collects every fragment rather than
-    assuming there's only one)."""
-    return [
-        cursor for cursor in tu.cursor.walk_preorder()
-        if cursor.kind == cindex.CursorKind.NAMESPACE
-        and cursor.spelling == name
-        and cursor.location.file
-        and Path(cursor.location.file.name).resolve() == header_path.resolve()
-    ]
+@dataclass
+class Entity:
+    name: str
+    cursor: cindex.Cursor
+    kind: str  # "class" | "enum" | "namespace"
+
+
+def discover_entities(tu: cindex.TranslationUnit, header_path: Path) -> list[Entity]:
+    """Finds every class/struct, enum, and namespace declared *directly* in
+    header_path (not nested inside another class/namespace, and not merely
+    transitively #included from it) - see codegen/README.md's "Lifting the
+    one-class-per-header assumption". Each becomes its own Entity, independent of
+    the header's own filename: a header may define zero, one, or several (a real
+    case once `headers` accepts glob patterns - see expand_headers() - rather than
+    each header being hand-picked to match exactly one wanted class).
+
+    Only *direct* children of the translation unit are considered - this is what
+    excludes a class's own protected/private nested helper classes (see
+    codegen/README.md's "Known gaps") and a class-scoped member enum, without
+    needing a separate filter for each. A class/struct must be a real definition
+    (`is_definition()`, excludes forward declarations); an enum must additionally
+    have a name (skips anonymous enums, which have no symbolic type to register).
+    "std" is excluded by name even though it technically qualifies (headers using
+    OCCT's hashing support commonly reopen `namespace std { template<> struct
+    hash<...> {...}; }` right there, at true TU-child scope) - harmless either way
+    (render_module skips every "namespace" entity's own registration regardless,
+    and a plain namespace reopen has no free FUNCTION_DECLs for
+    collect_namespace_callables to find), just noise in the discovered-entity list.
+
+    Performance note: uses `tu.cursor.get_children()` (direct children of the
+    translation unit only), *not* `tu.cursor.walk_preorder()` (which recurses into
+    every cursor's entire subtree - function bodies, nested expressions, template
+    instantiation internals, the works). Since every entity this function looks for
+    is by definition a direct TU child already, walk_preorder()'s extra recursion
+    buys nothing here but cost: for a single moderately-included header, it visits
+    on the order of 10^5 cursors where get_children() visits closer to 10^3 -
+    confirmed empirically (0.6s vs 0.01s on TopoDS_Shape.hxx) - the difference
+    between this finishing in well under a second and a full regen run not
+    finishing inside a 10-minute timeout at all. Found the hard way."""
+    interesting_kinds = (
+        cindex.CursorKind.CLASS_DECL,
+        cindex.CursorKind.STRUCT_DECL,
+        cindex.CursorKind.ENUM_DECL,
+        cindex.CursorKind.NAMESPACE,
+    )
+    header_path_resolved = header_path.resolve()
+    entities: list[Entity] = []
+    for cursor in tu.cursor.get_children():
+        if cursor.kind not in interesting_kinds:
+            continue
+        loc_file = cursor.location.file
+        if loc_file is None or Path(loc_file.name).resolve() != header_path_resolved:
+            continue
+        if cursor.kind in (cindex.CursorKind.CLASS_DECL, cindex.CursorKind.STRUCT_DECL) and cursor.is_definition():
+            # Excludes an explicit template specialization defined right in a
+            # header (a real case, not hypothetical: gp_TrsfNLerp.hxx defines
+            # `class NCollection_Lerp<gp_Trsf> { ... };` directly) - its cursor.kind
+            # is an ordinary CLASS_DECL and cursor.spelling is just the bare
+            # template name ("NCollection_Lerp", no argument), which would
+            # otherwise get registered as if it were a plain, template-free class
+            # named that - cursor.type.spelling, unlike .spelling, does include the
+            # template argument ("NCollection_Lerp<gp_Trsf>"), so a mismatch
+            # between the two is exactly the signal a specialization is present.
+            # Matches this project's existing "no NCollection type is ever exposed
+            # to Lua directly" policy (see DESIGN.md's collections/Step 5 note) -
+            # this isn't a new exclusion so much as that policy applying here too.
+            if strip_type(cursor.type.spelling) != cursor.spelling:
+                continue
+            entities.append(Entity(cursor.spelling, cursor, "class"))
+        elif cursor.kind == cindex.CursorKind.ENUM_DECL and cursor.is_definition() and cursor.spelling:
+            entities.append(Entity(cursor.spelling, cursor, "enum"))
+        elif cursor.kind == cindex.CursorKind.NAMESPACE and cursor.spelling != "std":
+            entities.append(Entity(cursor.spelling, cursor, "namespace"))
+    return entities
+
+
+def enum_constant_names(enum_cursor: cindex.Cursor) -> list[str]:
+    """The enumerator names of an ENUM_DECL cursor, in declaration order (e.g.
+    ["GeomAbs_C0", "GeomAbs_C1", ...] for GeomAbs_Shape) - see codegen/README.md's
+    "Enum support" for how these become both the Lua-side key and the bare C++
+    value in the emitted new_enum(...) call."""
+    return [c.spelling for c in enum_cursor.get_children() if c.kind == cindex.CursorKind.ENUM_CONSTANT_DECL]
+
+
+@dataclass
+class ParsedHeader:
+    tu: cindex.TranslationUnit
+    entities: list[Entity]
+
+
+def parse_headers(headers: list[str], occt_include_dir: Path, clang_args: list[str],
+                   cache: dict[str, ParsedHeader]) -> None:
+    """Parses each header not already in cache and discovers its entities, storing
+    both under cache[header] - shared by main()'s whole-config discovery pass and
+    process_module()'s own per-module pass so each header is only ever parsed
+    once, regardless of how many modules reference it. Parsing (and, for a
+    heavily-included header, walking its AST) is the dominant cost here - Standard
+    C++ header parsing runs in the ~0.1-0.5s range per header even for a single
+    pass, so avoiding a second full pass over the same header roughly halves total
+    runtime once a config has any overlap between the whole-config discovery scan
+    and each module's own processing (which, since Step 6's "gc"/"geom" split,
+    a wildcard-expanded config will have far more of than the original
+    one-header-per-module design ever did)."""
+    index = cindex.Index.create()
+    for header in headers:
+        if header in cache:
+            continue
+        header_path = occt_include_dir / header
+        tu = index.parse(str(header_path), args=clang_args)
+        diags = [d for d in tu.diagnostics if d.severity >= cindex.Diagnostic.Error]
+        if diags:
+            raise RuntimeError(f"clang errors parsing {header}:\n" + "\n".join(str(d) for d in diags))
+        cache[header] = ParsedHeader(tu, discover_entities(tu, header_path))
 
 
 def collect_namespace_callables(namespace_cursors: list[cindex.Cursor], ns_name: str) -> list[Callable]:
@@ -236,24 +395,23 @@ def collect_namespace_callables(namespace_cursors: list[cindex.Cursor], ns_name:
     return callables
 
 
-def find_class_definition(tu: cindex.TranslationUnit, class_name: str, header_path: Path | None = None) -> cindex.Cursor | None:
-    """Finds the CLASS_DECL/STRUCT_DECL definition of class_name. If header_path is
-    given, only accepts the definition located exactly there (not a forward
-    declaration, and not the same class pulled in transitively from a different
-    header this one #includes) - used for a module's own headers. Without
-    header_path, accepts any definition in the translation unit - used to walk base
-    classes from other, transitively-included headers (e.g. Geom_Line's own header
-    doesn't define Geom_Curve, but Geom_Curve's full definition is still visible,
-    transitively included)."""
-    for cursor in tu.cursor.walk_preorder():
+def find_class_definition(tu: cindex.TranslationUnit, class_name: str) -> cindex.Cursor | None:
+    """Finds the CLASS_DECL/STRUCT_DECL definition of class_name anywhere in the
+    translation unit - used to walk base classes from other, transitively-included
+    headers (e.g. Geom_Line's own header doesn't define Geom_Curve, but
+    Geom_Curve's full definition is still visible, transitively included).
+
+    Uses `tu.cursor.get_children()`, not `tu.cursor.walk_preorder()` - same
+    performance reasoning as discover_entities(): every class this generator's
+    base-chain walk ever looks up is, like discover_entities' own targets, a
+    direct child of the translation unit (a #include textually inserts the
+    included file's top-level declarations at that point - it doesn't nest them
+    under anything), so the full recursive walk was doing a great deal of
+    unnecessary work descending into function bodies and nested expressions."""
+    for cursor in tu.cursor.get_children():
         if cursor.kind not in (cindex.CursorKind.CLASS_DECL, cindex.CursorKind.STRUCT_DECL):
             continue
-        if cursor.spelling != class_name or not cursor.is_definition():
-            continue
-        if header_path is None:
-            return cursor
-        loc_file = cursor.location.file
-        if loc_file and Path(loc_file.name).resolve() == header_path.resolve():
+        if cursor.spelling == class_name and cursor.is_definition():
             return cursor
     return None
 
@@ -433,14 +591,28 @@ class ModuleResult:
     is_transient: dict[str, bool] = field(default_factory=dict)
     ctor_mode: dict[str, str] = field(default_factory=dict)  # "value" | "unique_ptr" | "handle"
     bases: dict[str, list[str]] = field(default_factory=dict)
-    entity_kind: dict[str, str] = field(default_factory=dict)  # "class" | "namespace"
+    entity_kind: dict[str, str] = field(default_factory=dict)  # "class" | "enum" | "namespace"
+    entity_names: list[str] = field(default_factory=list)  # discovery order - replaces the old
+    # one-name-per-header assumption (Path(h).stem for h in headers); a single header can now
+    # contribute zero, one, or several entities (see discover_entities).
+    enum_values: dict[str, list[str]] = field(default_factory=dict)  # enum name -> its enumerator names
 
 
-def process_module(module: dict, occt_include_dir: Path, registered_types: set[str]) -> ModuleResult:
-    """registered_types is the set of every class name across ALL modules in this
-    run (not just this module's own headers) - a type registered by module A is a
-    valid parameter/return type for a callable in module B, matching how legacy
-    grocc's cross-module type visibility worked.
+def process_module(module: dict, cache: dict[str, ParsedHeader], registered_types: set[str], registered_enums: set[str]) -> ModuleResult:
+    """registered_types/registered_enums are the sets of every class/enum name
+    across ALL modules in this run (not just this module's own headers) - a type
+    registered by module A is a valid parameter/return type for a callable in
+    module B, matching how legacy grocc's cross-module type visibility worked.
+    Computed by main() from the same `cache` this function reads (see
+    parse_headers()) before any module is actually processed - see
+    codegen/README.md's "Type registration spans the whole config".
+
+    module["headers"] is already fully expanded (glob patterns resolved to literal
+    filenames - see expand_headers()) and each header may define more than one
+    entity - see discover_entities(). `cache` must already hold a ParsedHeader for
+    every one of them (main() calls parse_headers() up front for exactly this
+    reason - each header is parsed/discovered once, not once per module that
+    happens to reference it and again here).
 
     module["extra_includes"] (optional) is a *different* concept, also revived from
     legacy grocc's config.yml.in: extra #include lines the generated .cpp needs for
@@ -452,63 +624,72 @@ def process_module(module: dict, occt_include_dir: Path, registered_types: set[s
     codegen/README.md's "extra_includes" section."""
     headers = module["headers"]
     blacklist = set(module.get("blacklist", []))
-    class_names = [Path(h).stem for h in headers]
+    glob_matched = module.get("_glob_matched_headers", set())
 
     result = ModuleResult(name=module["name"], headers=headers, extra_includes=module.get("extra_includes", []))
-    index = cindex.Index.create()
-    clang_args = ["-x", "c++", "-std=c++17", f"-I{occt_include_dir}"]
-    clang_args += [f"-isystem{d}" for d in system_cxx_include_dirs()]
 
-    for header, class_name in zip(headers, class_names):
-        header_path = occt_include_dir / header
-        tu = index.parse(str(header_path), args=clang_args)
-        diags = [d for d in tu.diagnostics if d.severity >= cindex.Diagnostic.Error]
-        if diags:
-            raise RuntimeError(f"clang errors parsing {header}:\n" + "\n".join(str(d) for d in diags))
-
-        target = find_class_definition(tu, class_name, header_path)
-        if target is not None:
-            result.entity_kind[class_name] = "class"
-            chain = base_chain(tu, target)
-            result.bases[class_name] = chain
-            result.is_transient[class_name] = TRANSIENT_ROOT in chain
-            if result.is_transient[class_name]:
-                result.ctor_mode[class_name] = "handle"
-            elif owns_resource_unsafely(tu, target, chain):
-                result.ctor_mode[class_name] = "unique_ptr"
-            else:
-                result.ctor_mode[class_name] = "value"
-            callables = collect_class_callables(target, class_name)
-        else:
-            # Not a class/struct - try a genuine C++ namespace instead (e.g.
-            # TopoDS.hxx's `namespace TopoDS { ... }` - see codegen/README.md's
-            # "Static-only 'namespace classes'"). No base chain/Transient concept
-            # applies to a namespace.
-            namespaces = find_namespace_definitions(tu, class_name, header_path)
-            if not namespaces:
-                raise RuntimeError(f"could not find a class/struct or namespace definition of "
-                                    f"{class_name!r} in {header_path}")
-            result.entity_kind[class_name] = "namespace"
-            callables = collect_namespace_callables(namespaces, class_name)
-
-        result.accepted_methods.setdefault(class_name, {})
-
-        for c in callables:
-            symbol = f"{c.class_name}::{c.cpp_name}"
-            if symbol in blacklist or c.class_name in blacklist:
-                result.blacklisted.append(c)
+    for header in headers:
+        tu, entities = cache[header].tu, cache[header].entities
+        if not entities:
+            if header in glob_matched:
+                # Expected, occasional glob noise (see expand_headers' own
+                # docstring - e.g. gp_*.hxx matching gp_Vec2f.hxx, a bare typedef
+                # with no class/struct/enum of its own) - skip quietly rather than
+                # failing the whole run. A *literal*, hand-picked header with
+                # nothing in it is still a hard error below - almost certainly a
+                # typo, not something to silently ignore.
                 continue
+            raise RuntimeError(f"no class/struct/enum/namespace definitions found in {header}")
 
-            reason = c.rejection_reason(registered_types)
-            if reason is not None:
-                result.rejected.append((c, reason))
-                continue
+        for entity in entities:
+            name = entity.name
+            if name in blacklist:
+                continue  # a bare ClassName/EnumName in the blacklist skips it entirely
+            result.entity_kind[name] = entity.kind
+            result.entity_names.append(name)
 
-            kinds = [p.kind(registered_types) for p in c.params]
-            if c.kind == "constructor":
-                result.accepted_ctors.setdefault(class_name, []).append((c, kinds))
+            if entity.kind == "enum":
+                result.enum_values[name] = enum_constant_names(entity.cursor)
+                continue  # no callables - see render_module's own enum handling
+
+            if entity.kind == "class":
+                chain = base_chain(tu, entity.cursor)
+                result.bases[name] = chain
+                result.is_transient[name] = TRANSIENT_ROOT in chain
+                if result.is_transient[name]:
+                    result.ctor_mode[name] = "handle"
+                elif owns_resource_unsafely(tu, entity.cursor, chain):
+                    result.ctor_mode[name] = "unique_ptr"
+                else:
+                    result.ctor_mode[name] = "value"
+                callables = collect_class_callables(entity.cursor, name)
             else:
-                result.accepted_methods[class_name].setdefault(c.cpp_name, []).append((c, kinds))
+                # Namespace (e.g. TopoDS.hxx's `namespace TopoDS { ... }` - see
+                # codegen/README.md's "Static-only 'namespace classes'"). No base
+                # chain/Transient concept applies. Treated as a single fragment -
+                # every namespace this generator has targeted so far is fully
+                # defined in one header, so reopening across multiple headers in
+                # the same module isn't handled (would need merging by name here).
+                callables = collect_namespace_callables([entity.cursor], name)
+
+            result.accepted_methods.setdefault(name, {})
+
+            for c in callables:
+                symbol = f"{c.class_name}::{c.cpp_name}"
+                if symbol in blacklist:
+                    result.blacklisted.append(c)
+                    continue
+
+                reason = c.rejection_reason(registered_types, registered_enums)
+                if reason is not None:
+                    result.rejected.append((c, reason))
+                    continue
+
+                kinds = [p.kind(registered_types, registered_enums) for p in c.params]
+                if c.kind == "constructor":
+                    result.accepted_ctors.setdefault(name, []).append((c, kinds))
+                else:
+                    result.accepted_methods[name].setdefault(c.cpp_name, []).append((c, kinds))
 
     return result
 
@@ -537,7 +718,7 @@ void register_{result.name}(grunk::plugin_namespace& ns);
         for _, kinds in overloads
         for k in kinds
     )
-    all_class_names = [Path(h).stem for h in result.headers]
+    all_class_names = result.entity_names
     registered_here = set(all_class_names)
 
     free_function_parts = []  # static class methods + namespace free functions with no naming collision
@@ -577,8 +758,26 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
     body_parts = []
     for class_name in all_class_names:
-        if result.entity_kind.get(class_name) == "namespace":
+        entity_kind = result.entity_kind.get(class_name)
+        if entity_kind == "namespace":
             continue  # no register_type for a genuine namespace - nothing else to do
+        if entity_kind == "enum":
+            # A plain C-style enum (see codegen/README.md's "Enum support") -
+            # sol2's own new_enum(...) is a non-const sol::table method, but
+            # plugin_namespace::table() returns `sol::table const&` - constructing
+            # a fresh (cheap, reference-semantics) sol::table copy from it sidesteps
+            # that constness mismatch without needing a new grunk API. No explicit
+            # enum-type template argument needed: this sol2 overload deduces it
+            # from the value arguments themselves. Each enumerator's own bare C++
+            # name doubles as its Lua-side string key (e.g.
+            # occt.GeomAbs_Shape.GeomAbs_C0).
+            enumerator_pairs = ",\n            ".join(
+                f'"{value}", {value}' for value in result.enum_values.get(class_name, [])
+            )
+            body_parts.append(
+                f'    sol::table(ns.table()).new_enum("{class_name}",\n            {enumerator_pairs}\n        );'
+            )
+            continue
 
         ctor_mode = result.ctor_mode.get(class_name, "value")
         instance_methods = {
@@ -638,6 +837,12 @@ void register_{result.name}(grunk::plugin_namespace& ns)
     return header_source, cpp_source
 
 
+def build_clang_args(occt_include_dir: Path) -> list[str]:
+    args = ["-x", "c++", "-std=c++17", f"-I{occt_include_dir}"]
+    args += [f"-isystem{d}" for d in system_cxx_include_dirs()]
+    return args
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path(__file__).parent / "config.yml")
@@ -647,11 +852,24 @@ def main() -> int:
 
     config = yaml.safe_load(args.config.read_text())
     args.output_dir.mkdir(parents=True, exist_ok=True)
-
-    registered_types = {Path(h).stem for module in config["modules"] for h in module["headers"]}
+    clang_args = build_clang_args(args.occt_include_dir)
 
     for module in config["modules"]:
-        result = process_module(module, args.occt_include_dir, registered_types)
+        module["headers"], module["_glob_matched_headers"] = expand_headers(module["headers"], args.occt_include_dir)
+
+    # Every header across the whole config is parsed/discovered exactly once here
+    # (see parse_headers()'s own docstring) - both registered_types/registered_enums
+    # (computed from this same cache, below) and each module's own process_module()
+    # call read from it rather than re-parsing.
+    cache: dict[str, ParsedHeader] = {}
+    for module in config["modules"]:
+        parse_headers(module["headers"], args.occt_include_dir, clang_args, cache)
+
+    registered_types = {e.name for p in cache.values() for e in p.entities if e.kind == "class"}
+    registered_enums = {e.name for p in cache.values() for e in p.entities if e.kind == "enum"}
+
+    for module in config["modules"]:
+        result = process_module(module, cache, registered_types, registered_enums)
         header_source, cpp_source = render_module(result)
         (args.output_dir / f"{result.name}.hpp").write_text(header_source)
         (args.output_dir / f"{result.name}.cpp").write_text(cpp_source)

@@ -4,11 +4,49 @@
 
 #include "gp.hpp"
 
-#include <gp_Pnt.hxx>
-#include <gp_Vec.hxx>
-#include <gp_Dir.hxx>
 #include <gp_Ax1.hxx>
+#include <gp_Ax2.hxx>
+#include <gp_Ax22d.hxx>
+#include <gp_Ax2d.hxx>
+#include <gp_Ax3.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Circ2d.hxx>
+#include <gp_Cone.hxx>
+#include <gp_Cylinder.hxx>
+#include <gp_Dir.hxx>
+#include <gp_Dir2d.hxx>
+#include <gp_Elips.hxx>
+#include <gp_Elips2d.hxx>
+#include <gp_EulerSequence.hxx>
+#include <gp_GTrsf.hxx>
+#include <gp_GTrsf2d.hxx>
+#include <gp_Hypr.hxx>
+#include <gp_Hypr2d.hxx>
+#include <gp_Lin.hxx>
+#include <gp_Lin2d.hxx>
+#include <gp_Mat.hxx>
+#include <gp_Mat2d.hxx>
+#include <gp_Parab.hxx>
+#include <gp_Parab2d.hxx>
+#include <gp_Pln.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Pnt2d.hxx>
+#include <gp_Quaternion.hxx>
+#include <gp_QuaternionNLerp.hxx>
+#include <gp_QuaternionSLerp.hxx>
+#include <gp_Sphere.hxx>
+#include <gp_Torus.hxx>
 #include <gp_Trsf.hxx>
+#include <gp_Trsf2d.hxx>
+#include <gp_TrsfForm.hxx>
+#include <gp_TrsfNLerp.hxx>
+#include <gp_Vec.hxx>
+#include <gp_Vec2d.hxx>
+#include <gp_Vec2f.hxx>
+#include <gp_Vec3f.hxx>
+#include <gp_VectorWithNullMagnitude.hxx>
+#include <gp_XY.hxx>
+#include <gp_XYZ.hxx>
 
 #include <memory>
 
@@ -16,9 +54,2102 @@
 
 void register_gp(grunk::plugin_namespace& ns)
 {
+    ns.register_type<gp_Ax1, sol::automagic_flags::none>("gp_Ax1")
+        .add_constructors(
+            []() { return gp_Ax1(); },
+            [](const gp_Pnt & theP, const gp_Dir & theV) { return gp_Ax1(theP, theV); }
+        )
+        .add_member_function("SetDirection", [](gp_Ax1& self, const gp_Dir & theV) { self.SetDirection(theV); })
+        .add_member_function("SetLocation", [](gp_Ax1& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("Direction", [](gp_Ax1 const& self) -> const gp_Dir & { return self.Direction(); })
+        .add_member_function("Location", [](gp_Ax1 const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("IsCoaxial", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1 const& self, const gp_Ax1 & Other, sol::object AngularTolerance, sol::object LinearTolerance) -> Standard_Boolean { return self.IsCoaxial(Other, occt_plugin::to_real(AngularTolerance), occt_plugin::to_real(LinearTolerance)); }
+#else
+            [](gp_Ax1 const& self, const gp_Ax1 & Other, const Standard_Real AngularTolerance, const Standard_Real LinearTolerance) -> Standard_Boolean { return self.IsCoaxial(Other, AngularTolerance, LinearTolerance); }
+#endif
+        )
+        .add_member_function("IsNormal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1 const& self, const gp_Ax1 & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax1 const& self, const gp_Ax1 & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsOpposite", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1 const& self, const gp_Ax1 & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax1 const& self, const gp_Ax1 & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsParallel", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1 const& self, const gp_Ax1 & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax1 const& self, const gp_Ax1 & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("Angle", [](gp_Ax1 const& self, const gp_Ax1 & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Reverse", [](gp_Ax1& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Ax1 const& self) -> gp_Ax1 { return self.Reversed(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Ax1& self, const gp_Pnt & P) { self.Mirror(P); },
+            [](gp_Ax1& self, const gp_Ax1 & A1) { self.Mirror(A1); },
+            [](gp_Ax1& self, const gp_Ax2 & A2) { self.Mirror(A2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Ax1 const& self, const gp_Pnt & P) -> gp_Ax1 { return self.Mirrored(P); },
+            [](gp_Ax1 const& self, const gp_Ax1 & A1) -> gp_Ax1 { return self.Mirrored(A1); },
+            [](gp_Ax1 const& self, const gp_Ax2 & A2) -> gp_Ax1 { return self.Mirrored(A2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1& self, const gp_Ax1 & theA1, sol::object theAngRad) { self.Rotate(theA1, occt_plugin::to_real(theAngRad)); }
+#else
+            [](gp_Ax1& self, const gp_Ax1 & theA1, const Standard_Real theAngRad) { self.Rotate(theA1, theAngRad); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1 const& self, const gp_Ax1 & theA1, sol::object theAngRad) -> gp_Ax1 { return self.Rotated(theA1, occt_plugin::to_real(theAngRad)); }
+#else
+            [](gp_Ax1 const& self, const gp_Ax1 & theA1, const Standard_Real theAngRad) -> gp_Ax1 { return self.Rotated(theA1, theAngRad); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax1& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax1 const& self, const gp_Pnt & theP, sol::object theS) -> gp_Ax1 { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax1 const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Ax1 { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Ax1& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Ax1 const& self, const gp_Trsf & theT) -> gp_Ax1 { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Ax1& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Ax1& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Ax1 const& self, const gp_Vec & theV) -> gp_Ax1 { return self.Translated(theV); },
+            [](gp_Ax1 const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Ax1 { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Ax2, sol::automagic_flags::none>("gp_Ax2")
+        .add_constructors(
+            []() { return gp_Ax2(); },
+            [](const gp_Pnt & P, const gp_Dir & N, const gp_Dir & Vx) { return gp_Ax2(P, N, Vx); },
+            [](const gp_Pnt & P, const gp_Dir & V) { return gp_Ax2(P, V); }
+        )
+        .add_member_function("SetAxis", [](gp_Ax2& self, const gp_Ax1 & A1) { self.SetAxis(A1); })
+        .add_member_function("SetDirection", [](gp_Ax2& self, const gp_Dir & V) { self.SetDirection(V); })
+        .add_member_function("SetLocation", [](gp_Ax2& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetXDirection", [](gp_Ax2& self, const gp_Dir & theVx) { self.SetXDirection(theVx); })
+        .add_member_function("SetYDirection", [](gp_Ax2& self, const gp_Dir & theVy) { self.SetYDirection(theVy); })
+        .add_member_function("Angle", [](gp_Ax2 const& self, const gp_Ax2 & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Axis", [](gp_Ax2 const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Direction", [](gp_Ax2 const& self) -> const gp_Dir & { return self.Direction(); })
+        .add_member_function("Location", [](gp_Ax2 const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("XDirection", [](gp_Ax2 const& self) -> const gp_Dir & { return self.XDirection(); })
+        .add_member_function("YDirection", [](gp_Ax2 const& self) -> const gp_Dir & { return self.YDirection(); })
+        .add_member_function("IsCoplanar", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2 const& self, const gp_Ax2 & Other, sol::object LinearTolerance, sol::object AngularTolerance) -> Standard_Boolean { return self.IsCoplanar(Other, occt_plugin::to_real(LinearTolerance), occt_plugin::to_real(AngularTolerance)); }
+#else
+            [](gp_Ax2 const& self, const gp_Ax2 & Other, const Standard_Real LinearTolerance, const Standard_Real AngularTolerance) -> Standard_Boolean { return self.IsCoplanar(Other, LinearTolerance, AngularTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2 const& self, const gp_Ax1 & A1, sol::object LinearTolerance, sol::object AngularTolerance) -> Standard_Boolean { return self.IsCoplanar(A1, occt_plugin::to_real(LinearTolerance), occt_plugin::to_real(AngularTolerance)); }
+#else
+            [](gp_Ax2 const& self, const gp_Ax1 & A1, const Standard_Real LinearTolerance, const Standard_Real AngularTolerance) -> Standard_Boolean { return self.IsCoplanar(A1, LinearTolerance, AngularTolerance); }
+#endif
+        
+        ))
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Ax2& self, const gp_Pnt & P) { self.Mirror(P); },
+            [](gp_Ax2& self, const gp_Ax1 & A1) { self.Mirror(A1); },
+            [](gp_Ax2& self, const gp_Ax2 & A2) { self.Mirror(A2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Ax2 const& self, const gp_Pnt & P) -> gp_Ax2 { return self.Mirrored(P); },
+            [](gp_Ax2 const& self, const gp_Ax1 & A1) -> gp_Ax2 { return self.Mirrored(A1); },
+            [](gp_Ax2 const& self, const gp_Ax2 & A2) -> gp_Ax2 { return self.Mirrored(A2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax2& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2 const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Ax2 { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax2 const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Ax2 { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax2& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2 const& self, const gp_Pnt & theP, sol::object theS) -> gp_Ax2 { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax2 const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Ax2 { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Ax2& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Ax2 const& self, const gp_Trsf & theT) -> gp_Ax2 { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Ax2& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Ax2& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Ax2 const& self, const gp_Vec & theV) -> gp_Ax2 { return self.Translated(theV); },
+            [](gp_Ax2 const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Ax2 { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Ax22d, sol::automagic_flags::none>("gp_Ax22d")
+        .add_constructors(
+            []() { return gp_Ax22d(); },
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theVx, const gp_Dir2d & theVy) { return gp_Ax22d(theP, theVx, theVy); },
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theV, const Standard_Boolean theIsSense) { return gp_Ax22d(theP, theV, theIsSense); },
+            [](const gp_Ax2d & theA, const Standard_Boolean theIsSense) { return gp_Ax22d(theA, theIsSense); }
+        )
+        .add_member_function("SetAxis", [](gp_Ax22d& self, const gp_Ax22d & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetXAxis", [](gp_Ax22d& self, const gp_Ax2d & theA1) { self.SetXAxis(theA1); })
+        .add_member_function("SetYAxis", [](gp_Ax22d& self, const gp_Ax2d & theA1) { self.SetYAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Ax22d& self, const gp_Pnt2d & theP) { self.SetLocation(theP); })
+        .add_member_function("SetXDirection", [](gp_Ax22d& self, const gp_Dir2d & theVx) { self.SetXDirection(theVx); })
+        .add_member_function("SetYDirection", [](gp_Ax22d& self, const gp_Dir2d & theVy) { self.SetYDirection(theVy); })
+        .add_member_function("XAxis", [](gp_Ax22d const& self) -> gp_Ax2d { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Ax22d const& self) -> gp_Ax2d { return self.YAxis(); })
+        .add_member_function("Location", [](gp_Ax22d const& self) -> const gp_Pnt2d & { return self.Location(); })
+        .add_member_function("XDirection", [](gp_Ax22d const& self) -> const gp_Dir2d & { return self.XDirection(); })
+        .add_member_function("YDirection", [](gp_Ax22d const& self) -> const gp_Dir2d & { return self.YDirection(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Ax22d& self, const gp_Pnt2d & theP) { self.Mirror(theP); },
+            [](gp_Ax22d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Ax22d const& self, const gp_Pnt2d & theP) -> gp_Ax22d { return self.Mirrored(theP); },
+            [](gp_Ax22d const& self, const gp_Ax2d & theA) -> gp_Ax22d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax22d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax22d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax22d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Ax22d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax22d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Ax22d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax22d& self, const gp_Pnt2d & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax22d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax22d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Ax22d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax22d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Ax22d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Ax22d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Ax22d const& self, const gp_Trsf2d & theT) -> gp_Ax22d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Ax22d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Ax22d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Ax22d const& self, const gp_Vec2d & theV) -> gp_Ax22d { return self.Translated(theV); },
+            [](gp_Ax22d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Ax22d { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Ax2d, sol::automagic_flags::none>("gp_Ax2d")
+        .add_constructors(
+            []() { return gp_Ax2d(); },
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theV) { return gp_Ax2d(theP, theV); }
+        )
+        .add_member_function("SetLocation", [](gp_Ax2d& self, const gp_Pnt2d & theP) { self.SetLocation(theP); })
+        .add_member_function("SetDirection", [](gp_Ax2d& self, const gp_Dir2d & theV) { self.SetDirection(theV); })
+        .add_member_function("Location", [](gp_Ax2d const& self) -> const gp_Pnt2d & { return self.Location(); })
+        .add_member_function("Direction", [](gp_Ax2d const& self) -> const gp_Dir2d & { return self.Direction(); })
+        .add_member_function("IsCoaxial", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d const& self, const gp_Ax2d & Other, sol::object AngularTolerance, sol::object LinearTolerance) -> Standard_Boolean { return self.IsCoaxial(Other, occt_plugin::to_real(AngularTolerance), occt_plugin::to_real(LinearTolerance)); }
+#else
+            [](gp_Ax2d const& self, const gp_Ax2d & Other, const Standard_Real AngularTolerance, const Standard_Real LinearTolerance) -> Standard_Boolean { return self.IsCoaxial(Other, AngularTolerance, LinearTolerance); }
+#endif
+        )
+        .add_member_function("IsNormal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d const& self, const gp_Ax2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax2d const& self, const gp_Ax2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsOpposite", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d const& self, const gp_Ax2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax2d const& self, const gp_Ax2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsParallel", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d const& self, const gp_Ax2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax2d const& self, const gp_Ax2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("Angle", [](gp_Ax2d const& self, const gp_Ax2d & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Reverse", [](gp_Ax2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Ax2d const& self) -> gp_Ax2d { return self.Reversed(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Ax2d& self, const gp_Pnt2d & P) { self.Mirror(P); },
+            [](gp_Ax2d& self, const gp_Ax2d & A) { self.Mirror(A); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Ax2d const& self, const gp_Pnt2d & P) -> gp_Ax2d { return self.Mirrored(P); },
+            [](gp_Ax2d const& self, const gp_Ax2d & A) -> gp_Ax2d { return self.Mirrored(A); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Ax2d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax2d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Ax2d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d& self, const gp_Pnt2d & P, sol::object S) { self.Scale(P, occt_plugin::to_real(S)); }
+#else
+            [](gp_Ax2d& self, const gp_Pnt2d & P, const Standard_Real S) { self.Scale(P, S); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax2d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Ax2d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax2d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Ax2d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Ax2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Ax2d const& self, const gp_Trsf2d & theT) -> gp_Ax2d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Ax2d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Ax2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Ax2d const& self, const gp_Vec2d & theV) -> gp_Ax2d { return self.Translated(theV); },
+            [](gp_Ax2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Ax2d { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Ax3, sol::automagic_flags::none>("gp_Ax3")
+        .add_constructors(
+            []() { return gp_Ax3(); },
+            [](const gp_Ax2 & theA) { return gp_Ax3(theA); },
+            [](const gp_Pnt & theP, const gp_Dir & theN, const gp_Dir & theVx) { return gp_Ax3(theP, theN, theVx); },
+            [](const gp_Pnt & theP, const gp_Dir & theV) { return gp_Ax3(theP, theV); }
+        )
+        .add_member_function("XReverse", [](gp_Ax3& self) { self.XReverse(); })
+        .add_member_function("YReverse", [](gp_Ax3& self) { self.YReverse(); })
+        .add_member_function("ZReverse", [](gp_Ax3& self) { self.ZReverse(); })
+        .add_member_function("SetAxis", [](gp_Ax3& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetDirection", [](gp_Ax3& self, const gp_Dir & theV) { self.SetDirection(theV); })
+        .add_member_function("SetLocation", [](gp_Ax3& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetXDirection", [](gp_Ax3& self, const gp_Dir & theVx) { self.SetXDirection(theVx); })
+        .add_member_function("SetYDirection", [](gp_Ax3& self, const gp_Dir & theVy) { self.SetYDirection(theVy); })
+        .add_member_function("Angle", [](gp_Ax3 const& self, const gp_Ax3 & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Axis", [](gp_Ax3 const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Ax2", [](gp_Ax3 const& self) -> gp_Ax2 { return self.Ax2(); })
+        .add_member_function("Direction", [](gp_Ax3 const& self) -> const gp_Dir & { return self.Direction(); })
+        .add_member_function("Location", [](gp_Ax3 const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("XDirection", [](gp_Ax3 const& self) -> const gp_Dir & { return self.XDirection(); })
+        .add_member_function("YDirection", [](gp_Ax3 const& self) -> const gp_Dir & { return self.YDirection(); })
+        .add_member_function("Direct", [](gp_Ax3 const& self) -> Standard_Boolean { return self.Direct(); })
+        .add_member_function("IsCoplanar", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax3 const& self, const gp_Ax3 & theOther, sol::object theLinearTolerance, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsCoplanar(theOther, occt_plugin::to_real(theLinearTolerance), occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax3 const& self, const gp_Ax3 & theOther, const Standard_Real theLinearTolerance, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsCoplanar(theOther, theLinearTolerance, theAngularTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax3 const& self, const gp_Ax1 & theA1, sol::object theLinearTolerance, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsCoplanar(theA1, occt_plugin::to_real(theLinearTolerance), occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Ax3 const& self, const gp_Ax1 & theA1, const Standard_Real theLinearTolerance, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsCoplanar(theA1, theLinearTolerance, theAngularTolerance); }
+#endif
+        
+        ))
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Ax3& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Ax3& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Ax3& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Ax3 const& self, const gp_Pnt & theP) -> gp_Ax3 { return self.Mirrored(theP); },
+            [](gp_Ax3 const& self, const gp_Ax1 & theA1) -> gp_Ax3 { return self.Mirrored(theA1); },
+            [](gp_Ax3 const& self, const gp_Ax2 & theA2) -> gp_Ax3 { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax3& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax3& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax3 const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Ax3 { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Ax3 const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Ax3 { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax3& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax3& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Ax3 const& self, const gp_Pnt & theP, sol::object theS) -> gp_Ax3 { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Ax3 const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Ax3 { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Ax3& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Ax3 const& self, const gp_Trsf & theT) -> gp_Ax3 { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Ax3& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Ax3& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Ax3 const& self, const gp_Vec & theV) -> gp_Ax3 { return self.Translated(theV); },
+            [](gp_Ax3 const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Ax3 { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Circ, sol::automagic_flags::none>("gp_Circ")
+        .add_constructors(
+            []() { return gp_Circ(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & theA2, sol::object theRadius) { return gp_Circ(theA2, occt_plugin::to_real(theRadius)); }
+#else
+            [](const gp_Ax2 & theA2, const Standard_Real theRadius) { return gp_Circ(theA2, theRadius); }
+#endif
+        
+        )
+        .add_member_function("SetAxis", [](gp_Circ& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Circ& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetPosition", [](gp_Circ& self, const gp_Ax2 & theA2) { self.SetPosition(theA2); })
+        .add_member_function("SetRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ& self, sol::object theRadius) { self.SetRadius(occt_plugin::to_real(theRadius)); }
+#else
+            [](gp_Circ& self, const Standard_Real theRadius) { self.SetRadius(theRadius); }
+#endif
+        )
+        .add_member_function("Area", [](gp_Circ const& self) -> Standard_Real { return self.Area(); })
+        .add_member_function("Axis", [](gp_Circ const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Length", [](gp_Circ const& self) -> Standard_Real { return self.Length(); })
+        .add_member_function("Location", [](gp_Circ const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](gp_Circ const& self) -> const gp_Ax2 & { return self.Position(); })
+        .add_member_function("Radius", [](gp_Circ const& self) -> Standard_Real { return self.Radius(); })
+        .add_member_function("XAxis", [](gp_Circ const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Circ const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Distance", [](gp_Circ const& self, const gp_Pnt & theP) -> Standard_Real { return self.Distance(theP); })
+        .add_member_function("SquareDistance", [](gp_Circ const& self, const gp_Pnt & theP) -> Standard_Real { return self.SquareDistance(theP); })
+        .add_member_function("Contains", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ const& self, const gp_Pnt & theP, sol::object theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, occt_plugin::to_real(theLinearTolerance)); }
+#else
+            [](gp_Circ const& self, const gp_Pnt & theP, const Standard_Real theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, theLinearTolerance); }
+#endif
+        )
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Circ& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Circ& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Circ& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Circ const& self, const gp_Pnt & theP) -> gp_Circ { return self.Mirrored(theP); },
+            [](gp_Circ const& self, const gp_Ax1 & theA1) -> gp_Circ { return self.Mirrored(theA1); },
+            [](gp_Circ const& self, const gp_Ax2 & theA2) -> gp_Circ { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Circ& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Circ { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Circ const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Circ { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Circ& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ const& self, const gp_Pnt & theP, sol::object theS) -> gp_Circ { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Circ const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Circ { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Circ& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Circ const& self, const gp_Trsf & theT) -> gp_Circ { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Circ& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Circ& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Circ const& self, const gp_Vec & theV) -> gp_Circ { return self.Translated(theV); },
+            [](gp_Circ const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Circ { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Circ2d, sol::automagic_flags::none>("gp_Circ2d")
+        .add_constructors(
+            []() { return gp_Circ2d(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theXAxis, sol::object theRadius, const Standard_Boolean theIsSense) { return gp_Circ2d(theXAxis, occt_plugin::to_real(theRadius), theIsSense); }
+#else
+            [](const gp_Ax2d & theXAxis, const Standard_Real theRadius, const Standard_Boolean theIsSense) { return gp_Circ2d(theXAxis, theRadius, theIsSense); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax22d & theAxis, sol::object theRadius) { return gp_Circ2d(theAxis, occt_plugin::to_real(theRadius)); }
+#else
+            [](const gp_Ax22d & theAxis, const Standard_Real theRadius) { return gp_Circ2d(theAxis, theRadius); }
+#endif
+        
+        )
+        .add_member_function("SetLocation", [](gp_Circ2d& self, const gp_Pnt2d & theP) { self.SetLocation(theP); })
+        .add_member_function("SetXAxis", [](gp_Circ2d& self, const gp_Ax2d & theA) { self.SetXAxis(theA); })
+        .add_member_function("SetAxis", [](gp_Circ2d& self, const gp_Ax22d & theA) { self.SetAxis(theA); })
+        .add_member_function("SetYAxis", [](gp_Circ2d& self, const gp_Ax2d & theA) { self.SetYAxis(theA); })
+        .add_member_function("SetRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ2d& self, sol::object theRadius) { self.SetRadius(occt_plugin::to_real(theRadius)); }
+#else
+            [](gp_Circ2d& self, const Standard_Real theRadius) { self.SetRadius(theRadius); }
+#endif
+        )
+        .add_member_function("Area", [](gp_Circ2d const& self) -> Standard_Real { return self.Area(); })
+        .add_member_function("Contains", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP, sol::object theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, occt_plugin::to_real(theLinearTolerance)); }
+#else
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP, const Standard_Real theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, theLinearTolerance); }
+#endif
+        )
+        .add_member_function("Distance", [](gp_Circ2d const& self, const gp_Pnt2d & theP) -> Standard_Real { return self.Distance(theP); })
+        .add_member_function("SquareDistance", [](gp_Circ2d const& self, const gp_Pnt2d & theP) -> Standard_Real { return self.SquareDistance(theP); })
+        .add_member_function("Length", [](gp_Circ2d const& self) -> Standard_Real { return self.Length(); })
+        .add_member_function("Location", [](gp_Circ2d const& self) -> const gp_Pnt2d & { return self.Location(); })
+        .add_member_function("Radius", [](gp_Circ2d const& self) -> Standard_Real { return self.Radius(); })
+        .add_member_function("Axis", [](gp_Circ2d const& self) -> const gp_Ax22d & { return self.Axis(); })
+        .add_member_function("Position", [](gp_Circ2d const& self) -> const gp_Ax22d & { return self.Position(); })
+        .add_member_function("XAxis", [](gp_Circ2d const& self) -> gp_Ax2d { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Circ2d const& self) -> gp_Ax2d { return self.YAxis(); })
+        .add_member_function("Reverse", [](gp_Circ2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Circ2d const& self) -> gp_Circ2d { return self.Reversed(); })
+        .add_member_function("IsDirect", [](gp_Circ2d const& self) -> Standard_Boolean { return self.IsDirect(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Circ2d& self, const gp_Pnt2d & theP) { self.Mirror(theP); },
+            [](gp_Circ2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP) -> gp_Circ2d { return self.Mirrored(theP); },
+            [](gp_Circ2d const& self, const gp_Ax2d & theA) -> gp_Circ2d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Circ2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Circ2d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Circ2d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ2d& self, const gp_Pnt2d & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Circ2d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Circ2d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Circ2d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Circ2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Circ2d const& self, const gp_Trsf2d & theT) -> gp_Circ2d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Circ2d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Circ2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Circ2d const& self, const gp_Vec2d & theV) -> gp_Circ2d { return self.Translated(theV); },
+            [](gp_Circ2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Circ2d { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Cone, sol::automagic_flags::none>("gp_Cone")
+        .add_constructors(
+            []() { return gp_Cone(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax3 & theA3, sol::object theAng, sol::object theRadius) { return gp_Cone(theA3, occt_plugin::to_real(theAng), occt_plugin::to_real(theRadius)); }
+#else
+            [](const gp_Ax3 & theA3, const Standard_Real theAng, const Standard_Real theRadius) { return gp_Cone(theA3, theAng, theRadius); }
+#endif
+        
+        )
+        .add_member_function("SetAxis", [](gp_Cone& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Cone& self, const gp_Pnt & theLoc) { self.SetLocation(theLoc); })
+        .add_member_function("SetPosition", [](gp_Cone& self, const gp_Ax3 & theA3) { self.SetPosition(theA3); })
+        .add_member_function("SetRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cone& self, sol::object theR) { self.SetRadius(occt_plugin::to_real(theR)); }
+#else
+            [](gp_Cone& self, const Standard_Real theR) { self.SetRadius(theR); }
+#endif
+        )
+        .add_member_function("SetSemiAngle", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cone& self, sol::object theAng) { self.SetSemiAngle(occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Cone& self, const Standard_Real theAng) { self.SetSemiAngle(theAng); }
+#endif
+        )
+        .add_member_function("Apex", [](gp_Cone const& self) -> gp_Pnt { return self.Apex(); })
+        .add_member_function("UReverse", [](gp_Cone& self) { self.UReverse(); })
+        .add_member_function("VReverse", [](gp_Cone& self) { self.VReverse(); })
+        .add_member_function("Direct", [](gp_Cone const& self) -> Standard_Boolean { return self.Direct(); })
+        .add_member_function("Axis", [](gp_Cone const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Location", [](gp_Cone const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](gp_Cone const& self) -> const gp_Ax3 & { return self.Position(); })
+        .add_member_function("RefRadius", [](gp_Cone const& self) -> Standard_Real { return self.RefRadius(); })
+        .add_member_function("SemiAngle", [](gp_Cone const& self) -> Standard_Real { return self.SemiAngle(); })
+        .add_member_function("XAxis", [](gp_Cone const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Cone const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Cone& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Cone& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Cone& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Cone const& self, const gp_Pnt & theP) -> gp_Cone { return self.Mirrored(theP); },
+            [](gp_Cone const& self, const gp_Ax1 & theA1) -> gp_Cone { return self.Mirrored(theA1); },
+            [](gp_Cone const& self, const gp_Ax2 & theA2) -> gp_Cone { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cone& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Cone& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cone const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Cone { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Cone const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Cone { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cone& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Cone& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cone const& self, const gp_Pnt & theP, sol::object theS) -> gp_Cone { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Cone const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Cone { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Cone& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Cone const& self, const gp_Trsf & theT) -> gp_Cone { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Cone& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Cone& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Cone const& self, const gp_Vec & theV) -> gp_Cone { return self.Translated(theV); },
+            [](gp_Cone const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Cone { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Cylinder, sol::automagic_flags::none>("gp_Cylinder")
+        .add_constructors(
+            []() { return gp_Cylinder(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax3 & theA3, sol::object theRadius) { return gp_Cylinder(theA3, occt_plugin::to_real(theRadius)); }
+#else
+            [](const gp_Ax3 & theA3, const Standard_Real theRadius) { return gp_Cylinder(theA3, theRadius); }
+#endif
+        
+        )
+        .add_member_function("SetAxis", [](gp_Cylinder& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Cylinder& self, const gp_Pnt & theLoc) { self.SetLocation(theLoc); })
+        .add_member_function("SetPosition", [](gp_Cylinder& self, const gp_Ax3 & theA3) { self.SetPosition(theA3); })
+        .add_member_function("SetRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cylinder& self, sol::object theR) { self.SetRadius(occt_plugin::to_real(theR)); }
+#else
+            [](gp_Cylinder& self, const Standard_Real theR) { self.SetRadius(theR); }
+#endif
+        )
+        .add_member_function("UReverse", [](gp_Cylinder& self) { self.UReverse(); })
+        .add_member_function("VReverse", [](gp_Cylinder& self) { self.VReverse(); })
+        .add_member_function("Direct", [](gp_Cylinder const& self) -> Standard_Boolean { return self.Direct(); })
+        .add_member_function("Axis", [](gp_Cylinder const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Location", [](gp_Cylinder const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](gp_Cylinder const& self) -> const gp_Ax3 & { return self.Position(); })
+        .add_member_function("Radius", [](gp_Cylinder const& self) -> Standard_Real { return self.Radius(); })
+        .add_member_function("XAxis", [](gp_Cylinder const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Cylinder const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Cylinder& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Cylinder& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Cylinder& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Cylinder const& self, const gp_Pnt & theP) -> gp_Cylinder { return self.Mirrored(theP); },
+            [](gp_Cylinder const& self, const gp_Ax1 & theA1) -> gp_Cylinder { return self.Mirrored(theA1); },
+            [](gp_Cylinder const& self, const gp_Ax2 & theA2) -> gp_Cylinder { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cylinder& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Cylinder& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cylinder const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Cylinder { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Cylinder const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Cylinder { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cylinder& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Cylinder& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Cylinder const& self, const gp_Pnt & theP, sol::object theS) -> gp_Cylinder { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Cylinder const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Cylinder { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Cylinder& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Cylinder const& self, const gp_Trsf & theT) -> gp_Cylinder { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Cylinder& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Cylinder& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Cylinder const& self, const gp_Vec & theV) -> gp_Cylinder { return self.Translated(theV); },
+            [](gp_Cylinder const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Cylinder { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Dir, sol::automagic_flags::none>("gp_Dir")
+        .add_constructors(
+            []() { return gp_Dir(); },
+            [](const gp_Vec & theV) { return gp_Dir(theV); },
+            [](const gp_XYZ & theCoord) { return gp_Dir(theCoord); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theXv, sol::object theYv, sol::object theZv) { return gp_Dir(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv), occt_plugin::to_real(theZv)); }
+#else
+            [](const Standard_Real theXv, const Standard_Real theYv, const Standard_Real theZv) { return gp_Dir(theXv, theYv, theZv); }
+#endif
+        
+        )
+        .add_member_function("SetCoord", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
+#else
+            [](gp_Dir& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir& self, sol::object theXv, sol::object theYv, sol::object theZv) { self.SetCoord(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv), occt_plugin::to_real(theZv)); }
+#else
+            [](gp_Dir& self, const Standard_Real theXv, const Standard_Real theYv, const Standard_Real theZv) { self.SetCoord(theXv, theYv, theZv); }
+#endif
+        
+        ))
+        .add_member_function("SetX", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir& self, sol::object theX) { self.SetX(occt_plugin::to_real(theX)); }
+#else
+            [](gp_Dir& self, const Standard_Real theX) { self.SetX(theX); }
+#endif
+        )
+        .add_member_function("SetY", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir& self, sol::object theY) { self.SetY(occt_plugin::to_real(theY)); }
+#else
+            [](gp_Dir& self, const Standard_Real theY) { self.SetY(theY); }
+#endif
+        )
+        .add_member_function("SetZ", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir& self, sol::object theZ) { self.SetZ(occt_plugin::to_real(theZ)); }
+#else
+            [](gp_Dir& self, const Standard_Real theZ) { self.SetZ(theZ); }
+#endif
+        )
+        .add_member_function("SetXYZ", [](gp_Dir& self, const gp_XYZ & theCoord) { self.SetXYZ(theCoord); })
+        .add_member_function("Coord", [](gp_Dir const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
+        .add_member_function("X", [](gp_Dir const& self) -> Standard_Real { return self.X(); })
+        .add_member_function("Y", [](gp_Dir const& self) -> Standard_Real { return self.Y(); })
+        .add_member_function("Z", [](gp_Dir const& self) -> Standard_Real { return self.Z(); })
+        .add_member_function("XYZ", [](gp_Dir const& self) -> const gp_XYZ & { return self.XYZ(); })
+        .add_member_function("IsEqual", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsNormal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsOpposite", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsParallel", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("Angle", [](gp_Dir const& self, const gp_Dir & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("AngleWithRef", [](gp_Dir const& self, const gp_Dir & theOther, const gp_Dir & theVRef) -> Standard_Real { return self.AngleWithRef(theOther, theVRef); })
+        .add_member_function("Cross", [](gp_Dir& self, const gp_Dir & theRight) { self.Cross(theRight); })
+        .add_member_function("Crossed", [](gp_Dir const& self, const gp_Dir & theRight) -> gp_Dir { return self.Crossed(theRight); })
+        .add_member_function("CrossCross", [](gp_Dir& self, const gp_Dir & theV1, const gp_Dir & theV2) { self.CrossCross(theV1, theV2); })
+        .add_member_function("CrossCrossed", [](gp_Dir const& self, const gp_Dir & theV1, const gp_Dir & theV2) -> gp_Dir { return self.CrossCrossed(theV1, theV2); })
+        .add_member_function("Dot", [](gp_Dir const& self, const gp_Dir & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function("DotCross", [](gp_Dir const& self, const gp_Dir & theV1, const gp_Dir & theV2) -> Standard_Real { return self.DotCross(theV1, theV2); })
+        .add_member_function("Reverse", [](gp_Dir& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Dir const& self) -> gp_Dir { return self.Reversed(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Dir& self, const gp_Dir & theV) { self.Mirror(theV); },
+            [](gp_Dir& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Dir& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Dir const& self, const gp_Dir & theV) -> gp_Dir { return self.Mirrored(theV); },
+            [](gp_Dir const& self, const gp_Ax1 & theA1) -> gp_Dir { return self.Mirrored(theA1); },
+            [](gp_Dir const& self, const gp_Ax2 & theA2) -> gp_Dir { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Dir& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Dir { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Dir const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Dir { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Dir& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Dir const& self, const gp_Trsf & theT) -> gp_Dir { return self.Transformed(theT); });
+    ns.register_type<gp_Dir2d, sol::automagic_flags::none>("gp_Dir2d")
+        .add_constructors(
+            []() { return gp_Dir2d(); },
+            [](const gp_Vec2d & theV) { return gp_Dir2d(theV); },
+            [](const gp_XY & theCoord) { return gp_Dir2d(theCoord); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theXv, sol::object theYv) { return gp_Dir2d(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv)); }
+#else
+            [](const Standard_Real theXv, const Standard_Real theYv) { return gp_Dir2d(theXv, theYv); }
+#endif
+        
+        )
+        .add_member_function("SetCoord", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
+#else
+            [](gp_Dir2d& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d& self, sol::object theXv, sol::object theYv) { self.SetCoord(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv)); }
+#else
+            [](gp_Dir2d& self, const Standard_Real theXv, const Standard_Real theYv) { self.SetCoord(theXv, theYv); }
+#endif
+        
+        ))
+        .add_member_function("SetX", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d& self, sol::object theX) { self.SetX(occt_plugin::to_real(theX)); }
+#else
+            [](gp_Dir2d& self, const Standard_Real theX) { self.SetX(theX); }
+#endif
+        )
+        .add_member_function("SetY", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d& self, sol::object theY) { self.SetY(occt_plugin::to_real(theY)); }
+#else
+            [](gp_Dir2d& self, const Standard_Real theY) { self.SetY(theY); }
+#endif
+        )
+        .add_member_function("SetXY", [](gp_Dir2d& self, const gp_XY & theCoord) { self.SetXY(theCoord); })
+        .add_member_function("Coord", [](gp_Dir2d const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
+        .add_member_function("X", [](gp_Dir2d const& self) -> Standard_Real { return self.X(); })
+        .add_member_function("Y", [](gp_Dir2d const& self) -> Standard_Real { return self.Y(); })
+        .add_member_function("XY", [](gp_Dir2d const& self) -> const gp_XY & { return self.XY(); })
+        .add_member_function("IsEqual", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsNormal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsOpposite", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsParallel", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Dir2d const& self, const gp_Dir2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("Angle", [](gp_Dir2d const& self, const gp_Dir2d & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Crossed", [](gp_Dir2d const& self, const gp_Dir2d & theRight) -> Standard_Real { return self.Crossed(theRight); })
+        .add_member_function("Dot", [](gp_Dir2d const& self, const gp_Dir2d & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function("Reverse", [](gp_Dir2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Dir2d const& self) -> gp_Dir2d { return self.Reversed(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Dir2d& self, const gp_Dir2d & theV) { self.Mirror(theV); },
+            [](gp_Dir2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Dir2d const& self, const gp_Dir2d & theV) -> gp_Dir2d { return self.Mirrored(theV); },
+            [](gp_Dir2d const& self, const gp_Ax2d & theA) -> gp_Dir2d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d& self, sol::object Ang) { self.Rotate(occt_plugin::to_real(Ang)); }
+#else
+            [](gp_Dir2d& self, const Standard_Real Ang) { self.Rotate(Ang); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Dir2d const& self, sol::object theAng) -> gp_Dir2d { return self.Rotated(occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Dir2d const& self, const Standard_Real theAng) -> gp_Dir2d { return self.Rotated(theAng); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Dir2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Dir2d const& self, const gp_Trsf2d & theT) -> gp_Dir2d { return self.Transformed(theT); });
+    ns.register_type<gp_Elips, sol::automagic_flags::none>("gp_Elips")
+        .add_constructors(
+            []() { return gp_Elips(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & theA2, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Elips(theA2, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](const gp_Ax2 & theA2, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Elips(theA2, theMajorRadius, theMinorRadius); }
+#endif
+        
+        )
+        .add_member_function("SetAxis", [](gp_Elips& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Elips& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetMajorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips& self, sol::object theMajorRadius) { self.SetMajorRadius(occt_plugin::to_real(theMajorRadius)); }
+#else
+            [](gp_Elips& self, const Standard_Real theMajorRadius) { self.SetMajorRadius(theMajorRadius); }
+#endif
+        )
+        .add_member_function("SetMinorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips& self, sol::object theMinorRadius) { self.SetMinorRadius(occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](gp_Elips& self, const Standard_Real theMinorRadius) { self.SetMinorRadius(theMinorRadius); }
+#endif
+        )
+        .add_member_function("SetPosition", [](gp_Elips& self, const gp_Ax2 & theA2) { self.SetPosition(theA2); })
+        .add_member_function("Area", [](gp_Elips const& self) -> Standard_Real { return self.Area(); })
+        .add_member_function("Axis", [](gp_Elips const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Directrix1", [](gp_Elips const& self) -> gp_Ax1 { return self.Directrix1(); })
+        .add_member_function("Directrix2", [](gp_Elips const& self) -> gp_Ax1 { return self.Directrix2(); })
+        .add_member_function("Eccentricity", [](gp_Elips const& self) -> Standard_Real { return self.Eccentricity(); })
+        .add_member_function("Focal", [](gp_Elips const& self) -> Standard_Real { return self.Focal(); })
+        .add_member_function("Focus1", [](gp_Elips const& self) -> gp_Pnt { return self.Focus1(); })
+        .add_member_function("Focus2", [](gp_Elips const& self) -> gp_Pnt { return self.Focus2(); })
+        .add_member_function("Location", [](gp_Elips const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("MajorRadius", [](gp_Elips const& self) -> Standard_Real { return self.MajorRadius(); })
+        .add_member_function("MinorRadius", [](gp_Elips const& self) -> Standard_Real { return self.MinorRadius(); })
+        .add_member_function("Parameter", [](gp_Elips const& self) -> Standard_Real { return self.Parameter(); })
+        .add_member_function("Position", [](gp_Elips const& self) -> const gp_Ax2 & { return self.Position(); })
+        .add_member_function("XAxis", [](gp_Elips const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Elips const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Elips& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Elips& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Elips& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Elips const& self, const gp_Pnt & theP) -> gp_Elips { return self.Mirrored(theP); },
+            [](gp_Elips const& self, const gp_Ax1 & theA1) -> gp_Elips { return self.Mirrored(theA1); },
+            [](gp_Elips const& self, const gp_Ax2 & theA2) -> gp_Elips { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Elips& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Elips { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Elips const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Elips { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Elips& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips const& self, const gp_Pnt & theP, sol::object theS) -> gp_Elips { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Elips const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Elips { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Elips& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Elips const& self, const gp_Trsf & theT) -> gp_Elips { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Elips& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Elips& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Elips const& self, const gp_Vec & theV) -> gp_Elips { return self.Translated(theV); },
+            [](gp_Elips const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Elips { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Elips2d, sol::automagic_flags::none>("gp_Elips2d")
+        .add_constructors(
+            []() { return gp_Elips2d(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
+#else
+            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, theMajorRadius, theMinorRadius, theIsSense); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax22d & theA, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Elips2d(theA, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](const gp_Ax22d & theA, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Elips2d(theA, theMajorRadius, theMinorRadius); }
+#endif
+        
+        )
+        .add_member_function("SetLocation", [](gp_Elips2d& self, const gp_Pnt2d & theP) { self.SetLocation(theP); })
+        .add_member_function("SetMajorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips2d& self, sol::object theMajorRadius) { self.SetMajorRadius(occt_plugin::to_real(theMajorRadius)); }
+#else
+            [](gp_Elips2d& self, const Standard_Real theMajorRadius) { self.SetMajorRadius(theMajorRadius); }
+#endif
+        )
+        .add_member_function("SetMinorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips2d& self, sol::object theMinorRadius) { self.SetMinorRadius(occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](gp_Elips2d& self, const Standard_Real theMinorRadius) { self.SetMinorRadius(theMinorRadius); }
+#endif
+        )
+        .add_member_function("SetAxis", [](gp_Elips2d& self, const gp_Ax22d & theA) { self.SetAxis(theA); })
+        .add_member_function("SetXAxis", [](gp_Elips2d& self, const gp_Ax2d & theA) { self.SetXAxis(theA); })
+        .add_member_function("SetYAxis", [](gp_Elips2d& self, const gp_Ax2d & theA) { self.SetYAxis(theA); })
+        .add_member_function("Area", [](gp_Elips2d const& self) -> Standard_Real { return self.Area(); })
+        .add_member_function("Directrix1", [](gp_Elips2d const& self) -> gp_Ax2d { return self.Directrix1(); })
+        .add_member_function("Directrix2", [](gp_Elips2d const& self) -> gp_Ax2d { return self.Directrix2(); })
+        .add_member_function("Eccentricity", [](gp_Elips2d const& self) -> Standard_Real { return self.Eccentricity(); })
+        .add_member_function("Focal", [](gp_Elips2d const& self) -> Standard_Real { return self.Focal(); })
+        .add_member_function("Focus1", [](gp_Elips2d const& self) -> gp_Pnt2d { return self.Focus1(); })
+        .add_member_function("Focus2", [](gp_Elips2d const& self) -> gp_Pnt2d { return self.Focus2(); })
+        .add_member_function("Location", [](gp_Elips2d const& self) -> const gp_Pnt2d & { return self.Location(); })
+        .add_member_function("MajorRadius", [](gp_Elips2d const& self) -> Standard_Real { return self.MajorRadius(); })
+        .add_member_function("MinorRadius", [](gp_Elips2d const& self) -> Standard_Real { return self.MinorRadius(); })
+        .add_member_function("Parameter", [](gp_Elips2d const& self) -> Standard_Real { return self.Parameter(); })
+        .add_member_function("Axis", [](gp_Elips2d const& self) -> const gp_Ax22d & { return self.Axis(); })
+        .add_member_function("XAxis", [](gp_Elips2d const& self) -> gp_Ax2d { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Elips2d const& self) -> gp_Ax2d { return self.YAxis(); })
+        .add_member_function("Reverse", [](gp_Elips2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Elips2d const& self) -> gp_Elips2d { return self.Reversed(); })
+        .add_member_function("IsDirect", [](gp_Elips2d const& self) -> Standard_Boolean { return self.IsDirect(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Elips2d& self, const gp_Pnt2d & theP) { self.Mirror(theP); },
+            [](gp_Elips2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Elips2d const& self, const gp_Pnt2d & theP) -> gp_Elips2d { return self.Mirrored(theP); },
+            [](gp_Elips2d const& self, const gp_Ax2d & theA) -> gp_Elips2d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Elips2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips2d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Elips2d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Elips2d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Elips2d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips2d& self, const gp_Pnt2d & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Elips2d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Elips2d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Elips2d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Elips2d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Elips2d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Elips2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Elips2d const& self, const gp_Trsf2d & theT) -> gp_Elips2d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Elips2d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Elips2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Elips2d const& self, const gp_Vec2d & theV) -> gp_Elips2d { return self.Translated(theV); },
+            [](gp_Elips2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Elips2d { return self.Translated(theP1, theP2); }
+        ));
+    sol::table(ns.table()).new_enum("gp_EulerSequence",
+            "gp_EulerAngles", gp_EulerAngles,
+            "gp_YawPitchRoll", gp_YawPitchRoll,
+            "gp_Extrinsic_XYZ", gp_Extrinsic_XYZ,
+            "gp_Extrinsic_XZY", gp_Extrinsic_XZY,
+            "gp_Extrinsic_YZX", gp_Extrinsic_YZX,
+            "gp_Extrinsic_YXZ", gp_Extrinsic_YXZ,
+            "gp_Extrinsic_ZXY", gp_Extrinsic_ZXY,
+            "gp_Extrinsic_ZYX", gp_Extrinsic_ZYX,
+            "gp_Intrinsic_XYZ", gp_Intrinsic_XYZ,
+            "gp_Intrinsic_XZY", gp_Intrinsic_XZY,
+            "gp_Intrinsic_YZX", gp_Intrinsic_YZX,
+            "gp_Intrinsic_YXZ", gp_Intrinsic_YXZ,
+            "gp_Intrinsic_ZXY", gp_Intrinsic_ZXY,
+            "gp_Intrinsic_ZYX", gp_Intrinsic_ZYX,
+            "gp_Extrinsic_XYX", gp_Extrinsic_XYX,
+            "gp_Extrinsic_XZX", gp_Extrinsic_XZX,
+            "gp_Extrinsic_YZY", gp_Extrinsic_YZY,
+            "gp_Extrinsic_YXY", gp_Extrinsic_YXY,
+            "gp_Extrinsic_ZYZ", gp_Extrinsic_ZYZ,
+            "gp_Extrinsic_ZXZ", gp_Extrinsic_ZXZ,
+            "gp_Intrinsic_XYX", gp_Intrinsic_XYX,
+            "gp_Intrinsic_XZX", gp_Intrinsic_XZX,
+            "gp_Intrinsic_YZY", gp_Intrinsic_YZY,
+            "gp_Intrinsic_YXY", gp_Intrinsic_YXY,
+            "gp_Intrinsic_ZXZ", gp_Intrinsic_ZXZ,
+            "gp_Intrinsic_ZYZ", gp_Intrinsic_ZYZ
+        );
+    ns.register_type<gp_GTrsf, sol::automagic_flags::none>("gp_GTrsf")
+        .add_constructors(
+            []() { return gp_GTrsf(); },
+            [](const gp_Trsf & theT) { return gp_GTrsf(theT); },
+            [](const gp_Mat & theM, const gp_XYZ & theV) { return gp_GTrsf(theM, theV); }
+        )
+        .add_member_function("SetAffinity", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_GTrsf& self, const gp_Ax1 & theA1, sol::object theRatio) { self.SetAffinity(theA1, occt_plugin::to_real(theRatio)); }
+#else
+            [](gp_GTrsf& self, const gp_Ax1 & theA1, const Standard_Real theRatio) { self.SetAffinity(theA1, theRatio); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_GTrsf& self, const gp_Ax2 & theA2, sol::object theRatio) { self.SetAffinity(theA2, occt_plugin::to_real(theRatio)); }
+#else
+            [](gp_GTrsf& self, const gp_Ax2 & theA2, const Standard_Real theRatio) { self.SetAffinity(theA2, theRatio); }
+#endif
+        
+        ))
+        .add_member_function("SetValue", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_GTrsf& self, const Standard_Integer theRow, const Standard_Integer theCol, sol::object theValue) { self.SetValue(theRow, theCol, occt_plugin::to_real(theValue)); }
+#else
+            [](gp_GTrsf& self, const Standard_Integer theRow, const Standard_Integer theCol, const Standard_Real theValue) { self.SetValue(theRow, theCol, theValue); }
+#endif
+        )
+        .add_member_function("SetVectorialPart", [](gp_GTrsf& self, const gp_Mat & theMatrix) { self.SetVectorialPart(theMatrix); })
+        .add_member_function("SetTranslationPart", [](gp_GTrsf& self, const gp_XYZ & theCoord) { self.SetTranslationPart(theCoord); })
+        .add_member_function("SetTrsf", [](gp_GTrsf& self, const gp_Trsf & theT) { self.SetTrsf(theT); })
+        .add_member_function("IsNegative", [](gp_GTrsf const& self) -> Standard_Boolean { return self.IsNegative(); })
+        .add_member_function("IsSingular", [](gp_GTrsf const& self) -> Standard_Boolean { return self.IsSingular(); })
+        .add_member_function("Form", [](gp_GTrsf const& self) -> gp_TrsfForm { return self.Form(); })
+        .add_member_function("SetForm", [](gp_GTrsf& self) { self.SetForm(); })
+        .add_member_function("TranslationPart", [](gp_GTrsf const& self) -> const gp_XYZ & { return self.TranslationPart(); })
+        .add_member_function("VectorialPart", [](gp_GTrsf const& self) -> const gp_Mat & { return self.VectorialPart(); })
+        .add_member_function("Value", [](gp_GTrsf const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> Standard_Real { return self.Value(theRow, theCol); })
+        .add_member_function("Invert", [](gp_GTrsf& self) { self.Invert(); })
+        .add_member_function("Inverted", [](gp_GTrsf const& self) -> gp_GTrsf { return self.Inverted(); })
+        .add_member_function("Multiplied", [](gp_GTrsf const& self, const gp_GTrsf & theT) -> gp_GTrsf { return self.Multiplied(theT); })
+        .add_member_function("Multiply", [](gp_GTrsf& self, const gp_GTrsf & theT) { self.Multiply(theT); })
+        .add_member_function("PreMultiply", [](gp_GTrsf& self, const gp_GTrsf & theT) { self.PreMultiply(theT); })
+        .add_member_function("Power", [](gp_GTrsf& self, const Standard_Integer theN) { self.Power(theN); })
+        .add_member_function("Powered", [](gp_GTrsf const& self, const Standard_Integer theN) -> gp_GTrsf { return self.Powered(theN); })
+        .add_member_function("Transforms", [](gp_GTrsf const& self, gp_XYZ & theCoord) { self.Transforms(theCoord); })
+        .add_member_function("Trsf", [](gp_GTrsf const& self) -> gp_Trsf { return self.Trsf(); });
+    ns.register_type<gp_GTrsf2d, sol::automagic_flags::none>("gp_GTrsf2d")
+        .add_constructors(
+            []() { return gp_GTrsf2d(); },
+            [](const gp_Trsf2d & theT) { return gp_GTrsf2d(theT); },
+            [](const gp_Mat2d & theM, const gp_XY & theV) { return gp_GTrsf2d(theM, theV); }
+        )
+        .add_member_function("SetAffinity", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_GTrsf2d& self, const gp_Ax2d & theA, sol::object theRatio) { self.SetAffinity(theA, occt_plugin::to_real(theRatio)); }
+#else
+            [](gp_GTrsf2d& self, const gp_Ax2d & theA, const Standard_Real theRatio) { self.SetAffinity(theA, theRatio); }
+#endif
+        )
+        .add_member_function("SetValue", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_GTrsf2d& self, const Standard_Integer theRow, const Standard_Integer theCol, sol::object theValue) { self.SetValue(theRow, theCol, occt_plugin::to_real(theValue)); }
+#else
+            [](gp_GTrsf2d& self, const Standard_Integer theRow, const Standard_Integer theCol, const Standard_Real theValue) { self.SetValue(theRow, theCol, theValue); }
+#endif
+        )
+        .add_member_function("SetTranslationPart", [](gp_GTrsf2d& self, const gp_XY & theCoord) { self.SetTranslationPart(theCoord); })
+        .add_member_function("SetTrsf2d", [](gp_GTrsf2d& self, const gp_Trsf2d & theT) { self.SetTrsf2d(theT); })
+        .add_member_function("SetVectorialPart", [](gp_GTrsf2d& self, const gp_Mat2d & theMatrix) { self.SetVectorialPart(theMatrix); })
+        .add_member_function("IsNegative", [](gp_GTrsf2d const& self) -> Standard_Boolean { return self.IsNegative(); })
+        .add_member_function("IsSingular", [](gp_GTrsf2d const& self) -> Standard_Boolean { return self.IsSingular(); })
+        .add_member_function("Form", [](gp_GTrsf2d const& self) -> gp_TrsfForm { return self.Form(); })
+        .add_member_function("TranslationPart", [](gp_GTrsf2d const& self) -> const gp_XY & { return self.TranslationPart(); })
+        .add_member_function("VectorialPart", [](gp_GTrsf2d const& self) -> const gp_Mat2d & { return self.VectorialPart(); })
+        .add_member_function("Value", [](gp_GTrsf2d const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> Standard_Real { return self.Value(theRow, theCol); })
+        .add_member_function("Invert", [](gp_GTrsf2d& self) { self.Invert(); })
+        .add_member_function("Inverted", [](gp_GTrsf2d const& self) -> gp_GTrsf2d { return self.Inverted(); })
+        .add_member_function("Multiplied", [](gp_GTrsf2d const& self, const gp_GTrsf2d & theT) -> gp_GTrsf2d { return self.Multiplied(theT); })
+        .add_member_function("Multiply", [](gp_GTrsf2d& self, const gp_GTrsf2d & theT) { self.Multiply(theT); })
+        .add_member_function("PreMultiply", [](gp_GTrsf2d& self, const gp_GTrsf2d & theT) { self.PreMultiply(theT); })
+        .add_member_function("Power", [](gp_GTrsf2d& self, const Standard_Integer theN) { self.Power(theN); })
+        .add_member_function("Powered", [](gp_GTrsf2d const& self, const Standard_Integer theN) -> gp_GTrsf2d { return self.Powered(theN); })
+        .add_member_function("Transforms", [](gp_GTrsf2d const& self, gp_XY & theCoord) { self.Transforms(theCoord); })
+        .add_member_function("Transformed", [](gp_GTrsf2d const& self, const gp_XY & theCoord) -> gp_XY { return self.Transformed(theCoord); })
+        .add_member_function("Trsf2d", [](gp_GTrsf2d const& self) -> gp_Trsf2d { return self.Trsf2d(); });
+    ns.register_type<gp_Hypr, sol::automagic_flags::none>("gp_Hypr")
+        .add_constructors(
+            []() { return gp_Hypr(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & theA2, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Hypr(theA2, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](const gp_Ax2 & theA2, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Hypr(theA2, theMajorRadius, theMinorRadius); }
+#endif
+        
+        )
+        .add_member_function("SetAxis", [](gp_Hypr& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Hypr& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetMajorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr& self, sol::object theMajorRadius) { self.SetMajorRadius(occt_plugin::to_real(theMajorRadius)); }
+#else
+            [](gp_Hypr& self, const Standard_Real theMajorRadius) { self.SetMajorRadius(theMajorRadius); }
+#endif
+        )
+        .add_member_function("SetMinorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr& self, sol::object theMinorRadius) { self.SetMinorRadius(occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](gp_Hypr& self, const Standard_Real theMinorRadius) { self.SetMinorRadius(theMinorRadius); }
+#endif
+        )
+        .add_member_function("SetPosition", [](gp_Hypr& self, const gp_Ax2 & theA2) { self.SetPosition(theA2); })
+        .add_member_function("Asymptote1", [](gp_Hypr const& self) -> gp_Ax1 { return self.Asymptote1(); })
+        .add_member_function("Asymptote2", [](gp_Hypr const& self) -> gp_Ax1 { return self.Asymptote2(); })
+        .add_member_function("Axis", [](gp_Hypr const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("ConjugateBranch1", [](gp_Hypr const& self) -> gp_Hypr { return self.ConjugateBranch1(); })
+        .add_member_function("ConjugateBranch2", [](gp_Hypr const& self) -> gp_Hypr { return self.ConjugateBranch2(); })
+        .add_member_function("Directrix1", [](gp_Hypr const& self) -> gp_Ax1 { return self.Directrix1(); })
+        .add_member_function("Directrix2", [](gp_Hypr const& self) -> gp_Ax1 { return self.Directrix2(); })
+        .add_member_function("Eccentricity", [](gp_Hypr const& self) -> Standard_Real { return self.Eccentricity(); })
+        .add_member_function("Focal", [](gp_Hypr const& self) -> Standard_Real { return self.Focal(); })
+        .add_member_function("Focus1", [](gp_Hypr const& self) -> gp_Pnt { return self.Focus1(); })
+        .add_member_function("Focus2", [](gp_Hypr const& self) -> gp_Pnt { return self.Focus2(); })
+        .add_member_function("Location", [](gp_Hypr const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("MajorRadius", [](gp_Hypr const& self) -> Standard_Real { return self.MajorRadius(); })
+        .add_member_function("MinorRadius", [](gp_Hypr const& self) -> Standard_Real { return self.MinorRadius(); })
+        .add_member_function("OtherBranch", [](gp_Hypr const& self) -> gp_Hypr { return self.OtherBranch(); })
+        .add_member_function("Parameter", [](gp_Hypr const& self) -> Standard_Real { return self.Parameter(); })
+        .add_member_function("Position", [](gp_Hypr const& self) -> const gp_Ax2 & { return self.Position(); })
+        .add_member_function("XAxis", [](gp_Hypr const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Hypr const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Hypr& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Hypr& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Hypr& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Hypr const& self, const gp_Pnt & theP) -> gp_Hypr { return self.Mirrored(theP); },
+            [](gp_Hypr const& self, const gp_Ax1 & theA1) -> gp_Hypr { return self.Mirrored(theA1); },
+            [](gp_Hypr const& self, const gp_Ax2 & theA2) -> gp_Hypr { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Hypr& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Hypr { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Hypr const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Hypr { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Hypr& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr const& self, const gp_Pnt & theP, sol::object theS) -> gp_Hypr { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Hypr const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Hypr { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Hypr& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Hypr const& self, const gp_Trsf & theT) -> gp_Hypr { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Hypr& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Hypr& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Hypr const& self, const gp_Vec & theV) -> gp_Hypr { return self.Translated(theV); },
+            [](gp_Hypr const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Hypr { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Hypr2d, sol::automagic_flags::none>("gp_Hypr2d")
+        .add_constructors(
+            []() { return gp_Hypr2d(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Hypr2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
+#else
+            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius, const Standard_Boolean theIsSense) { return gp_Hypr2d(theMajorAxis, theMajorRadius, theMinorRadius, theIsSense); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax22d & theA, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Hypr2d(theA, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](const gp_Ax22d & theA, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Hypr2d(theA, theMajorRadius, theMinorRadius); }
+#endif
+        
+        )
+        .add_member_function("SetLocation", [](gp_Hypr2d& self, const gp_Pnt2d & theP) { self.SetLocation(theP); })
+        .add_member_function("SetMajorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr2d& self, sol::object theMajorRadius) { self.SetMajorRadius(occt_plugin::to_real(theMajorRadius)); }
+#else
+            [](gp_Hypr2d& self, const Standard_Real theMajorRadius) { self.SetMajorRadius(theMajorRadius); }
+#endif
+        )
+        .add_member_function("SetMinorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr2d& self, sol::object theMinorRadius) { self.SetMinorRadius(occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](gp_Hypr2d& self, const Standard_Real theMinorRadius) { self.SetMinorRadius(theMinorRadius); }
+#endif
+        )
+        .add_member_function("SetAxis", [](gp_Hypr2d& self, const gp_Ax22d & theA) { self.SetAxis(theA); })
+        .add_member_function("SetXAxis", [](gp_Hypr2d& self, const gp_Ax2d & theA) { self.SetXAxis(theA); })
+        .add_member_function("SetYAxis", [](gp_Hypr2d& self, const gp_Ax2d & theA) { self.SetYAxis(theA); })
+        .add_member_function("Asymptote1", [](gp_Hypr2d const& self) -> gp_Ax2d { return self.Asymptote1(); })
+        .add_member_function("Asymptote2", [](gp_Hypr2d const& self) -> gp_Ax2d { return self.Asymptote2(); })
+        .add_member_function("ConjugateBranch1", [](gp_Hypr2d const& self) -> gp_Hypr2d { return self.ConjugateBranch1(); })
+        .add_member_function("ConjugateBranch2", [](gp_Hypr2d const& self) -> gp_Hypr2d { return self.ConjugateBranch2(); })
+        .add_member_function("Directrix1", [](gp_Hypr2d const& self) -> gp_Ax2d { return self.Directrix1(); })
+        .add_member_function("Directrix2", [](gp_Hypr2d const& self) -> gp_Ax2d { return self.Directrix2(); })
+        .add_member_function("Eccentricity", [](gp_Hypr2d const& self) -> Standard_Real { return self.Eccentricity(); })
+        .add_member_function("Focal", [](gp_Hypr2d const& self) -> Standard_Real { return self.Focal(); })
+        .add_member_function("Focus1", [](gp_Hypr2d const& self) -> gp_Pnt2d { return self.Focus1(); })
+        .add_member_function("Focus2", [](gp_Hypr2d const& self) -> gp_Pnt2d { return self.Focus2(); })
+        .add_member_function("Location", [](gp_Hypr2d const& self) -> const gp_Pnt2d & { return self.Location(); })
+        .add_member_function("MajorRadius", [](gp_Hypr2d const& self) -> Standard_Real { return self.MajorRadius(); })
+        .add_member_function("MinorRadius", [](gp_Hypr2d const& self) -> Standard_Real { return self.MinorRadius(); })
+        .add_member_function("OtherBranch", [](gp_Hypr2d const& self) -> gp_Hypr2d { return self.OtherBranch(); })
+        .add_member_function("Parameter", [](gp_Hypr2d const& self) -> Standard_Real { return self.Parameter(); })
+        .add_member_function("Axis", [](gp_Hypr2d const& self) -> const gp_Ax22d & { return self.Axis(); })
+        .add_member_function("XAxis", [](gp_Hypr2d const& self) -> gp_Ax2d { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Hypr2d const& self) -> gp_Ax2d { return self.YAxis(); })
+        .add_member_function("Reverse", [](gp_Hypr2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Hypr2d const& self) -> gp_Hypr2d { return self.Reversed(); })
+        .add_member_function("IsDirect", [](gp_Hypr2d const& self) -> Standard_Boolean { return self.IsDirect(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Hypr2d& self, const gp_Pnt2d & theP) { self.Mirror(theP); },
+            [](gp_Hypr2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Hypr2d const& self, const gp_Pnt2d & theP) -> gp_Hypr2d { return self.Mirrored(theP); },
+            [](gp_Hypr2d const& self, const gp_Ax2d & theA) -> gp_Hypr2d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Hypr2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr2d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Hypr2d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Hypr2d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Hypr2d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr2d& self, const gp_Pnt2d & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Hypr2d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Hypr2d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Hypr2d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Hypr2d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Hypr2d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Hypr2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Hypr2d const& self, const gp_Trsf2d & theT) -> gp_Hypr2d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Hypr2d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Hypr2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Hypr2d const& self, const gp_Vec2d & theV) -> gp_Hypr2d { return self.Translated(theV); },
+            [](gp_Hypr2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Hypr2d { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Lin, sol::automagic_flags::none>("gp_Lin")
+        .add_constructors(
+            []() { return gp_Lin(); },
+            [](const gp_Ax1 & theA1) { return gp_Lin(theA1); },
+            [](const gp_Pnt & theP, const gp_Dir & theV) { return gp_Lin(theP, theV); }
+        )
+        .add_member_function("Reverse", [](gp_Lin& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Lin const& self) -> gp_Lin { return self.Reversed(); })
+        .add_member_function("SetDirection", [](gp_Lin& self, const gp_Dir & theV) { self.SetDirection(theV); })
+        .add_member_function("SetLocation", [](gp_Lin& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetPosition", [](gp_Lin& self, const gp_Ax1 & theA1) { self.SetPosition(theA1); })
+        .add_member_function("Direction", [](gp_Lin const& self) -> const gp_Dir & { return self.Direction(); })
+        .add_member_function("Location", [](gp_Lin const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](gp_Lin const& self) -> const gp_Ax1 & { return self.Position(); })
+        .add_member_function("Angle", [](gp_Lin const& self, const gp_Lin & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Contains", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin const& self, const gp_Pnt & theP, sol::object theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, occt_plugin::to_real(theLinearTolerance)); }
+#else
+            [](gp_Lin const& self, const gp_Pnt & theP, const Standard_Real theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, theLinearTolerance); }
+#endif
+        )
+        .add_member_function("Distance", sol::overload(
+            [](gp_Lin const& self, const gp_Pnt & theP) -> Standard_Real { return self.Distance(theP); },
+            [](gp_Lin const& self, const gp_Lin & theOther) -> Standard_Real { return self.Distance(theOther); }
+        ))
+        .add_member_function("SquareDistance", sol::overload(
+            [](gp_Lin const& self, const gp_Pnt & theP) -> Standard_Real { return self.SquareDistance(theP); },
+            [](gp_Lin const& self, const gp_Lin & theOther) -> Standard_Real { return self.SquareDistance(theOther); }
+        ))
+        .add_member_function("Normal", [](gp_Lin const& self, const gp_Pnt & theP) -> gp_Lin { return self.Normal(theP); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Lin& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Lin& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Lin& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Lin const& self, const gp_Pnt & theP) -> gp_Lin { return self.Mirrored(theP); },
+            [](gp_Lin const& self, const gp_Ax1 & theA1) -> gp_Lin { return self.Mirrored(theA1); },
+            [](gp_Lin const& self, const gp_Ax2 & theA2) -> gp_Lin { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Lin& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Lin { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Lin const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Lin { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Lin& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin const& self, const gp_Pnt & theP, sol::object theS) -> gp_Lin { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Lin const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Lin { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Lin& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Lin const& self, const gp_Trsf & theT) -> gp_Lin { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Lin& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Lin& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Lin const& self, const gp_Vec & theV) -> gp_Lin { return self.Translated(theV); },
+            [](gp_Lin const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Lin { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Lin2d, sol::automagic_flags::none>("gp_Lin2d")
+        .add_constructors(
+            []() { return gp_Lin2d(); },
+            [](const gp_Ax2d & theA) { return gp_Lin2d(theA); },
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theV) { return gp_Lin2d(theP, theV); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theA, sol::object theB, sol::object theC) { return gp_Lin2d(occt_plugin::to_real(theA), occt_plugin::to_real(theB), occt_plugin::to_real(theC)); }
+#else
+            [](const Standard_Real theA, const Standard_Real theB, const Standard_Real theC) { return gp_Lin2d(theA, theB, theC); }
+#endif
+        
+        )
+        .add_member_function("Reverse", [](gp_Lin2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Lin2d const& self) -> gp_Lin2d { return self.Reversed(); })
+        .add_member_function("SetDirection", [](gp_Lin2d& self, const gp_Dir2d & theV) { self.SetDirection(theV); })
+        .add_member_function("SetLocation", [](gp_Lin2d& self, const gp_Pnt2d & theP) { self.SetLocation(theP); })
+        .add_member_function("SetPosition", [](gp_Lin2d& self, const gp_Ax2d & theA) { self.SetPosition(theA); })
+        .add_member_function("Direction", [](gp_Lin2d const& self) -> const gp_Dir2d & { return self.Direction(); })
+        .add_member_function("Location", [](gp_Lin2d const& self) -> const gp_Pnt2d & { return self.Location(); })
+        .add_member_function("Position", [](gp_Lin2d const& self) -> const gp_Ax2d & { return self.Position(); })
+        .add_member_function("Angle", [](gp_Lin2d const& self, const gp_Lin2d & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Contains", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP, sol::object theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, occt_plugin::to_real(theLinearTolerance)); }
+#else
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP, const Standard_Real theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, theLinearTolerance); }
+#endif
+        )
+        .add_member_function("Distance", sol::overload(
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP) -> Standard_Real { return self.Distance(theP); },
+            [](gp_Lin2d const& self, const gp_Lin2d & theOther) -> Standard_Real { return self.Distance(theOther); }
+        ))
+        .add_member_function("SquareDistance", sol::overload(
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP) -> Standard_Real { return self.SquareDistance(theP); },
+            [](gp_Lin2d const& self, const gp_Lin2d & theOther) -> Standard_Real { return self.SquareDistance(theOther); }
+        ))
+        .add_member_function("Normal", [](gp_Lin2d const& self, const gp_Pnt2d & theP) -> gp_Lin2d { return self.Normal(theP); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Lin2d& self, const gp_Pnt2d & theP) { self.Mirror(theP); },
+            [](gp_Lin2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP) -> gp_Lin2d { return self.Mirrored(theP); },
+            [](gp_Lin2d const& self, const gp_Ax2d & theA) -> gp_Lin2d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Lin2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Lin2d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Lin2d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin2d& self, const gp_Pnt2d & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Lin2d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Lin2d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Lin2d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Lin2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Lin2d const& self, const gp_Trsf2d & theT) -> gp_Lin2d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Lin2d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Lin2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Lin2d const& self, const gp_Vec2d & theV) -> gp_Lin2d { return self.Translated(theV); },
+            [](gp_Lin2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Lin2d { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Mat, sol::automagic_flags::none>("gp_Mat")
+        .add_constructors(
+            []() { return gp_Mat(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theA11, sol::object theA12, sol::object theA13, sol::object theA21, sol::object theA22, sol::object theA23, sol::object theA31, sol::object theA32, sol::object theA33) { return gp_Mat(occt_plugin::to_real(theA11), occt_plugin::to_real(theA12), occt_plugin::to_real(theA13), occt_plugin::to_real(theA21), occt_plugin::to_real(theA22), occt_plugin::to_real(theA23), occt_plugin::to_real(theA31), occt_plugin::to_real(theA32), occt_plugin::to_real(theA33)); }
+#else
+            [](const Standard_Real theA11, const Standard_Real theA12, const Standard_Real theA13, const Standard_Real theA21, const Standard_Real theA22, const Standard_Real theA23, const Standard_Real theA31, const Standard_Real theA32, const Standard_Real theA33) { return gp_Mat(theA11, theA12, theA13, theA21, theA22, theA23, theA31, theA32, theA33); }
+#endif
+        ,
+            [](const gp_XYZ & theCol1, const gp_XYZ & theCol2, const gp_XYZ & theCol3) { return gp_Mat(theCol1, theCol2, theCol3); }
+        )
+        .add_member_function("SetCol", [](gp_Mat& self, const Standard_Integer theCol, const gp_XYZ & theValue) { self.SetCol(theCol, theValue); })
+        .add_member_function("SetCols", [](gp_Mat& self, const gp_XYZ & theCol1, const gp_XYZ & theCol2, const gp_XYZ & theCol3) { self.SetCols(theCol1, theCol2, theCol3); })
+        .add_member_function("SetCross", [](gp_Mat& self, const gp_XYZ & theRef) { self.SetCross(theRef); })
+        .add_member_function("SetDiagonal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat& self, sol::object theX1, sol::object theX2, sol::object theX3) { self.SetDiagonal(occt_plugin::to_real(theX1), occt_plugin::to_real(theX2), occt_plugin::to_real(theX3)); }
+#else
+            [](gp_Mat& self, const Standard_Real theX1, const Standard_Real theX2, const Standard_Real theX3) { self.SetDiagonal(theX1, theX2, theX3); }
+#endif
+        )
+        .add_member_function("SetDot", [](gp_Mat& self, const gp_XYZ & theRef) { self.SetDot(theRef); })
+        .add_member_function("SetIdentity", [](gp_Mat& self) { self.SetIdentity(); })
+        .add_member_function("SetRotation", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat& self, const gp_XYZ & theAxis, sol::object theAng) { self.SetRotation(theAxis, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Mat& self, const gp_XYZ & theAxis, const Standard_Real theAng) { self.SetRotation(theAxis, theAng); }
+#endif
+        )
+        .add_member_function("SetRow", [](gp_Mat& self, const Standard_Integer theRow, const gp_XYZ & theValue) { self.SetRow(theRow, theValue); })
+        .add_member_function("SetRows", [](gp_Mat& self, const gp_XYZ & theRow1, const gp_XYZ & theRow2, const gp_XYZ & theRow3) { self.SetRows(theRow1, theRow2, theRow3); })
+        .add_member_function("SetScale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat& self, sol::object theS) { self.SetScale(occt_plugin::to_real(theS)); }
+#else
+            [](gp_Mat& self, const Standard_Real theS) { self.SetScale(theS); }
+#endif
+        )
+        .add_member_function("SetValue", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat& self, const Standard_Integer theRow, const Standard_Integer theCol, sol::object theValue) { self.SetValue(theRow, theCol, occt_plugin::to_real(theValue)); }
+#else
+            [](gp_Mat& self, const Standard_Integer theRow, const Standard_Integer theCol, const Standard_Real theValue) { self.SetValue(theRow, theCol, theValue); }
+#endif
+        )
+        .add_member_function("Column", [](gp_Mat const& self, const Standard_Integer theCol) -> gp_XYZ { return self.Column(theCol); })
+        .add_member_function("Determinant", [](gp_Mat const& self) -> Standard_Real { return self.Determinant(); })
+        .add_member_function("Diagonal", [](gp_Mat const& self) -> gp_XYZ { return self.Diagonal(); })
+        .add_member_function("Row", [](gp_Mat const& self, const Standard_Integer theRow) -> gp_XYZ { return self.Row(theRow); })
+        .add_member_function("Value", [](gp_Mat const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> const Standard_Real & { return self.Value(theRow, theCol); })
+        .add_member_function("IsSingular", [](gp_Mat const& self) -> Standard_Boolean { return self.IsSingular(); })
+        .add_member_function("Add", [](gp_Mat& self, const gp_Mat & theOther) { self.Add(theOther); })
+        .add_member_function("Added", [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self.Added(theOther); })
+        .add_member_function("Divide", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat& self, const Standard_Real theScalar) { self.Divide(theScalar); }
+#endif
+        )
+        .add_member_function("Divided", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat const& self, sol::object theScalar) -> gp_Mat { return self.Divided(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat const& self, const Standard_Real theScalar) -> gp_Mat { return self.Divided(theScalar); }
+#endif
+        )
+        .add_member_function("Invert", [](gp_Mat& self) { self.Invert(); })
+        .add_member_function("Inverted", [](gp_Mat const& self) -> gp_Mat { return self.Inverted(); })
+        .add_member_function("Multiplied", sol::overload(
+            [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self.Multiplied(theOther); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat const& self, sol::object theScalar) -> gp_Mat { return self.Multiplied(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat const& self, const Standard_Real theScalar) -> gp_Mat { return self.Multiplied(theScalar); }
+#endif
+        
+        ))
+        .add_member_function("Multiply", sol::overload(
+            [](gp_Mat& self, const gp_Mat & theOther) { self.Multiply(theOther); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat& self, const Standard_Real theScalar) { self.Multiply(theScalar); }
+#endif
+        
+        ))
+        .add_member_function("PreMultiply", [](gp_Mat& self, const gp_Mat & theOther) { self.PreMultiply(theOther); })
+        .add_member_function("Power", [](gp_Mat& self, const Standard_Integer N) { self.Power(N); })
+        .add_member_function("Powered", [](gp_Mat const& self, const Standard_Integer theN) -> gp_Mat { return self.Powered(theN); })
+        .add_member_function("Subtract", [](gp_Mat& self, const gp_Mat & theOther) { self.Subtract(theOther); })
+        .add_member_function("Subtracted", [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self.Subtracted(theOther); })
+        .add_member_function("Transpose", [](gp_Mat& self) { self.Transpose(); })
+        .add_member_function("Transposed", [](gp_Mat const& self) -> gp_Mat { return self.Transposed(); });
+    ns.register_type<gp_Mat2d, sol::automagic_flags::none>("gp_Mat2d")
+        .add_constructors(
+            []() { return gp_Mat2d(); },
+            [](const gp_XY & theCol1, const gp_XY & theCol2) { return gp_Mat2d(theCol1, theCol2); }
+        )
+        .add_member_function("SetCol", [](gp_Mat2d& self, const Standard_Integer theCol, const gp_XY & theValue) { self.SetCol(theCol, theValue); })
+        .add_member_function("SetCols", [](gp_Mat2d& self, const gp_XY & theCol1, const gp_XY & theCol2) { self.SetCols(theCol1, theCol2); })
+        .add_member_function("SetDiagonal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d& self, sol::object theX1, sol::object theX2) { self.SetDiagonal(occt_plugin::to_real(theX1), occt_plugin::to_real(theX2)); }
+#else
+            [](gp_Mat2d& self, const Standard_Real theX1, const Standard_Real theX2) { self.SetDiagonal(theX1, theX2); }
+#endif
+        )
+        .add_member_function("SetIdentity", [](gp_Mat2d& self) { self.SetIdentity(); })
+        .add_member_function("SetRotation", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d& self, sol::object theAng) { self.SetRotation(occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Mat2d& self, const Standard_Real theAng) { self.SetRotation(theAng); }
+#endif
+        )
+        .add_member_function("SetRow", [](gp_Mat2d& self, const Standard_Integer theRow, const gp_XY & theValue) { self.SetRow(theRow, theValue); })
+        .add_member_function("SetRows", [](gp_Mat2d& self, const gp_XY & theRow1, const gp_XY & theRow2) { self.SetRows(theRow1, theRow2); })
+        .add_member_function("SetScale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d& self, sol::object theS) { self.SetScale(occt_plugin::to_real(theS)); }
+#else
+            [](gp_Mat2d& self, const Standard_Real theS) { self.SetScale(theS); }
+#endif
+        )
+        .add_member_function("SetValue", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d& self, const Standard_Integer theRow, const Standard_Integer theCol, sol::object theValue) { self.SetValue(theRow, theCol, occt_plugin::to_real(theValue)); }
+#else
+            [](gp_Mat2d& self, const Standard_Integer theRow, const Standard_Integer theCol, const Standard_Real theValue) { self.SetValue(theRow, theCol, theValue); }
+#endif
+        )
+        .add_member_function("Column", [](gp_Mat2d const& self, const Standard_Integer theCol) -> gp_XY { return self.Column(theCol); })
+        .add_member_function("Determinant", [](gp_Mat2d const& self) -> Standard_Real { return self.Determinant(); })
+        .add_member_function("Diagonal", [](gp_Mat2d const& self) -> gp_XY { return self.Diagonal(); })
+        .add_member_function("Row", [](gp_Mat2d const& self, const Standard_Integer theRow) -> gp_XY { return self.Row(theRow); })
+        .add_member_function("Value", [](gp_Mat2d const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> const Standard_Real & { return self.Value(theRow, theCol); })
+        .add_member_function("IsSingular", [](gp_Mat2d const& self) -> Standard_Boolean { return self.IsSingular(); })
+        .add_member_function("Add", [](gp_Mat2d& self, const gp_Mat2d & Other) { self.Add(Other); })
+        .add_member_function("Added", [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self.Added(theOther); })
+        .add_member_function("Divide", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat2d& self, const Standard_Real theScalar) { self.Divide(theScalar); }
+#endif
+        )
+        .add_member_function("Divided", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d const& self, sol::object theScalar) -> gp_Mat2d { return self.Divided(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat2d const& self, const Standard_Real theScalar) -> gp_Mat2d { return self.Divided(theScalar); }
+#endif
+        )
+        .add_member_function("Invert", [](gp_Mat2d& self) { self.Invert(); })
+        .add_member_function("Inverted", [](gp_Mat2d const& self) -> gp_Mat2d { return self.Inverted(); })
+        .add_member_function("Multiplied", sol::overload(
+            [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self.Multiplied(theOther); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d const& self, sol::object theScalar) -> gp_Mat2d { return self.Multiplied(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat2d const& self, const Standard_Real theScalar) -> gp_Mat2d { return self.Multiplied(theScalar); }
+#endif
+        
+        ))
+        .add_member_function("Multiply", sol::overload(
+            [](gp_Mat2d& self, const gp_Mat2d & theOther) { self.Multiply(theOther); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Mat2d& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Mat2d& self, const Standard_Real theScalar) { self.Multiply(theScalar); }
+#endif
+        
+        ))
+        .add_member_function("PreMultiply", [](gp_Mat2d& self, const gp_Mat2d & theOther) { self.PreMultiply(theOther); })
+        .add_member_function("Power", [](gp_Mat2d& self, const Standard_Integer theN) { self.Power(theN); })
+        .add_member_function("Powered", [](gp_Mat2d const& self, const Standard_Integer theN) -> gp_Mat2d { return self.Powered(theN); })
+        .add_member_function("Subtract", [](gp_Mat2d& self, const gp_Mat2d & theOther) { self.Subtract(theOther); })
+        .add_member_function("Subtracted", [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self.Subtracted(theOther); })
+        .add_member_function("Transpose", [](gp_Mat2d& self) { self.Transpose(); })
+        .add_member_function("Transposed", [](gp_Mat2d const& self) -> gp_Mat2d { return self.Transposed(); });
+    ns.register_type<gp_Parab, sol::automagic_flags::none>("gp_Parab")
+        .add_constructors(
+            []() { return gp_Parab(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & theA2, sol::object theFocal) { return gp_Parab(theA2, occt_plugin::to_real(theFocal)); }
+#else
+            [](const gp_Ax2 & theA2, const Standard_Real theFocal) { return gp_Parab(theA2, theFocal); }
+#endif
+        ,
+            [](const gp_Ax1 & theD, const gp_Pnt & theF) { return gp_Parab(theD, theF); }
+        )
+        .add_member_function("SetAxis", [](gp_Parab& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetFocal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab& self, sol::object theFocal) { self.SetFocal(occt_plugin::to_real(theFocal)); }
+#else
+            [](gp_Parab& self, const Standard_Real theFocal) { self.SetFocal(theFocal); }
+#endif
+        )
+        .add_member_function("SetLocation", [](gp_Parab& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetPosition", [](gp_Parab& self, const gp_Ax2 & theA2) { self.SetPosition(theA2); })
+        .add_member_function("Axis", [](gp_Parab const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Directrix", [](gp_Parab const& self) -> gp_Ax1 { return self.Directrix(); })
+        .add_member_function("Focal", [](gp_Parab const& self) -> Standard_Real { return self.Focal(); })
+        .add_member_function("Focus", [](gp_Parab const& self) -> gp_Pnt { return self.Focus(); })
+        .add_member_function("Location", [](gp_Parab const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Parameter", [](gp_Parab const& self) -> Standard_Real { return self.Parameter(); })
+        .add_member_function("Position", [](gp_Parab const& self) -> const gp_Ax2 & { return self.Position(); })
+        .add_member_function("XAxis", [](gp_Parab const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Parab const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Parab& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Parab& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Parab& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Parab const& self, const gp_Pnt & theP) -> gp_Parab { return self.Mirrored(theP); },
+            [](gp_Parab const& self, const gp_Ax1 & theA1) -> gp_Parab { return self.Mirrored(theA1); },
+            [](gp_Parab const& self, const gp_Ax2 & theA2) -> gp_Parab { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Parab& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Parab { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Parab const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Parab { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Parab& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab const& self, const gp_Pnt & theP, sol::object theS) -> gp_Parab { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Parab const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Parab { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Parab& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Parab const& self, const gp_Trsf & theT) -> gp_Parab { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Parab& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Parab& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Parab const& self, const gp_Vec & theV) -> gp_Parab { return self.Translated(theV); },
+            [](gp_Parab const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Parab { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Parab2d, sol::automagic_flags::none>("gp_Parab2d")
+        .add_constructors(
+            []() { return gp_Parab2d(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theMirrorAxis, sol::object theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, occt_plugin::to_real(theFocalLength), theSense); }
+#else
+            [](const gp_Ax2d & theMirrorAxis, const Standard_Real theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, theFocalLength, theSense); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax22d & theAxes, sol::object theFocalLength) { return gp_Parab2d(theAxes, occt_plugin::to_real(theFocalLength)); }
+#else
+            [](const gp_Ax22d & theAxes, const Standard_Real theFocalLength) { return gp_Parab2d(theAxes, theFocalLength); }
+#endif
+        ,
+            [](const gp_Ax2d & theDirectrix, const gp_Pnt2d & theFocus, const Standard_Boolean theSense) { return gp_Parab2d(theDirectrix, theFocus, theSense); }
+        )
+        .add_member_function("SetFocal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab2d& self, sol::object theFocal) { self.SetFocal(occt_plugin::to_real(theFocal)); }
+#else
+            [](gp_Parab2d& self, const Standard_Real theFocal) { self.SetFocal(theFocal); }
+#endif
+        )
+        .add_member_function("SetLocation", [](gp_Parab2d& self, const gp_Pnt2d & theP) { self.SetLocation(theP); })
+        .add_member_function("SetMirrorAxis", [](gp_Parab2d& self, const gp_Ax2d & theA) { self.SetMirrorAxis(theA); })
+        .add_member_function("SetAxis", [](gp_Parab2d& self, const gp_Ax22d & theA) { self.SetAxis(theA); })
+        .add_member_function("Directrix", [](gp_Parab2d const& self) -> gp_Ax2d { return self.Directrix(); })
+        .add_member_function("Focal", [](gp_Parab2d const& self) -> Standard_Real { return self.Focal(); })
+        .add_member_function("Focus", [](gp_Parab2d const& self) -> gp_Pnt2d { return self.Focus(); })
+        .add_member_function("Location", [](gp_Parab2d const& self) -> gp_Pnt2d { return self.Location(); })
+        .add_member_function("MirrorAxis", [](gp_Parab2d const& self) -> gp_Ax2d { return self.MirrorAxis(); })
+        .add_member_function("Axis", [](gp_Parab2d const& self) -> gp_Ax22d { return self.Axis(); })
+        .add_member_function("Parameter", [](gp_Parab2d const& self) -> Standard_Real { return self.Parameter(); })
+        .add_member_function("Reverse", [](gp_Parab2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Parab2d const& self) -> gp_Parab2d { return self.Reversed(); })
+        .add_member_function("IsDirect", [](gp_Parab2d const& self) -> Standard_Boolean { return self.IsDirect(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Parab2d& self, const gp_Pnt2d & theP) { self.Mirror(theP); },
+            [](gp_Parab2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Parab2d const& self, const gp_Pnt2d & theP) -> gp_Parab2d { return self.Mirrored(theP); },
+            [](gp_Parab2d const& self, const gp_Ax2d & theA) -> gp_Parab2d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Parab2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab2d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Parab2d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Parab2d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Parab2d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab2d& self, const gp_Pnt2d & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Parab2d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Parab2d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Parab2d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Parab2d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Parab2d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Parab2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Parab2d const& self, const gp_Trsf2d & theT) -> gp_Parab2d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Parab2d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Parab2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Parab2d const& self, const gp_Vec2d & theV) -> gp_Parab2d { return self.Translated(theV); },
+            [](gp_Parab2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Parab2d { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Pln, sol::automagic_flags::none>("gp_Pln")
+        .add_constructors(
+            []() { return gp_Pln(); },
+            [](const gp_Ax3 & theA3) { return gp_Pln(theA3); },
+            [](const gp_Pnt & theP, const gp_Dir & theV) { return gp_Pln(theP, theV); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theA, sol::object theB, sol::object theC, sol::object theD) { return gp_Pln(occt_plugin::to_real(theA), occt_plugin::to_real(theB), occt_plugin::to_real(theC), occt_plugin::to_real(theD)); }
+#else
+            [](const Standard_Real theA, const Standard_Real theB, const Standard_Real theC, const Standard_Real theD) { return gp_Pln(theA, theB, theC, theD); }
+#endif
+        
+        )
+        .add_member_function("SetAxis", [](gp_Pln& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Pln& self, const gp_Pnt & theLoc) { self.SetLocation(theLoc); })
+        .add_member_function("SetPosition", [](gp_Pln& self, const gp_Ax3 & theA3) { self.SetPosition(theA3); })
+        .add_member_function("UReverse", [](gp_Pln& self) { self.UReverse(); })
+        .add_member_function("VReverse", [](gp_Pln& self) { self.VReverse(); })
+        .add_member_function("Direct", [](gp_Pln const& self) -> Standard_Boolean { return self.Direct(); })
+        .add_member_function("Axis", [](gp_Pln const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Location", [](gp_Pln const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](gp_Pln const& self) -> const gp_Ax3 & { return self.Position(); })
+        .add_member_function("Distance", sol::overload(
+            [](gp_Pln const& self, const gp_Pnt & theP) -> Standard_Real { return self.Distance(theP); },
+            [](gp_Pln const& self, const gp_Lin & theL) -> Standard_Real { return self.Distance(theL); },
+            [](gp_Pln const& self, const gp_Pln & theOther) -> Standard_Real { return self.Distance(theOther); }
+        ))
+        .add_member_function("SquareDistance", sol::overload(
+            [](gp_Pln const& self, const gp_Pnt & theP) -> Standard_Real { return self.SquareDistance(theP); },
+            [](gp_Pln const& self, const gp_Lin & theL) -> Standard_Real { return self.SquareDistance(theL); },
+            [](gp_Pln const& self, const gp_Pln & theOther) -> Standard_Real { return self.SquareDistance(theOther); }
+        ))
+        .add_member_function("XAxis", [](gp_Pln const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Pln const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Contains", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pln const& self, const gp_Pnt & theP, sol::object theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, occt_plugin::to_real(theLinearTolerance)); }
+#else
+            [](gp_Pln const& self, const gp_Pnt & theP, const Standard_Real theLinearTolerance) -> Standard_Boolean { return self.Contains(theP, theLinearTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pln const& self, const gp_Lin & theL, sol::object theLinearTolerance, sol::object theAngularTolerance) -> Standard_Boolean { return self.Contains(theL, occt_plugin::to_real(theLinearTolerance), occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Pln const& self, const gp_Lin & theL, const Standard_Real theLinearTolerance, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.Contains(theL, theLinearTolerance, theAngularTolerance); }
+#endif
+        
+        ))
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Pln& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Pln& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Pln& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Pln const& self, const gp_Pnt & theP) -> gp_Pln { return self.Mirrored(theP); },
+            [](gp_Pln const& self, const gp_Ax1 & theA1) -> gp_Pln { return self.Mirrored(theA1); },
+            [](gp_Pln const& self, const gp_Ax2 & theA2) -> gp_Pln { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pln& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Pln& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pln const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Pln { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Pln const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Pln { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pln& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Pln& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pln const& self, const gp_Pnt & theP, sol::object theS) -> gp_Pln { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Pln const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Pln { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Pln& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Pln const& self, const gp_Trsf & theT) -> gp_Pln { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Pln& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Pln& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Pln const& self, const gp_Vec & theV) -> gp_Pln { return self.Translated(theV); },
+            [](gp_Pln const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Pln { return self.Translated(theP1, theP2); }
+        ));
     ns.register_type<gp_Pnt, sol::automagic_flags::none>("gp_Pnt")
         .add_constructors(
             []() { return gp_Pnt(); },
+            [](const gp_XYZ & theCoord) { return gp_Pnt(theCoord); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](sol::object theXp, sol::object theYp, sol::object theZp) { return gp_Pnt(occt_plugin::to_real(theXp), occt_plugin::to_real(theYp), occt_plugin::to_real(theZp)); }
@@ -64,10 +2195,16 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Pnt& self, const Standard_Real theZ) { self.SetZ(theZ); }
 #endif
         )
-        .add_member_function("Coord", [](gp_Pnt const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
+        .add_member_function("SetXYZ", [](gp_Pnt& self, const gp_XYZ & theCoord) { self.SetXYZ(theCoord); })
+        .add_member_function("Coord", sol::overload(
+            [](gp_Pnt const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); },
+            [](gp_Pnt const& self) -> const gp_XYZ & { return self.Coord(); }
+        ))
         .add_member_function("X", [](gp_Pnt const& self) -> Standard_Real { return self.X(); })
         .add_member_function("Y", [](gp_Pnt const& self) -> Standard_Real { return self.Y(); })
         .add_member_function("Z", [](gp_Pnt const& self) -> Standard_Real { return self.Z(); })
+        .add_member_function("XYZ", [](gp_Pnt const& self) -> const gp_XYZ & { return self.XYZ(); })
+        .add_member_function("ChangeCoord", [](gp_Pnt& self) -> gp_XYZ & { return self.ChangeCoord(); })
         .add_member_function("IsEqual", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Pnt const& self, const gp_Pnt & theOther, sol::object theLinearTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theLinearTolerance)); }
@@ -79,11 +2216,13 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("SquareDistance", [](gp_Pnt const& self, const gp_Pnt & theOther) -> Standard_Real { return self.SquareDistance(theOther); })
         .add_member_function("Mirror", sol::overload(
             [](gp_Pnt& self, const gp_Pnt & theP) { self.Mirror(theP); },
-            [](gp_Pnt& self, const gp_Ax1 & theA1) { self.Mirror(theA1); }
+            [](gp_Pnt& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Pnt& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
         ))
         .add_member_function("Mirrored", sol::overload(
             [](gp_Pnt const& self, const gp_Pnt & theP) -> gp_Pnt { return self.Mirrored(theP); },
-            [](gp_Pnt const& self, const gp_Ax1 & theA1) -> gp_Pnt { return self.Mirrored(theA1); }
+            [](gp_Pnt const& self, const gp_Ax1 & theA1) -> gp_Pnt { return self.Mirrored(theA1); },
+            [](gp_Pnt const& self, const gp_Ax2 & theA2) -> gp_Pnt { return self.Mirrored(theA2); }
         ))
         .add_member_function("Rotate", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -123,10 +2262,532 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Pnt const& self, const gp_Vec & theV) -> gp_Pnt { return self.Translated(theV); },
             [](gp_Pnt const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Pnt { return self.Translated(theP1, theP2); }
         ));
+    ns.register_type<gp_Pnt2d, sol::automagic_flags::none>("gp_Pnt2d")
+        .add_constructors(
+            []() { return gp_Pnt2d(); },
+            [](const gp_XY & theCoord) { return gp_Pnt2d(theCoord); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theXp, sol::object theYp) { return gp_Pnt2d(occt_plugin::to_real(theXp), occt_plugin::to_real(theYp)); }
+#else
+            [](const Standard_Real theXp, const Standard_Real theYp) { return gp_Pnt2d(theXp, theYp); }
+#endif
+        
+        )
+        .add_member_function("SetCoord", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
+#else
+            [](gp_Pnt2d& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d& self, sol::object theXp, sol::object theYp) { self.SetCoord(occt_plugin::to_real(theXp), occt_plugin::to_real(theYp)); }
+#else
+            [](gp_Pnt2d& self, const Standard_Real theXp, const Standard_Real theYp) { self.SetCoord(theXp, theYp); }
+#endif
+        
+        ))
+        .add_member_function("SetX", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d& self, sol::object theX) { self.SetX(occt_plugin::to_real(theX)); }
+#else
+            [](gp_Pnt2d& self, const Standard_Real theX) { self.SetX(theX); }
+#endif
+        )
+        .add_member_function("SetY", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d& self, sol::object theY) { self.SetY(occt_plugin::to_real(theY)); }
+#else
+            [](gp_Pnt2d& self, const Standard_Real theY) { self.SetY(theY); }
+#endif
+        )
+        .add_member_function("SetXY", [](gp_Pnt2d& self, const gp_XY & theCoord) { self.SetXY(theCoord); })
+        .add_member_function("Coord", sol::overload(
+            [](gp_Pnt2d const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); },
+            [](gp_Pnt2d const& self) -> const gp_XY & { return self.Coord(); }
+        ))
+        .add_member_function("X", [](gp_Pnt2d const& self) -> Standard_Real { return self.X(); })
+        .add_member_function("Y", [](gp_Pnt2d const& self) -> Standard_Real { return self.Y(); })
+        .add_member_function("XY", [](gp_Pnt2d const& self) -> const gp_XY & { return self.XY(); })
+        .add_member_function("ChangeCoord", [](gp_Pnt2d& self) -> gp_XY & { return self.ChangeCoord(); })
+        .add_member_function("IsEqual", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theOther, sol::object theLinearTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theLinearTolerance)); }
+#else
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theOther, const Standard_Real theLinearTolerance) -> Standard_Boolean { return self.IsEqual(theOther, theLinearTolerance); }
+#endif
+        )
+        .add_member_function("Distance", [](gp_Pnt2d const& self, const gp_Pnt2d & theOther) -> Standard_Real { return self.Distance(theOther); })
+        .add_member_function("SquareDistance", [](gp_Pnt2d const& self, const gp_Pnt2d & theOther) -> Standard_Real { return self.SquareDistance(theOther); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Pnt2d& self, const gp_Pnt2d & theP) { self.Mirror(theP); },
+            [](gp_Pnt2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theP) -> gp_Pnt2d { return self.Mirrored(theP); },
+            [](gp_Pnt2d const& self, const gp_Ax2d & theA) -> gp_Pnt2d { return self.Mirrored(theA); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.Rotate(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Pnt2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.Rotate(theP, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theP, sol::object theAng) -> gp_Pnt2d { return self.Rotated(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theP, const Standard_Real theAng) -> gp_Pnt2d { return self.Rotated(theP, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d& self, const gp_Pnt2d & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Pnt2d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theP, sol::object theS) -> gp_Pnt2d { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theP, const Standard_Real theS) -> gp_Pnt2d { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Pnt2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Pnt2d const& self, const gp_Trsf2d & theT) -> gp_Pnt2d { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Pnt2d& self, const gp_Vec2d & theV) { self.Translate(theV); },
+            [](gp_Pnt2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Pnt2d const& self, const gp_Vec2d & theV) -> gp_Pnt2d { return self.Translated(theV); },
+            [](gp_Pnt2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Pnt2d { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Quaternion, sol::automagic_flags::none>("gp_Quaternion")
+        .add_constructors(
+            []() { return gp_Quaternion(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theX, sol::object theY, sol::object theZ, sol::object theW) { return gp_Quaternion(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ), occt_plugin::to_real(theW)); }
+#else
+            [](const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ, const Standard_Real theW) { return gp_Quaternion(theX, theY, theZ, theW); }
+#endif
+        ,
+            [](const gp_Vec & theVecFrom, const gp_Vec & theVecTo) { return gp_Quaternion(theVecFrom, theVecTo); },
+            [](const gp_Vec & theVecFrom, const gp_Vec & theVecTo, const gp_Vec & theHelpCrossVec) { return gp_Quaternion(theVecFrom, theVecTo, theHelpCrossVec); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Vec & theAxis, sol::object theAngle) { return gp_Quaternion(theAxis, occt_plugin::to_real(theAngle)); }
+#else
+            [](const gp_Vec & theAxis, const Standard_Real theAngle) { return gp_Quaternion(theAxis, theAngle); }
+#endif
+        ,
+            [](const gp_Mat & theMat) { return gp_Quaternion(theMat); }
+        )
+        .add_member_function("IsEqual", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> Standard_Boolean { return self.IsEqual(theOther); })
+        .add_member_function("SetRotation", sol::overload(
+            [](gp_Quaternion& self, const gp_Vec & theVecFrom, const gp_Vec & theVecTo) { self.SetRotation(theVecFrom, theVecTo); },
+            [](gp_Quaternion& self, const gp_Vec & theVecFrom, const gp_Vec & theVecTo, const gp_Vec & theHelpCrossVec) { self.SetRotation(theVecFrom, theVecTo, theHelpCrossVec); }
+        ))
+        .add_member_function("SetVectorAndAngle", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Quaternion& self, const gp_Vec & theAxis, sol::object theAngle) { self.SetVectorAndAngle(theAxis, occt_plugin::to_real(theAngle)); }
+#else
+            [](gp_Quaternion& self, const gp_Vec & theAxis, const Standard_Real theAngle) { self.SetVectorAndAngle(theAxis, theAngle); }
+#endif
+        )
+        .add_member_function("SetMatrix", [](gp_Quaternion& self, const gp_Mat & theMat) { self.SetMatrix(theMat); })
+        .add_member_function("GetMatrix", [](gp_Quaternion const& self) -> gp_Mat { return self.GetMatrix(); })
+        .add_member_function("SetEulerAngles", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Quaternion& self, const gp_EulerSequence theOrder, sol::object theAlpha, sol::object theBeta, sol::object theGamma) { self.SetEulerAngles(theOrder, occt_plugin::to_real(theAlpha), occt_plugin::to_real(theBeta), occt_plugin::to_real(theGamma)); }
+#else
+            [](gp_Quaternion& self, const gp_EulerSequence theOrder, const Standard_Real theAlpha, const Standard_Real theBeta, const Standard_Real theGamma) { self.SetEulerAngles(theOrder, theAlpha, theBeta, theGamma); }
+#endif
+        )
+        .add_member_function("Set", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Quaternion& self, sol::object theX, sol::object theY, sol::object theZ, sol::object theW) { self.Set(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ), occt_plugin::to_real(theW)); }
+#else
+            [](gp_Quaternion& self, const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ, const Standard_Real theW) { self.Set(theX, theY, theZ, theW); }
+#endif
+        ,
+            [](gp_Quaternion& self, const gp_Quaternion & theQuaternion) { self.Set(theQuaternion); }
+        ))
+        .add_member_function("X", [](gp_Quaternion const& self) -> Standard_Real { return self.X(); })
+        .add_member_function("Y", [](gp_Quaternion const& self) -> Standard_Real { return self.Y(); })
+        .add_member_function("Z", [](gp_Quaternion const& self) -> Standard_Real { return self.Z(); })
+        .add_member_function("W", [](gp_Quaternion const& self) -> Standard_Real { return self.W(); })
+        .add_member_function("SetIdent", [](gp_Quaternion& self) { self.SetIdent(); })
+        .add_member_function("Reverse", [](gp_Quaternion& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Quaternion const& self) -> gp_Quaternion { return self.Reversed(); })
+        .add_member_function("Invert", [](gp_Quaternion& self) { self.Invert(); })
+        .add_member_function("Inverted", [](gp_Quaternion const& self) -> gp_Quaternion { return self.Inverted(); })
+        .add_member_function("SquareNorm", [](gp_Quaternion const& self) -> Standard_Real { return self.SquareNorm(); })
+        .add_member_function("Norm", [](gp_Quaternion const& self) -> Standard_Real { return self.Norm(); })
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Quaternion& self, sol::object theScale) { self.Scale(occt_plugin::to_real(theScale)); }
+#else
+            [](gp_Quaternion& self, const Standard_Real theScale) { self.Scale(theScale); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Quaternion const& self, sol::object theScale) -> gp_Quaternion { return self.Scaled(occt_plugin::to_real(theScale)); }
+#else
+            [](gp_Quaternion const& self, const Standard_Real theScale) -> gp_Quaternion { return self.Scaled(theScale); }
+#endif
+        )
+        .add_member_function("StabilizeLength", [](gp_Quaternion& self) { self.StabilizeLength(); })
+        .add_member_function("Normalize", [](gp_Quaternion& self) { self.Normalize(); })
+        .add_member_function("Normalized", [](gp_Quaternion const& self) -> gp_Quaternion { return self.Normalized(); })
+        .add_member_function("Negated", [](gp_Quaternion const& self) -> gp_Quaternion { return self.Negated(); })
+        .add_member_function("Added", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self.Added(theOther); })
+        .add_member_function("Subtracted", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self.Subtracted(theOther); })
+        .add_member_function("Multiplied", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self.Multiplied(theOther); })
+        .add_member_function("Add", [](gp_Quaternion& self, const gp_Quaternion & theOther) { self.Add(theOther); })
+        .add_member_function("Subtract", [](gp_Quaternion& self, const gp_Quaternion & theOther) { self.Subtract(theOther); })
+        .add_member_function("Multiply", sol::overload(
+            [](gp_Quaternion& self, const gp_Quaternion & theOther) { self.Multiply(theOther); },
+            [](gp_Quaternion const& self, const gp_Vec & theVec) -> gp_Vec { return self.Multiply(theVec); }
+        ))
+        .add_member_function("Dot", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function("GetRotationAngle", [](gp_Quaternion const& self) -> Standard_Real { return self.GetRotationAngle(); });
+    ns.register_type<gp_QuaternionNLerp, sol::automagic_flags::none>("gp_QuaternionNLerp")
+        .add_constructors(
+            []() { return gp_QuaternionNLerp(); },
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd) { return gp_QuaternionNLerp(theQStart, theQEnd); }
+        )
+        .add_member_function("Init", [](gp_QuaternionNLerp& self, const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd) { self.Init(theQStart, theQEnd); })
+        .add_member_function("InitFromUnit", [](gp_QuaternionNLerp& self, const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd) { self.InitFromUnit(theQStart, theQEnd); });
+    ns.register_type<gp_QuaternionSLerp, sol::automagic_flags::none>("gp_QuaternionSLerp")
+        .add_constructors(
+            []() { return gp_QuaternionSLerp(); },
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd) { return gp_QuaternionSLerp(theQStart, theQEnd); }
+        )
+        .add_member_function("Init", [](gp_QuaternionSLerp& self, const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd) { self.Init(theQStart, theQEnd); })
+        .add_member_function("InitFromUnit", [](gp_QuaternionSLerp& self, const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd) { self.InitFromUnit(theQStart, theQEnd); });
+    ns.register_type<gp_Sphere, sol::automagic_flags::none>("gp_Sphere")
+        .add_constructors(
+            []() { return gp_Sphere(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax3 & theA3, sol::object theRadius) { return gp_Sphere(theA3, occt_plugin::to_real(theRadius)); }
+#else
+            [](const gp_Ax3 & theA3, const Standard_Real theRadius) { return gp_Sphere(theA3, theRadius); }
+#endif
+        
+        )
+        .add_member_function("SetLocation", [](gp_Sphere& self, const gp_Pnt & theLoc) { self.SetLocation(theLoc); })
+        .add_member_function("SetPosition", [](gp_Sphere& self, const gp_Ax3 & theA3) { self.SetPosition(theA3); })
+        .add_member_function("SetRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Sphere& self, sol::object theR) { self.SetRadius(occt_plugin::to_real(theR)); }
+#else
+            [](gp_Sphere& self, const Standard_Real theR) { self.SetRadius(theR); }
+#endif
+        )
+        .add_member_function("Area", [](gp_Sphere const& self) -> Standard_Real { return self.Area(); })
+        .add_member_function("UReverse", [](gp_Sphere& self) { self.UReverse(); })
+        .add_member_function("VReverse", [](gp_Sphere& self) { self.VReverse(); })
+        .add_member_function("Direct", [](gp_Sphere const& self) -> Standard_Boolean { return self.Direct(); })
+        .add_member_function("Location", [](gp_Sphere const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](gp_Sphere const& self) -> const gp_Ax3 & { return self.Position(); })
+        .add_member_function("Radius", [](gp_Sphere const& self) -> Standard_Real { return self.Radius(); })
+        .add_member_function("Volume", [](gp_Sphere const& self) -> Standard_Real { return self.Volume(); })
+        .add_member_function("XAxis", [](gp_Sphere const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Sphere const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Sphere& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Sphere& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Sphere& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Sphere const& self, const gp_Pnt & theP) -> gp_Sphere { return self.Mirrored(theP); },
+            [](gp_Sphere const& self, const gp_Ax1 & theA1) -> gp_Sphere { return self.Mirrored(theA1); },
+            [](gp_Sphere const& self, const gp_Ax2 & theA2) -> gp_Sphere { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Sphere& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Sphere& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Sphere const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Sphere { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Sphere const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Sphere { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Sphere& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Sphere& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Sphere const& self, const gp_Pnt & theP, sol::object theS) -> gp_Sphere { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Sphere const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Sphere { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Sphere& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Sphere const& self, const gp_Trsf & theT) -> gp_Sphere { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Sphere& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Sphere& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Sphere const& self, const gp_Vec & theV) -> gp_Sphere { return self.Translated(theV); },
+            [](gp_Sphere const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Sphere { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Torus, sol::automagic_flags::none>("gp_Torus")
+        .add_constructors(
+            []() { return gp_Torus(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax3 & theA3, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Torus(theA3, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](const gp_Ax3 & theA3, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Torus(theA3, theMajorRadius, theMinorRadius); }
+#endif
+        
+        )
+        .add_member_function("SetAxis", [](gp_Torus& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
+        .add_member_function("SetLocation", [](gp_Torus& self, const gp_Pnt & theLoc) { self.SetLocation(theLoc); })
+        .add_member_function("SetMajorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Torus& self, sol::object theMajorRadius) { self.SetMajorRadius(occt_plugin::to_real(theMajorRadius)); }
+#else
+            [](gp_Torus& self, const Standard_Real theMajorRadius) { self.SetMajorRadius(theMajorRadius); }
+#endif
+        )
+        .add_member_function("SetMinorRadius", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Torus& self, sol::object theMinorRadius) { self.SetMinorRadius(occt_plugin::to_real(theMinorRadius)); }
+#else
+            [](gp_Torus& self, const Standard_Real theMinorRadius) { self.SetMinorRadius(theMinorRadius); }
+#endif
+        )
+        .add_member_function("SetPosition", [](gp_Torus& self, const gp_Ax3 & theA3) { self.SetPosition(theA3); })
+        .add_member_function("Area", [](gp_Torus const& self) -> Standard_Real { return self.Area(); })
+        .add_member_function("UReverse", [](gp_Torus& self) { self.UReverse(); })
+        .add_member_function("VReverse", [](gp_Torus& self) { self.VReverse(); })
+        .add_member_function("Direct", [](gp_Torus const& self) -> Standard_Boolean { return self.Direct(); })
+        .add_member_function("Axis", [](gp_Torus const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Location", [](gp_Torus const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](gp_Torus const& self) -> const gp_Ax3 & { return self.Position(); })
+        .add_member_function("MajorRadius", [](gp_Torus const& self) -> Standard_Real { return self.MajorRadius(); })
+        .add_member_function("MinorRadius", [](gp_Torus const& self) -> Standard_Real { return self.MinorRadius(); })
+        .add_member_function("Volume", [](gp_Torus const& self) -> Standard_Real { return self.Volume(); })
+        .add_member_function("XAxis", [](gp_Torus const& self) -> gp_Ax1 { return self.XAxis(); })
+        .add_member_function("YAxis", [](gp_Torus const& self) -> gp_Ax1 { return self.YAxis(); })
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Torus& self, const gp_Pnt & theP) { self.Mirror(theP); },
+            [](gp_Torus& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Torus& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Torus const& self, const gp_Pnt & theP) -> gp_Torus { return self.Mirrored(theP); },
+            [](gp_Torus const& self, const gp_Ax1 & theA1) -> gp_Torus { return self.Mirrored(theA1); },
+            [](gp_Torus const& self, const gp_Ax2 & theA2) -> gp_Torus { return self.Mirrored(theA2); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Torus& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Torus& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Torus const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Torus { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Torus const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Torus { return self.Rotated(theA1, theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Torus& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Torus& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Torus const& self, const gp_Pnt & theP, sol::object theS) -> gp_Torus { return self.Scaled(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Torus const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Torus { return self.Scaled(theP, theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Torus& self, const gp_Trsf & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Torus const& self, const gp_Trsf & theT) -> gp_Torus { return self.Transformed(theT); })
+        .add_member_function("Translate", sol::overload(
+            [](gp_Torus& self, const gp_Vec & theV) { self.Translate(theV); },
+            [](gp_Torus& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
+        ))
+        .add_member_function("Translated", sol::overload(
+            [](gp_Torus const& self, const gp_Vec & theV) -> gp_Torus { return self.Translated(theV); },
+            [](gp_Torus const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Torus { return self.Translated(theP1, theP2); }
+        ));
+    ns.register_type<gp_Trsf, sol::automagic_flags::none>("gp_Trsf")
+        .add_constructors(
+            []() { return gp_Trsf(); },
+            [](const gp_Trsf2d & theT) { return gp_Trsf(theT); }
+        )
+        .add_member_function("SetMirror", sol::overload(
+            [](gp_Trsf& self, const gp_Pnt & theP) { self.SetMirror(theP); },
+            [](gp_Trsf& self, const gp_Ax1 & theA1) { self.SetMirror(theA1); },
+            [](gp_Trsf& self, const gp_Ax2 & theA2) { self.SetMirror(theA2); }
+        ))
+        .add_member_function("SetRotation", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf& self, const gp_Ax1 & theA1, sol::object theAng) { self.SetRotation(theA1, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Trsf& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.SetRotation(theA1, theAng); }
+#endif
+        ,
+            [](gp_Trsf& self, const gp_Quaternion & theR) { self.SetRotation(theR); }
+        ))
+        .add_member_function("SetRotationPart", [](gp_Trsf& self, const gp_Quaternion & theR) { self.SetRotationPart(theR); })
+        .add_member_function("SetScale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf& self, const gp_Pnt & theP, sol::object theS) { self.SetScale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Trsf& self, const gp_Pnt & theP, const Standard_Real theS) { self.SetScale(theP, theS); }
+#endif
+        )
+        .add_member_function("SetDisplacement", [](gp_Trsf& self, const gp_Ax3 & theFromSystem1, const gp_Ax3 & theToSystem2) { self.SetDisplacement(theFromSystem1, theToSystem2); })
+        .add_member_function("SetTransformation", sol::overload(
+            [](gp_Trsf& self, const gp_Ax3 & theFromSystem1, const gp_Ax3 & theToSystem2) { self.SetTransformation(theFromSystem1, theToSystem2); },
+            [](gp_Trsf& self, const gp_Ax3 & theToSystem) { self.SetTransformation(theToSystem); },
+            [](gp_Trsf& self, const gp_Quaternion & R, const gp_Vec & theT) { self.SetTransformation(R, theT); }
+        ))
+        .add_member_function("SetTranslation", sol::overload(
+            [](gp_Trsf& self, const gp_Vec & theV) { self.SetTranslation(theV); },
+            [](gp_Trsf& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.SetTranslation(theP1, theP2); }
+        ))
+        .add_member_function("SetTranslationPart", [](gp_Trsf& self, const gp_Vec & theV) { self.SetTranslationPart(theV); })
+        .add_member_function("SetScaleFactor", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf& self, sol::object theS) { self.SetScaleFactor(occt_plugin::to_real(theS)); }
+#else
+            [](gp_Trsf& self, const Standard_Real theS) { self.SetScaleFactor(theS); }
+#endif
+        )
+        .add_member_function("SetForm", [](gp_Trsf& self, const gp_TrsfForm theP) { self.SetForm(theP); })
+        .add_member_function("SetValues", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf& self, sol::object a11, sol::object a12, sol::object a13, sol::object a14, sol::object a21, sol::object a22, sol::object a23, sol::object a24, sol::object a31, sol::object a32, sol::object a33, sol::object a34) { self.SetValues(occt_plugin::to_real(a11), occt_plugin::to_real(a12), occt_plugin::to_real(a13), occt_plugin::to_real(a14), occt_plugin::to_real(a21), occt_plugin::to_real(a22), occt_plugin::to_real(a23), occt_plugin::to_real(a24), occt_plugin::to_real(a31), occt_plugin::to_real(a32), occt_plugin::to_real(a33), occt_plugin::to_real(a34)); }
+#else
+            [](gp_Trsf& self, const Standard_Real a11, const Standard_Real a12, const Standard_Real a13, const Standard_Real a14, const Standard_Real a21, const Standard_Real a22, const Standard_Real a23, const Standard_Real a24, const Standard_Real a31, const Standard_Real a32, const Standard_Real a33, const Standard_Real a34) { self.SetValues(a11, a12, a13, a14, a21, a22, a23, a24, a31, a32, a33, a34); }
+#endif
+        )
+        .add_member_function("IsNegative", [](gp_Trsf const& self) -> Standard_Boolean { return self.IsNegative(); })
+        .add_member_function("Form", [](gp_Trsf const& self) -> gp_TrsfForm { return self.Form(); })
+        .add_member_function("ScaleFactor", [](gp_Trsf const& self) -> Standard_Real { return self.ScaleFactor(); })
+        .add_member_function("TranslationPart", [](gp_Trsf const& self) -> const gp_XYZ & { return self.TranslationPart(); })
+        .add_member_function("GetRotation", [](gp_Trsf const& self) -> gp_Quaternion { return self.GetRotation(); })
+        .add_member_function("VectorialPart", [](gp_Trsf const& self) -> gp_Mat { return self.VectorialPart(); })
+        .add_member_function("HVectorialPart", [](gp_Trsf const& self) -> const gp_Mat & { return self.HVectorialPart(); })
+        .add_member_function("Value", [](gp_Trsf const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> Standard_Real { return self.Value(theRow, theCol); })
+        .add_member_function("Invert", [](gp_Trsf& self) { self.Invert(); })
+        .add_member_function("Inverted", [](gp_Trsf const& self) -> gp_Trsf { return self.Inverted(); })
+        .add_member_function("Multiplied", [](gp_Trsf const& self, const gp_Trsf & theT) -> gp_Trsf { return self.Multiplied(theT); })
+        .add_member_function("Multiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.Multiply(theT); })
+        .add_member_function("PreMultiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.PreMultiply(theT); })
+        .add_member_function("Power", [](gp_Trsf& self, const Standard_Integer theN) { self.Power(theN); })
+        .add_member_function("Powered", [](gp_Trsf const& self, const Standard_Integer theN) -> gp_Trsf { return self.Powered(theN); })
+        .add_member_function("Transforms", [](gp_Trsf const& self, gp_XYZ & theCoord) { self.Transforms(theCoord); });
+    ns.register_type<gp_Trsf2d, sol::automagic_flags::none>("gp_Trsf2d")
+        .add_constructors(
+            []() { return gp_Trsf2d(); },
+            [](const gp_Trsf & theT) { return gp_Trsf2d(theT); }
+        )
+        .add_member_function("SetMirror", sol::overload(
+            [](gp_Trsf2d& self, const gp_Pnt2d & theP) { self.SetMirror(theP); },
+            [](gp_Trsf2d& self, const gp_Ax2d & theA) { self.SetMirror(theA); }
+        ))
+        .add_member_function("SetRotation", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf2d& self, const gp_Pnt2d & theP, sol::object theAng) { self.SetRotation(theP, occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Trsf2d& self, const gp_Pnt2d & theP, const Standard_Real theAng) { self.SetRotation(theP, theAng); }
+#endif
+        )
+        .add_member_function("SetScale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf2d& self, const gp_Pnt2d & theP, sol::object theS) { self.SetScale(theP, occt_plugin::to_real(theS)); }
+#else
+            [](gp_Trsf2d& self, const gp_Pnt2d & theP, const Standard_Real theS) { self.SetScale(theP, theS); }
+#endif
+        )
+        .add_member_function("SetTransformation", sol::overload(
+            [](gp_Trsf2d& self, const gp_Ax2d & theFromSystem1, const gp_Ax2d & theToSystem2) { self.SetTransformation(theFromSystem1, theToSystem2); },
+            [](gp_Trsf2d& self, const gp_Ax2d & theToSystem) { self.SetTransformation(theToSystem); }
+        ))
+        .add_member_function("SetTranslation", sol::overload(
+            [](gp_Trsf2d& self, const gp_Vec2d & theV) { self.SetTranslation(theV); },
+            [](gp_Trsf2d& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { self.SetTranslation(theP1, theP2); }
+        ))
+        .add_member_function("SetTranslationPart", [](gp_Trsf2d& self, const gp_Vec2d & theV) { self.SetTranslationPart(theV); })
+        .add_member_function("SetScaleFactor", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf2d& self, sol::object theS) { self.SetScaleFactor(occt_plugin::to_real(theS)); }
+#else
+            [](gp_Trsf2d& self, const Standard_Real theS) { self.SetScaleFactor(theS); }
+#endif
+        )
+        .add_member_function("IsNegative", [](gp_Trsf2d const& self) -> Standard_Boolean { return self.IsNegative(); })
+        .add_member_function("Form", [](gp_Trsf2d const& self) -> gp_TrsfForm { return self.Form(); })
+        .add_member_function("ScaleFactor", [](gp_Trsf2d const& self) -> Standard_Real { return self.ScaleFactor(); })
+        .add_member_function("TranslationPart", [](gp_Trsf2d const& self) -> const gp_XY & { return self.TranslationPart(); })
+        .add_member_function("VectorialPart", [](gp_Trsf2d const& self) -> gp_Mat2d { return self.VectorialPart(); })
+        .add_member_function("HVectorialPart", [](gp_Trsf2d const& self) -> const gp_Mat2d & { return self.HVectorialPart(); })
+        .add_member_function("RotationPart", [](gp_Trsf2d const& self) -> Standard_Real { return self.RotationPart(); })
+        .add_member_function("Value", [](gp_Trsf2d const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> Standard_Real { return self.Value(theRow, theCol); })
+        .add_member_function("Invert", [](gp_Trsf2d& self) { self.Invert(); })
+        .add_member_function("Inverted", [](gp_Trsf2d const& self) -> gp_Trsf2d { return self.Inverted(); })
+        .add_member_function("Multiplied", [](gp_Trsf2d const& self, const gp_Trsf2d & theT) -> gp_Trsf2d { return self.Multiplied(theT); })
+        .add_member_function("Multiply", [](gp_Trsf2d& self, const gp_Trsf2d & theT) { self.Multiply(theT); })
+        .add_member_function("PreMultiply", [](gp_Trsf2d& self, const gp_Trsf2d & theT) { self.PreMultiply(theT); })
+        .add_member_function("Power", [](gp_Trsf2d& self, const Standard_Integer theN) { self.Power(theN); })
+        .add_member_function("Powered", [](gp_Trsf2d& self, const Standard_Integer theN) -> gp_Trsf2d { return self.Powered(theN); })
+        .add_member_function("Transforms", [](gp_Trsf2d const& self, gp_XY & theCoord) { self.Transforms(theCoord); })
+        .add_member_function("SetValues", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Trsf2d& self, sol::object a11, sol::object a12, sol::object a13, sol::object a21, sol::object a22, sol::object a23) { self.SetValues(occt_plugin::to_real(a11), occt_plugin::to_real(a12), occt_plugin::to_real(a13), occt_plugin::to_real(a21), occt_plugin::to_real(a22), occt_plugin::to_real(a23)); }
+#else
+            [](gp_Trsf2d& self, const Standard_Real a11, const Standard_Real a12, const Standard_Real a13, const Standard_Real a21, const Standard_Real a22, const Standard_Real a23) { self.SetValues(a11, a12, a13, a21, a22, a23); }
+#endif
+        );
+    sol::table(ns.table()).new_enum("gp_TrsfForm",
+            "gp_Identity", gp_Identity,
+            "gp_Rotation", gp_Rotation,
+            "gp_Translation", gp_Translation,
+            "gp_PntMirror", gp_PntMirror,
+            "gp_Ax1Mirror", gp_Ax1Mirror,
+            "gp_Ax2Mirror", gp_Ax2Mirror,
+            "gp_Scale", gp_Scale,
+            "gp_CompoundTrsf", gp_CompoundTrsf,
+            "gp_Other", gp_Other
+        );
     ns.register_type<gp_Vec, sol::automagic_flags::none>("gp_Vec")
         .add_constructors(
             []() { return gp_Vec(); },
             [](const gp_Dir & theV) { return gp_Vec(theV); },
+            [](const gp_XYZ & theCoord) { return gp_Vec(theCoord); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](sol::object theXv, sol::object theYv, sol::object theZv) { return gp_Vec(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv), occt_plugin::to_real(theZv)); }
@@ -173,10 +2834,12 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Vec& self, const Standard_Real theZ) { self.SetZ(theZ); }
 #endif
         )
+        .add_member_function("SetXYZ", [](gp_Vec& self, const gp_XYZ & theCoord) { self.SetXYZ(theCoord); })
         .add_member_function("Coord", [](gp_Vec const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
         .add_member_function("X", [](gp_Vec const& self) -> Standard_Real { return self.X(); })
         .add_member_function("Y", [](gp_Vec const& self) -> Standard_Real { return self.Y(); })
         .add_member_function("Z", [](gp_Vec const& self) -> Standard_Real { return self.Z(); })
+        .add_member_function("XYZ", [](gp_Vec const& self) -> const gp_XYZ & { return self.XYZ(); })
         .add_member_function("IsEqual", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Vec const& self, const gp_Vec & theOther, sol::object theLinearTolerance, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theLinearTolerance), occt_plugin::to_real(theAngularTolerance)); }
@@ -293,11 +2956,13 @@ void register_gp(grunk::plugin_namespace& ns)
         ))
         .add_member_function("Mirror", sol::overload(
             [](gp_Vec& self, const gp_Vec & theV) { self.Mirror(theV); },
-            [](gp_Vec& self, const gp_Ax1 & theA1) { self.Mirror(theA1); }
+            [](gp_Vec& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
+            [](gp_Vec& self, const gp_Ax2 & theA2) { self.Mirror(theA2); }
         ))
         .add_member_function("Mirrored", sol::overload(
             [](gp_Vec const& self, const gp_Vec & theV) -> gp_Vec { return self.Mirrored(theV); },
-            [](gp_Vec const& self, const gp_Ax1 & theA1) -> gp_Vec { return self.Mirrored(theA1); }
+            [](gp_Vec const& self, const gp_Ax1 & theA1) -> gp_Vec { return self.Mirrored(theA1); },
+            [](gp_Vec const& self, const gp_Ax2 & theA2) -> gp_Vec { return self.Mirrored(theA2); }
         ))
         .add_member_function("Rotate", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -329,257 +2994,495 @@ void register_gp(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](gp_Vec& self, const gp_Trsf & theT) { self.Transform(theT); })
         .add_member_function("Transformed", [](gp_Vec const& self, const gp_Trsf & theT) -> gp_Vec { return self.Transformed(theT); });
-    ns.register_type<gp_Dir, sol::automagic_flags::none>("gp_Dir")
+    ns.register_type<gp_Vec2d, sol::automagic_flags::none>("gp_Vec2d")
         .add_constructors(
-            []() { return gp_Dir(); },
-            [](const gp_Vec & theV) { return gp_Dir(theV); },
+            []() { return gp_Vec2d(); },
+            [](const gp_Dir2d & theV) { return gp_Vec2d(theV); },
+            [](const gp_XY & theCoord) { return gp_Vec2d(theCoord); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object theXv, sol::object theYv, sol::object theZv) { return gp_Dir(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv), occt_plugin::to_real(theZv)); }
+            [](sol::object theXv, sol::object theYv) { return gp_Vec2d(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv)); }
 #else
-            [](const Standard_Real theXv, const Standard_Real theYv, const Standard_Real theZv) { return gp_Dir(theXv, theYv, theZv); }
+            [](const Standard_Real theXv, const Standard_Real theYv) { return gp_Vec2d(theXv, theYv); }
+#endif
+        ,
+            [](const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { return gp_Vec2d(theP1, theP2); }
+        )
+        .add_member_function("SetCoord", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
+#else
+            [](gp_Vec2d& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theXv, sol::object theYv) { self.SetCoord(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv)); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theXv, const Standard_Real theYv) { self.SetCoord(theXv, theYv); }
+#endif
+        
+        ))
+        .add_member_function("SetX", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theX) { self.SetX(occt_plugin::to_real(theX)); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theX) { self.SetX(theX); }
+#endif
+        )
+        .add_member_function("SetY", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theY) { self.SetY(occt_plugin::to_real(theY)); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theY) { self.SetY(theY); }
+#endif
+        )
+        .add_member_function("SetXY", [](gp_Vec2d& self, const gp_XY & theCoord) { self.SetXY(theCoord); })
+        .add_member_function("Coord", [](gp_Vec2d const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
+        .add_member_function("X", [](gp_Vec2d const& self) -> Standard_Real { return self.X(); })
+        .add_member_function("Y", [](gp_Vec2d const& self) -> Standard_Real { return self.Y(); })
+        .add_member_function("XY", [](gp_Vec2d const& self) -> const gp_XY & { return self.XY(); })
+        .add_member_function("IsEqual", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, sol::object theLinearTolerance, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theLinearTolerance), occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, const Standard_Real theLinearTolerance, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, theLinearTolerance, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsNormal", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsOpposite", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("IsParallel", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, occt_plugin::to_real(theAngularTolerance)); }
+#else
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, theAngularTolerance); }
+#endif
+        )
+        .add_member_function("Angle", [](gp_Vec2d const& self, const gp_Vec2d & theOther) -> Standard_Real { return self.Angle(theOther); })
+        .add_member_function("Magnitude", [](gp_Vec2d const& self) -> Standard_Real { return self.Magnitude(); })
+        .add_member_function("SquareMagnitude", [](gp_Vec2d const& self) -> Standard_Real { return self.SquareMagnitude(); })
+        .add_member_function("Add", [](gp_Vec2d& self, const gp_Vec2d & theOther) { self.Add(theOther); })
+        .add_member_function("Added", [](gp_Vec2d const& self, const gp_Vec2d & theOther) -> gp_Vec2d { return self.Added(theOther); })
+        .add_member_function("Crossed", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> Standard_Real { return self.Crossed(theRight); })
+        .add_member_function("CrossMagnitude", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> Standard_Real { return self.CrossMagnitude(theRight); })
+        .add_member_function("CrossSquareMagnitude", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> Standard_Real { return self.CrossSquareMagnitude(theRight); })
+        .add_member_function("Divide", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theScalar) { self.Divide(theScalar); }
+#endif
+        )
+        .add_member_function("Divided", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, sol::object theScalar) -> gp_Vec2d { return self.Divided(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Vec2d const& self, const Standard_Real theScalar) -> gp_Vec2d { return self.Divided(theScalar); }
+#endif
+        )
+        .add_member_function("Dot", [](gp_Vec2d const& self, const gp_Vec2d & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function("GetNormal", [](gp_Vec2d const& self) -> gp_Vec2d { return self.GetNormal(); })
+        .add_member_function("Multiply", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theScalar) { self.Multiply(theScalar); }
+#endif
+        )
+        .add_member_function("Multiplied", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, sol::object theScalar) -> gp_Vec2d { return self.Multiplied(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_Vec2d const& self, const Standard_Real theScalar) -> gp_Vec2d { return self.Multiplied(theScalar); }
+#endif
+        )
+        .add_member_function("Normalize", [](gp_Vec2d& self) { self.Normalize(); })
+        .add_member_function("Normalized", [](gp_Vec2d const& self) -> gp_Vec2d { return self.Normalized(); })
+        .add_member_function("Reverse", [](gp_Vec2d& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_Vec2d const& self) -> gp_Vec2d { return self.Reversed(); })
+        .add_member_function("Subtract", [](gp_Vec2d& self, const gp_Vec2d & theRight) { self.Subtract(theRight); })
+        .add_member_function("Subtracted", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> gp_Vec2d { return self.Subtracted(theRight); })
+        .add_member_function("SetLinearForm", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theA1, const gp_Vec2d & theV1, sol::object theA2, const gp_Vec2d & theV2, const gp_Vec2d & theV3) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, theV3); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theA1, const gp_Vec2d & theV1, const Standard_Real theA2, const gp_Vec2d & theV2, const gp_Vec2d & theV3) { self.SetLinearForm(theA1, theV1, theA2, theV2, theV3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theA1, const gp_Vec2d & theV1, sol::object theA2, const gp_Vec2d & theV2) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theA1, const gp_Vec2d & theV1, const Standard_Real theA2, const gp_Vec2d & theV2) { self.SetLinearForm(theA1, theV1, theA2, theV2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theA1, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, theV2); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theA1, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(theA1, theV1, theV2); }
+#endif
+        ,
+            [](gp_Vec2d& self, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(theV1, theV2); }
+        ))
+        .add_member_function("Mirror", sol::overload(
+            [](gp_Vec2d& self, const gp_Vec2d & theV) { self.Mirror(theV); },
+            [](gp_Vec2d& self, const gp_Ax2d & theA1) { self.Mirror(theA1); }
+        ))
+        .add_member_function("Mirrored", sol::overload(
+            [](gp_Vec2d const& self, const gp_Vec2d & theV) -> gp_Vec2d { return self.Mirrored(theV); },
+            [](gp_Vec2d const& self, const gp_Ax2d & theA1) -> gp_Vec2d { return self.Mirrored(theA1); }
+        ))
+        .add_member_function("Rotate", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theAng) { self.Rotate(occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theAng) { self.Rotate(theAng); }
+#endif
+        )
+        .add_member_function("Rotated", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, sol::object theAng) -> gp_Vec2d { return self.Rotated(occt_plugin::to_real(theAng)); }
+#else
+            [](gp_Vec2d const& self, const Standard_Real theAng) -> gp_Vec2d { return self.Rotated(theAng); }
+#endif
+        )
+        .add_member_function("Scale", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d& self, sol::object theS) { self.Scale(occt_plugin::to_real(theS)); }
+#else
+            [](gp_Vec2d& self, const Standard_Real theS) { self.Scale(theS); }
+#endif
+        )
+        .add_member_function("Scaled", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec2d const& self, sol::object theS) -> gp_Vec2d { return self.Scaled(occt_plugin::to_real(theS)); }
+#else
+            [](gp_Vec2d const& self, const Standard_Real theS) -> gp_Vec2d { return self.Scaled(theS); }
+#endif
+        )
+        .add_member_function("Transform", [](gp_Vec2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
+        .add_member_function("Transformed", [](gp_Vec2d const& self, const gp_Trsf2d & theT) -> gp_Vec2d { return self.Transformed(theT); });
+    ns.register_type<gp_XY, sol::automagic_flags::none>("gp_XY")
+        .add_constructors(
+            []() { return gp_XY(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theX, sol::object theY) { return gp_XY(occt_plugin::to_real(theX), occt_plugin::to_real(theY)); }
+#else
+            [](const Standard_Real theX, const Standard_Real theY) { return gp_XY(theX, theY); }
 #endif
         
         )
         .add_member_function("SetCoord", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
+            [](gp_XY& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
 #else
-            [](gp_Dir& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
+            [](gp_XY& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir& self, sol::object theXv, sol::object theYv, sol::object theZv) { self.SetCoord(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv), occt_plugin::to_real(theZv)); }
+            [](gp_XY& self, sol::object theX, sol::object theY) { self.SetCoord(occt_plugin::to_real(theX), occt_plugin::to_real(theY)); }
 #else
-            [](gp_Dir& self, const Standard_Real theXv, const Standard_Real theYv, const Standard_Real theZv) { self.SetCoord(theXv, theYv, theZv); }
+            [](gp_XY& self, const Standard_Real theX, const Standard_Real theY) { self.SetCoord(theX, theY); }
 #endif
         
         ))
         .add_member_function("SetX", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir& self, sol::object theX) { self.SetX(occt_plugin::to_real(theX)); }
+            [](gp_XY& self, sol::object theX) { self.SetX(occt_plugin::to_real(theX)); }
 #else
-            [](gp_Dir& self, const Standard_Real theX) { self.SetX(theX); }
+            [](gp_XY& self, const Standard_Real theX) { self.SetX(theX); }
 #endif
         )
         .add_member_function("SetY", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir& self, sol::object theY) { self.SetY(occt_plugin::to_real(theY)); }
+            [](gp_XY& self, sol::object theY) { self.SetY(occt_plugin::to_real(theY)); }
 #else
-            [](gp_Dir& self, const Standard_Real theY) { self.SetY(theY); }
+            [](gp_XY& self, const Standard_Real theY) { self.SetY(theY); }
+#endif
+        )
+        .add_member_function("Coord", [](gp_XY const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
+        .add_member_function("X", [](gp_XY const& self) -> Standard_Real { return self.X(); })
+        .add_member_function("Y", [](gp_XY const& self) -> Standard_Real { return self.Y(); })
+        .add_member_function("Modulus", [](gp_XY const& self) -> Standard_Real { return self.Modulus(); })
+        .add_member_function("SquareModulus", [](gp_XY const& self) -> Standard_Real { return self.SquareModulus(); })
+        .add_member_function("IsEqual", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY const& self, const gp_XY & theOther, sol::object theTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theTolerance)); }
+#else
+            [](gp_XY const& self, const gp_XY & theOther, const Standard_Real theTolerance) -> Standard_Boolean { return self.IsEqual(theOther, theTolerance); }
+#endif
+        )
+        .add_member_function("Add", [](gp_XY& self, const gp_XY & theOther) { self.Add(theOther); })
+        .add_member_function("Added", [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Added(theOther); })
+        .add_member_function("Crossed", [](gp_XY const& self, const gp_XY & theOther) -> Standard_Real { return self.Crossed(theOther); })
+        .add_member_function("CrossMagnitude", [](gp_XY const& self, const gp_XY & theRight) -> Standard_Real { return self.CrossMagnitude(theRight); })
+        .add_member_function("CrossSquareMagnitude", [](gp_XY const& self, const gp_XY & theRight) -> Standard_Real { return self.CrossSquareMagnitude(theRight); })
+        .add_member_function("Divide", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_XY& self, const Standard_Real theScalar) { self.Divide(theScalar); }
+#endif
+        )
+        .add_member_function("Divided", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY const& self, sol::object theScalar) -> gp_XY { return self.Divided(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self.Divided(theScalar); }
+#endif
+        )
+        .add_member_function("Dot", [](gp_XY const& self, const gp_XY & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function("Multiply", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_XY& self, const Standard_Real theScalar) { self.Multiply(theScalar); }
+#endif
+        ,
+            [](gp_XY& self, const gp_XY & theOther) { self.Multiply(theOther); },
+            [](gp_XY& self, const gp_Mat2d & theMatrix) { self.Multiply(theMatrix); }
+        ))
+        .add_member_function("Multiplied", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY const& self, sol::object theScalar) -> gp_XY { return self.Multiplied(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self.Multiplied(theScalar); }
+#endif
+        ,
+            [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Multiplied(theOther); },
+            [](gp_XY const& self, const gp_Mat2d & theMatrix) -> gp_XY { return self.Multiplied(theMatrix); }
+        ))
+        .add_member_function("Normalize", [](gp_XY& self) { self.Normalize(); })
+        .add_member_function("Normalized", [](gp_XY const& self) -> gp_XY { return self.Normalized(); })
+        .add_member_function("Reverse", [](gp_XY& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_XY const& self) -> gp_XY { return self.Reversed(); })
+        .add_member_function("SetLinearForm", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY& self, sol::object theA1, const gp_XY & theXY1, sol::object theA2, const gp_XY & theXY2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXY1, occt_plugin::to_real(theA2), theXY2); }
+#else
+            [](gp_XY& self, const Standard_Real theA1, const gp_XY & theXY1, const Standard_Real theA2, const gp_XY & theXY2) { self.SetLinearForm(theA1, theXY1, theA2, theXY2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY& self, sol::object theA1, const gp_XY & theXY1, sol::object theA2, const gp_XY & theXY2, const gp_XY & theXY3) { self.SetLinearForm(occt_plugin::to_real(theA1), theXY1, occt_plugin::to_real(theA2), theXY2, theXY3); }
+#else
+            [](gp_XY& self, const Standard_Real theA1, const gp_XY & theXY1, const Standard_Real theA2, const gp_XY & theXY2, const gp_XY & theXY3) { self.SetLinearForm(theA1, theXY1, theA2, theXY2, theXY3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY& self, sol::object theA1, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXY1, theXY2); }
+#else
+            [](gp_XY& self, const Standard_Real theA1, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(theA1, theXY1, theXY2); }
+#endif
+        ,
+            [](gp_XY& self, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(theXY1, theXY2); }
+        ))
+        .add_member_function("Subtract", [](gp_XY& self, const gp_XY & theOther) { self.Subtract(theOther); })
+        .add_member_function("Subtracted", [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Subtracted(theOther); });
+    ns.register_type<gp_XYZ, sol::automagic_flags::none>("gp_XYZ")
+        .add_constructors(
+            []() { return gp_XYZ(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theX, sol::object theY, sol::object theZ) { return gp_XYZ(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ)); }
+#else
+            [](const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ) { return gp_XYZ(theX, theY, theZ); }
+#endif
+        
+        )
+        .add_member_function("SetCoord", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XYZ& self, sol::object theX, sol::object theY, sol::object theZ) { self.SetCoord(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ)); }
+#else
+            [](gp_XYZ& self, const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ) { self.SetCoord(theX, theY, theZ); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XYZ& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
+#else
+            [](gp_XYZ& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
+#endif
+        
+        ))
+        .add_member_function("SetX", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XYZ& self, sol::object theX) { self.SetX(occt_plugin::to_real(theX)); }
+#else
+            [](gp_XYZ& self, const Standard_Real theX) { self.SetX(theX); }
+#endif
+        )
+        .add_member_function("SetY", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XYZ& self, sol::object theY) { self.SetY(occt_plugin::to_real(theY)); }
+#else
+            [](gp_XYZ& self, const Standard_Real theY) { self.SetY(theY); }
 #endif
         )
         .add_member_function("SetZ", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir& self, sol::object theZ) { self.SetZ(occt_plugin::to_real(theZ)); }
+            [](gp_XYZ& self, sol::object theZ) { self.SetZ(occt_plugin::to_real(theZ)); }
 #else
-            [](gp_Dir& self, const Standard_Real theZ) { self.SetZ(theZ); }
+            [](gp_XYZ& self, const Standard_Real theZ) { self.SetZ(theZ); }
 #endif
         )
-        .add_member_function("Coord", [](gp_Dir const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
-        .add_member_function("X", [](gp_Dir const& self) -> Standard_Real { return self.X(); })
-        .add_member_function("Y", [](gp_Dir const& self) -> Standard_Real { return self.Y(); })
-        .add_member_function("Z", [](gp_Dir const& self) -> Standard_Real { return self.Z(); })
+        .add_member_function("Coord", [](gp_XYZ const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); })
+        .add_member_function("X", [](gp_XYZ const& self) -> Standard_Real { return self.X(); })
+        .add_member_function("Y", [](gp_XYZ const& self) -> Standard_Real { return self.Y(); })
+        .add_member_function("Z", [](gp_XYZ const& self) -> Standard_Real { return self.Z(); })
+        .add_member_function("Modulus", [](gp_XYZ const& self) -> Standard_Real { return self.Modulus(); })
+        .add_member_function("SquareModulus", [](gp_XYZ const& self) -> Standard_Real { return self.SquareModulus(); })
         .add_member_function("IsEqual", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theAngularTolerance)); }
+            [](gp_XYZ const& self, const gp_XYZ & theOther, sol::object theTolerance) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(theTolerance)); }
 #else
-            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsEqual(theOther, theAngularTolerance); }
+            [](gp_XYZ const& self, const gp_XYZ & theOther, const Standard_Real theTolerance) -> Standard_Boolean { return self.IsEqual(theOther, theTolerance); }
 #endif
         )
-        .add_member_function("IsNormal", 
+        .add_member_function("Add", [](gp_XYZ& self, const gp_XYZ & theOther) { self.Add(theOther); })
+        .add_member_function("Added", [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Added(theOther); })
+        .add_member_function("Cross", [](gp_XYZ& self, const gp_XYZ & theOther) { self.Cross(theOther); })
+        .add_member_function("Crossed", [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Crossed(theOther); })
+        .add_member_function("CrossMagnitude", [](gp_XYZ const& self, const gp_XYZ & theRight) -> Standard_Real { return self.CrossMagnitude(theRight); })
+        .add_member_function("CrossSquareMagnitude", [](gp_XYZ const& self, const gp_XYZ & theRight) -> Standard_Real { return self.CrossSquareMagnitude(theRight); })
+        .add_member_function("CrossCross", [](gp_XYZ& self, const gp_XYZ & theCoord1, const gp_XYZ & theCoord2) { self.CrossCross(theCoord1, theCoord2); })
+        .add_member_function("CrossCrossed", [](gp_XYZ const& self, const gp_XYZ & theCoord1, const gp_XYZ & theCoord2) -> gp_XYZ { return self.CrossCrossed(theCoord1, theCoord2); })
+        .add_member_function("Divide", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, occt_plugin::to_real(theAngularTolerance)); }
+            [](gp_XYZ& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
 #else
-            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, theAngularTolerance); }
+            [](gp_XYZ& self, const Standard_Real theScalar) { self.Divide(theScalar); }
 #endif
         )
-        .add_member_function("IsOpposite", 
+        .add_member_function("Divided", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, occt_plugin::to_real(theAngularTolerance)); }
+            [](gp_XYZ const& self, sol::object theScalar) -> gp_XYZ { return self.Divided(occt_plugin::to_real(theScalar)); }
 #else
-            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, theAngularTolerance); }
+            [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self.Divided(theScalar); }
 #endif
         )
-        .add_member_function("IsParallel", 
+        .add_member_function("Dot", [](gp_XYZ const& self, const gp_XYZ & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function("DotCross", [](gp_XYZ const& self, const gp_XYZ & theCoord1, const gp_XYZ & theCoord2) -> Standard_Real { return self.DotCross(theCoord1, theCoord2); })
+        .add_member_function("Multiply", sol::overload(
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir const& self, const gp_Dir & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, occt_plugin::to_real(theAngularTolerance)); }
+            [](gp_XYZ& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
 #else
-            [](gp_Dir const& self, const gp_Dir & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, theAngularTolerance); }
+            [](gp_XYZ& self, const Standard_Real theScalar) { self.Multiply(theScalar); }
 #endif
-        )
-        .add_member_function("Angle", [](gp_Dir const& self, const gp_Dir & theOther) -> Standard_Real { return self.Angle(theOther); })
-        .add_member_function("AngleWithRef", [](gp_Dir const& self, const gp_Dir & theOther, const gp_Dir & theVRef) -> Standard_Real { return self.AngleWithRef(theOther, theVRef); })
-        .add_member_function("Cross", [](gp_Dir& self, const gp_Dir & theRight) { self.Cross(theRight); })
-        .add_member_function("Crossed", [](gp_Dir const& self, const gp_Dir & theRight) -> gp_Dir { return self.Crossed(theRight); })
-        .add_member_function("CrossCross", [](gp_Dir& self, const gp_Dir & theV1, const gp_Dir & theV2) { self.CrossCross(theV1, theV2); })
-        .add_member_function("CrossCrossed", [](gp_Dir const& self, const gp_Dir & theV1, const gp_Dir & theV2) -> gp_Dir { return self.CrossCrossed(theV1, theV2); })
-        .add_member_function("Dot", [](gp_Dir const& self, const gp_Dir & theOther) -> Standard_Real { return self.Dot(theOther); })
-        .add_member_function("DotCross", [](gp_Dir const& self, const gp_Dir & theV1, const gp_Dir & theV2) -> Standard_Real { return self.DotCross(theV1, theV2); })
-        .add_member_function("Reverse", [](gp_Dir& self) { self.Reverse(); })
-        .add_member_function("Reversed", [](gp_Dir const& self) -> gp_Dir { return self.Reversed(); })
-        .add_member_function("Mirror", sol::overload(
-            [](gp_Dir& self, const gp_Dir & theV) { self.Mirror(theV); },
-            [](gp_Dir& self, const gp_Ax1 & theA1) { self.Mirror(theA1); }
+        ,
+            [](gp_XYZ& self, const gp_XYZ & theOther) { self.Multiply(theOther); },
+            [](gp_XYZ& self, const gp_Mat & theMatrix) { self.Multiply(theMatrix); }
         ))
-        .add_member_function("Mirrored", sol::overload(
-            [](gp_Dir const& self, const gp_Dir & theV) -> gp_Dir { return self.Mirrored(theV); },
-            [](gp_Dir const& self, const gp_Ax1 & theA1) -> gp_Dir { return self.Mirrored(theA1); }
+        .add_member_function("Multiplied", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XYZ const& self, sol::object theScalar) -> gp_XYZ { return self.Multiplied(occt_plugin::to_real(theScalar)); }
+#else
+            [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self.Multiplied(theScalar); }
+#endif
+        ,
+            [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Multiplied(theOther); },
+            [](gp_XYZ const& self, const gp_Mat & theMatrix) -> gp_XYZ { return self.Multiplied(theMatrix); }
         ))
-        .add_member_function("Rotate", 
+        .add_member_function("Normalize", [](gp_XYZ& self) { self.Normalize(); })
+        .add_member_function("Normalized", [](gp_XYZ const& self) -> gp_XYZ { return self.Normalized(); })
+        .add_member_function("Reverse", [](gp_XYZ& self) { self.Reverse(); })
+        .add_member_function("Reversed", [](gp_XYZ const& self) -> gp_XYZ { return self.Reversed(); })
+        .add_member_function("Subtract", [](gp_XYZ& self, const gp_XYZ & theOther) { self.Subtract(theOther); })
+        .add_member_function("Subtracted", [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Subtracted(theOther); })
+        .add_member_function("SetLinearForm", sol::overload(
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir& self, const gp_Ax1 & theA1, sol::object theAng) { self.Rotate(theA1, occt_plugin::to_real(theAng)); }
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, sol::object theA3, const gp_XYZ & theXYZ3, const gp_XYZ & theXYZ4) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, occt_plugin::to_real(theA3), theXYZ3, theXYZ4); }
 #else
-            [](gp_Dir& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.Rotate(theA1, theAng); }
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const Standard_Real theA3, const gp_XYZ & theXYZ3, const gp_XYZ & theXYZ4) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theA3, theXYZ3, theXYZ4); }
 #endif
-        )
-        .add_member_function("Rotated", 
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Dir const& self, const gp_Ax1 & theA1, sol::object theAng) -> gp_Dir { return self.Rotated(theA1, occt_plugin::to_real(theAng)); }
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, sol::object theA3, const gp_XYZ & theXYZ3) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, occt_plugin::to_real(theA3), theXYZ3); }
 #else
-            [](gp_Dir const& self, const gp_Ax1 & theA1, const Standard_Real theAng) -> gp_Dir { return self.Rotated(theA1, theAng); }
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const Standard_Real theA3, const gp_XYZ & theXYZ3) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theA3, theXYZ3); }
 #endif
-        )
-        .add_member_function("Transform", [](gp_Dir& self, const gp_Trsf & theT) { self.Transform(theT); })
-        .add_member_function("Transformed", [](gp_Dir const& self, const gp_Trsf & theT) -> gp_Dir { return self.Transformed(theT); });
-    ns.register_type<gp_Ax1, sol::automagic_flags::none>("gp_Ax1")
-        .add_constructors(
-            []() { return gp_Ax1(); },
-            [](const gp_Pnt & theP, const gp_Dir & theV) { return gp_Ax1(theP, theV); }
-        )
-        .add_member_function("SetDirection", [](gp_Ax1& self, const gp_Dir & theV) { self.SetDirection(theV); })
-        .add_member_function("SetLocation", [](gp_Ax1& self, const gp_Pnt & theP) { self.SetLocation(theP); })
-        .add_member_function("Direction", [](gp_Ax1 const& self) -> const gp_Dir & { return self.Direction(); })
-        .add_member_function("Location", [](gp_Ax1 const& self) -> const gp_Pnt & { return self.Location(); })
-        .add_member_function("IsCoaxial", 
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1 const& self, const gp_Ax1 & Other, sol::object AngularTolerance, sol::object LinearTolerance) -> Standard_Boolean { return self.IsCoaxial(Other, occt_plugin::to_real(AngularTolerance), occt_plugin::to_real(LinearTolerance)); }
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, const gp_XYZ & theXYZ3) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, theXYZ3); }
 #else
-            [](gp_Ax1 const& self, const gp_Ax1 & Other, const Standard_Real AngularTolerance, const Standard_Real LinearTolerance) -> Standard_Boolean { return self.IsCoaxial(Other, AngularTolerance, LinearTolerance); }
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const gp_XYZ & theXYZ3) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theXYZ3); }
 #endif
-        )
-        .add_member_function("IsNormal", 
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1 const& self, const gp_Ax1 & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, occt_plugin::to_real(theAngularTolerance)); }
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2); }
 #else
-            [](gp_Ax1 const& self, const gp_Ax1 & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsNormal(theOther, theAngularTolerance); }
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2); }
 #endif
-        )
-        .add_member_function("IsOpposite", 
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1 const& self, const gp_Ax1 & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, occt_plugin::to_real(theAngularTolerance)); }
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, theXYZ2); }
 #else
-            [](gp_Ax1 const& self, const gp_Ax1 & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsOpposite(theOther, theAngularTolerance); }
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(theA1, theXYZ1, theXYZ2); }
 #endif
-        )
-        .add_member_function("IsParallel", 
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1 const& self, const gp_Ax1 & theOther, sol::object theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, occt_plugin::to_real(theAngularTolerance)); }
-#else
-            [](gp_Ax1 const& self, const gp_Ax1 & theOther, const Standard_Real theAngularTolerance) -> Standard_Boolean { return self.IsParallel(theOther, theAngularTolerance); }
-#endif
-        )
-        .add_member_function("Angle", [](gp_Ax1 const& self, const gp_Ax1 & theOther) -> Standard_Real { return self.Angle(theOther); })
-        .add_member_function("Reverse", [](gp_Ax1& self) { self.Reverse(); })
-        .add_member_function("Reversed", [](gp_Ax1 const& self) -> gp_Ax1 { return self.Reversed(); })
-        .add_member_function("Mirror", sol::overload(
-            [](gp_Ax1& self, const gp_Pnt & P) { self.Mirror(P); },
-            [](gp_Ax1& self, const gp_Ax1 & A1) { self.Mirror(A1); }
-        ))
-        .add_member_function("Mirrored", sol::overload(
-            [](gp_Ax1 const& self, const gp_Pnt & P) -> gp_Ax1 { return self.Mirrored(P); },
-            [](gp_Ax1 const& self, const gp_Ax1 & A1) -> gp_Ax1 { return self.Mirrored(A1); }
-        ))
-        .add_member_function("Rotate", 
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1& self, const gp_Ax1 & theA1, sol::object theAngRad) { self.Rotate(theA1, occt_plugin::to_real(theAngRad)); }
-#else
-            [](gp_Ax1& self, const gp_Ax1 & theA1, const Standard_Real theAngRad) { self.Rotate(theA1, theAngRad); }
-#endif
-        )
-        .add_member_function("Rotated", 
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1 const& self, const gp_Ax1 & theA1, sol::object theAngRad) -> gp_Ax1 { return self.Rotated(theA1, occt_plugin::to_real(theAngRad)); }
-#else
-            [](gp_Ax1 const& self, const gp_Ax1 & theA1, const Standard_Real theAngRad) -> gp_Ax1 { return self.Rotated(theA1, theAngRad); }
-#endif
-        )
-        .add_member_function("Scale", 
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1& self, const gp_Pnt & theP, sol::object theS) { self.Scale(theP, occt_plugin::to_real(theS)); }
-#else
-            [](gp_Ax1& self, const gp_Pnt & theP, const Standard_Real theS) { self.Scale(theP, theS); }
-#endif
-        )
-        .add_member_function("Scaled", 
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Ax1 const& self, const gp_Pnt & theP, sol::object theS) -> gp_Ax1 { return self.Scaled(theP, occt_plugin::to_real(theS)); }
-#else
-            [](gp_Ax1 const& self, const gp_Pnt & theP, const Standard_Real theS) -> gp_Ax1 { return self.Scaled(theP, theS); }
-#endif
-        )
-        .add_member_function("Transform", [](gp_Ax1& self, const gp_Trsf & theT) { self.Transform(theT); })
-        .add_member_function("Transformed", [](gp_Ax1 const& self, const gp_Trsf & theT) -> gp_Ax1 { return self.Transformed(theT); })
-        .add_member_function("Translate", sol::overload(
-            [](gp_Ax1& self, const gp_Vec & theV) { self.Translate(theV); },
-            [](gp_Ax1& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.Translate(theP1, theP2); }
-        ))
-        .add_member_function("Translated", sol::overload(
-            [](gp_Ax1 const& self, const gp_Vec & theV) -> gp_Ax1 { return self.Translated(theV); },
-            [](gp_Ax1 const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Ax1 { return self.Translated(theP1, theP2); }
+        ,
+            [](gp_XYZ& self, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(theXYZ1, theXYZ2); }
         ));
-    ns.register_type<gp_Trsf, sol::automagic_flags::none>("gp_Trsf")
-        .add_constructors(
-            []() { return gp_Trsf(); }
-        )
-        .add_member_function("SetMirror", sol::overload(
-            [](gp_Trsf& self, const gp_Pnt & theP) { self.SetMirror(theP); },
-            [](gp_Trsf& self, const gp_Ax1 & theA1) { self.SetMirror(theA1); }
-        ))
-        .add_member_function("SetRotation", 
+    ns.register_function("gp_QuaternionNLerp_Interpolate", sol::overload(
+        
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Trsf& self, const gp_Ax1 & theA1, sol::object theAng) { self.SetRotation(theA1, occt_plugin::to_real(theAng)); }
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, sol::object theT) -> gp_Quaternion { return gp_QuaternionNLerp::Interpolate(theQStart, theQEnd, occt_plugin::to_real(theT)); }
 #else
-            [](gp_Trsf& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.SetRotation(theA1, theAng); }
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, Standard_Real theT) -> gp_Quaternion { return gp_QuaternionNLerp::Interpolate(theQStart, theQEnd, theT); }
 #endif
-        )
-        .add_member_function("SetScale", 
+        ,
+        
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Trsf& self, const gp_Pnt & theP, sol::object theS) { self.SetScale(theP, occt_plugin::to_real(theS)); }
+            [](gp_QuaternionNLerp const& self, sol::object theT, gp_Quaternion & theResultQ) { self.Interpolate(occt_plugin::to_real(theT), theResultQ); }
 #else
-            [](gp_Trsf& self, const gp_Pnt & theP, const Standard_Real theS) { self.SetScale(theP, theS); }
+            [](gp_QuaternionNLerp const& self, Standard_Real theT, gp_Quaternion & theResultQ) { self.Interpolate(theT, theResultQ); }
 #endif
-        )
-        .add_member_function("SetTranslation", sol::overload(
-            [](gp_Trsf& self, const gp_Vec & theV) { self.SetTranslation(theV); },
-            [](gp_Trsf& self, const gp_Pnt & theP1, const gp_Pnt & theP2) { self.SetTranslation(theP1, theP2); }
-        ))
-        .add_member_function("SetTranslationPart", [](gp_Trsf& self, const gp_Vec & theV) { self.SetTranslationPart(theV); })
-        .add_member_function("SetScaleFactor", 
+        
+    ));
+    ns.register_function("gp_QuaternionSLerp_Interpolate", sol::overload(
+        
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Trsf& self, sol::object theS) { self.SetScaleFactor(occt_plugin::to_real(theS)); }
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, sol::object theT) -> gp_Quaternion { return gp_QuaternionSLerp::Interpolate(theQStart, theQEnd, occt_plugin::to_real(theT)); }
 #else
-            [](gp_Trsf& self, const Standard_Real theS) { self.SetScaleFactor(theS); }
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, Standard_Real theT) -> gp_Quaternion { return gp_QuaternionSLerp::Interpolate(theQStart, theQEnd, theT); }
 #endif
-        )
-        .add_member_function("SetValues", 
+        ,
+        
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Trsf& self, sol::object a11, sol::object a12, sol::object a13, sol::object a14, sol::object a21, sol::object a22, sol::object a23, sol::object a24, sol::object a31, sol::object a32, sol::object a33, sol::object a34) { self.SetValues(occt_plugin::to_real(a11), occt_plugin::to_real(a12), occt_plugin::to_real(a13), occt_plugin::to_real(a14), occt_plugin::to_real(a21), occt_plugin::to_real(a22), occt_plugin::to_real(a23), occt_plugin::to_real(a24), occt_plugin::to_real(a31), occt_plugin::to_real(a32), occt_plugin::to_real(a33), occt_plugin::to_real(a34)); }
+            [](gp_QuaternionSLerp const& self, sol::object theT, gp_Quaternion & theResultQ) { self.Interpolate(occt_plugin::to_real(theT), theResultQ); }
 #else
-            [](gp_Trsf& self, const Standard_Real a11, const Standard_Real a12, const Standard_Real a13, const Standard_Real a14, const Standard_Real a21, const Standard_Real a22, const Standard_Real a23, const Standard_Real a24, const Standard_Real a31, const Standard_Real a32, const Standard_Real a33, const Standard_Real a34) { self.SetValues(a11, a12, a13, a14, a21, a22, a23, a24, a31, a32, a33, a34); }
+            [](gp_QuaternionSLerp const& self, Standard_Real theT, gp_Quaternion & theResultQ) { self.Interpolate(theT, theResultQ); }
 #endif
-        )
-        .add_member_function("IsNegative", [](gp_Trsf const& self) -> Standard_Boolean { return self.IsNegative(); })
-        .add_member_function("ScaleFactor", [](gp_Trsf const& self) -> Standard_Real { return self.ScaleFactor(); })
-        .add_member_function("Value", [](gp_Trsf const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> Standard_Real { return self.Value(theRow, theCol); })
-        .add_member_function("Invert", [](gp_Trsf& self) { self.Invert(); })
-        .add_member_function("Inverted", [](gp_Trsf const& self) -> gp_Trsf { return self.Inverted(); })
-        .add_member_function("Multiplied", [](gp_Trsf const& self, const gp_Trsf & theT) -> gp_Trsf { return self.Multiplied(theT); })
-        .add_member_function("Multiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.Multiply(theT); })
-        .add_member_function("PreMultiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.PreMultiply(theT); })
-        .add_member_function("Power", [](gp_Trsf& self, const Standard_Integer theN) { self.Power(theN); })
-        .add_member_function("Powered", [](gp_Trsf const& self, const Standard_Integer theN) -> gp_Trsf { return self.Powered(theN); });
-
+        
+    ));
 }

@@ -156,6 +156,8 @@ void register_brep(grunk::plugin_namespace& ns)
     ns.register_function("BRep_Tool_SameParameter", [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::SameParameter(E); });
     ns.register_function("BRep_Tool_SameRange", [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::SameRange(E); });
     ns.register_function("BRep_Tool_Degenerated", [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::Degenerated(E); });
+    ns.register_function("BRep_Tool_UVPoints", [](const TopoDS_Edge & E, const TopoDS_Face & F, gp_Pnt2d & PFirst, gp_Pnt2d & PLast) { BRep_Tool::UVPoints(E, F, PFirst, PLast); });
+    ns.register_function("BRep_Tool_SetUVPoints", [](const TopoDS_Edge & E, const TopoDS_Face & F, const gp_Pnt2d & PFirst, const gp_Pnt2d & PLast) { BRep_Tool::SetUVPoints(E, F, PFirst, PLast); });
     ns.register_function("BRep_Tool_HasContinuity", sol::overload(
         [](const TopoDS_Edge & E, const TopoDS_Face & F1, const TopoDS_Face & F2) -> Standard_Boolean { return BRep_Tool::HasContinuity(E, F1, F2); },
         [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::HasContinuity(E); }
@@ -165,4 +167,5 @@ void register_brep(grunk::plugin_namespace& ns)
         [](const TopoDS_Vertex & V, const TopoDS_Edge & E) -> Standard_Real { return BRep_Tool::Parameter(V, E); },
         [](const TopoDS_Vertex & V, const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Real { return BRep_Tool::Parameter(V, E, F); }
     ));
+    ns.register_function("BRep_Tool_Parameters", [](const TopoDS_Vertex & V, const TopoDS_Face & F) -> gp_Pnt2d { return BRep_Tool::Parameters(V, F); });
 }

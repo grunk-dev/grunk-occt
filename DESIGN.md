@@ -461,3 +461,62 @@ instead of just that file's own object) - acceptable since `generated/` is norma
 regenerated wholesale via the codegen tool, not hand-edited file-by-file, and this is
 a plugin loaded once per process, not something rebuilt every few seconds during
 day-to-day development.
+
+## Generator redesign: enums, multi-class-per-header, wildcard headers (Step 6)
+
+Prompted directly by real project needs surfacing during Step 6: the generator
+needed to support binding C++ enums (many rejected callables return/take one -
+`GeomAbs_Shape`, `TopAbs_Orientation`, ...), the Step 2 MVP's "one class per header,
+named for the header's filename" assumption didn't hold for every OCCT header (a
+glob can match a typedef-only header, an enum-only header, or occasionally more than
+one class), and the original hand-picked `gp` module (5 headers) was missing
+`gp_Lin`/`gp_Ax2`/`gp_Circ`/... - real, ubiquitous OCCT types needed as parameters/
+returns across many other modules already in this project, not a hypothetical
+concern. See `codegen/README.md`'s own "Lifting the one-class-per-header assumption"
+/ "Wildcard header patterns" / "Enum support" sections for the full technical detail
+(AST discovery mechanism, the `NCollection_Lerp<gp_Trsf>` template-specialization
+pitfall found along the way, the `get_children()` vs. `walk_preorder()` performance
+finding, sol2's `new_enum` API and the `plugin_namespace::table()` constness
+workaround) - this note is about the concrete *outcome*.
+
+`gp`'s config changed from 5 hand-picked headers to `gp_*.hxx` wholesale (matching
+legacy grocc's own convention), plus two blacklist entries re-derived fresh per Step
+6's policy (`gp_Pnt::BaryCenter`, the pre-existing Step 2 checkpoint;
+`gp_VectorWithNullMagnitude`, an exception type, not a geometric value type). `gp`
+alone went from 166 to 1255
+accepted callables. More importantly, since `registered_types`/`registered_enums`
+are computed globally across the whole config before any module is processed (see
+codegen/README.md's "Type registration spans the whole config"), this **retroactively
+unlocked real, previously-rejected coverage in modules whose own config didn't
+change at all**:
+
+| module | accepted before | accepted after | example newly-unlocked callable |
+|---|---|---|---|
+| `geom` | 137 | 148 | `Geom_Line::Lin() -> gp_Lin`, `Geom_Conic::SetAxis(gp_Ax2 const&)` |
+| `brepprimapi` | 18 | 22 | `BRepPrimAPI_MakeCylinder(gp_Ax2 const&, R, H)` (a *positioned* cylinder - the axis-less overload was the only one available before) |
+| `bnd` | 50 | 52 | `Bnd_Box::IsOut(gp_Lin const&)`, `IsOut(gp_Pln const&)` |
+| `brep` | 39 | 42 | (assorted) |
+| `gc` | 8 | 15 | `GC_MakeCircle`'s `gp_Circ`-based constructors (3 of its 7 total, previously all needing unregistered `gp_Circ`/`gp_Ax2`) |
+
+This directly validates the concern that prompted the redesign: `gp_Lin`/`gp_Ax2`
+etc. really were needed in multiple places already in this project, and hand-picking
+a module's headers one at a time doesn't scale to that - a wildcard plus accurate
+per-header discovery does. `geom`'s own `extra_includes` grew to cover
+`gp_Lin.hxx`/`gp_Circ.hxx`/`gp_Ax2.hxx` (needed for the same by-value-return reason as
+every other `extra_includes` entry in this project - `Geom_Line.hxx`/
+`Geom_Circle.hxx`/`Geom_Conic.hxx` only forward-declare them).
+
+`tests/test_gp_wildcard.cpp` (`GpWildcardTest`) exercises four of these directly:
+enum values reachable from Lua (`occt.gp_TrsfForm.gp_Identity`), `Geom_Line::Lin()`,
+a positioned `BRepPrimAPI_MakeCylinder`, and `GC_MakeCircle` from a `gp_Circ` - not
+`gp` in isolation (already covered by `tests/test_gp.cpp`), specifically the
+retroactively-unlocked call sites in *other* modules.
+
+**Known, deliberately unaddressed gap**: `NCollection_Lerp::Interpolate` (used
+internally by `gp_QuaternionNLerp`/`gp_QuaternionSLerp`/`gp_TrsfNLerp`) takes a bare
+`double` parameter rather than the `Standard_Real` typedef alias most of OCCT uses -
+`Param.kind()`'s `Standard_Real` check is a literal string match against the
+*spelling* "Standard_Real", not a canonical-type comparison, so this one rejects.
+Low-value fix (this is about the only place in OCCT's own headers observed writing
+`double` instead of `Standard_Real`) - noted here rather than carrying an unexplained
+rejection silently.

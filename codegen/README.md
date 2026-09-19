@@ -29,11 +29,9 @@ Review the stderr summary (accepted/rejected/blacklisted counts, and every rejec
 reason) after every run - it's the primary way to notice a symbol that needs a
 hand-written escape hatch, or a blacklist entry that's no longer warranted.
 
-## What it does (Step 2 MVP scope)
+## What it does (Step 2 MVP scope, since expanded - see "Lifting the
+one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" below)
 
-- **One class per header**, matched by filename stem (`gp_Pnt.hxx` -> class `gp_Pnt`)
-  - true for every OCCT `gp_*` header; a module with a different convention will need
-  this assumption revisited.
 - **Public constructors and instance methods only.**
 - A parameter/return type is accepted only if it is:
   - `Standard_Real` **by value or const-reference** (gets the
@@ -41,11 +39,14 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
     "Standard_Real / AD-portability rule"),
   - `Standard_Integer`/`Standard_Boolean` **by value or const-reference** (passed
     through as-is, no AD concern - these aren't the type `adOCCT` retargets),
+  - a **plain C-style enum** *also being registered in the same generator run*
+    **by value or const-reference** (see "Enum support" below) - passed through
+    as-is, same as `Standard_Integer`/`Standard_Boolean`,
   - a **value, const-reference, or non-const-reference** of another class or
-    `Handle(X)` *also being registered in the same generator run* (i.e. one of the
-    config's own header stems, across every module - see "Type registration spans
-    the whole config" below; a type from a module that's genuinely never wrapped is
-    rejected, not silently miscompiled),
+    `Handle(X)` *also being registered in the same generator run* (i.e. discovered
+    from one of the config's own headers, across every module - see "Type
+    registration spans the whole config" below; a type from a module that's
+    genuinely never wrapped is rejected, not silently miscompiled),
   - `NCollection_Array1<X>`/`NCollection_Array2<X>` **by value or const-reference,
     parameters only** (see "NCollection_Array1/2 support" below), or
   - `void` (return type only).
@@ -129,10 +130,114 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
     have an in-place-mutation story, and no concrete binding has forced a decision
     on either yet. See `../DESIGN.md`'s own note on this boundary.
 - **Type registration spans the whole config, not just one module**: `main()`
-  computes `registered_types` as the union of every module's class names *before*
-  processing any of them, so a later module's callables can reference an earlier
-  module's types (e.g. `geom`'s methods take/return `gp_Pnt`/`gp_Vec`/`gp_Trsf`) -
-  matches legacy grocc's cross-module type visibility.
+  computes `registered_types`/`registered_enums` as the union of every module's
+  discovered class/enum names *before* processing any of them (see "Lifting the
+  one-class-per-header assumption" below for how they're discovered), so a later
+  module's callables can reference an earlier module's types (e.g. `geom`'s
+  methods take/return `gp_Pnt`/`gp_Vec`/`gp_Trsf`) - matches legacy grocc's
+  cross-module type visibility. Every header across the whole config is parsed and
+  walked exactly once (`parse_headers()`'s `ParsedHeader` cache, keyed by header
+  filename) and reused for both this whole-config pass and each module's own
+  `process_module()` call - re-parsing would roughly double an already
+  non-trivial cost once `headers` can glob-expand to dozens of files (see
+  "Wildcard header patterns" below).
+- **Lifting the one-class-per-header assumption** (Step 6): the Step 2 MVP assumed
+  each header defined exactly one class, named for the header's own filename stem
+  (`gp_Pnt.hxx` -> `gp_Pnt`) - true for hand-picked headers, but not a safe
+  assumption once `headers` can be a glob (below): a matched header might define a
+  typedef instead of a real class (`gp_Vec2f.hxx`, just
+  `typedef NCollection_Vec2<Standard_ShortReal> gp_Vec2f;`), an enum, a namespace,
+  or occasionally more than one class. `discover_entities()` replaces the
+  filename-stem guess with an actual AST walk: every class/struct, enum, and
+  namespace declared *directly* in a given header (not nested inside another
+  class/namespace - `cursor.semantic_parent`/lexical position matter here, not
+  just the file location, since a class/enum/namespace nested one level deeper
+  would otherwise be picked up too) becomes its own `Entity`, independent of the
+  header's filename. A header can now contribute zero, one, or several entities;
+  `ModuleResult.entity_names` (discovery order) replaces the old
+  `[Path(h).stem for h in headers]` computation everywhere it was used.
+  - **A real correctness pitfall found doing this**: an explicit template
+    specialization defined directly in a header (`gp_TrsfNLerp.hxx`'s
+    `class NCollection_Lerp<gp_Trsf> { ... };`) has an ordinary `CLASS_DECL`
+    cursor kind, and `cursor.spelling` is just the bare template name
+    (`"NCollection_Lerp"`, no argument) - naively trusting it would register the
+    specialization as if it were a plain, template-free class by that name, which
+    doesn't compile (`register_type<NCollection_Lerp, ...>` needs a template
+    argument). `cursor.type.spelling`, unlike `.spelling`, *does* include the
+    argument (`"NCollection_Lerp<gp_Trsf>"`) - `discover_entities()` treats any
+    mismatch between the two as "this is a specialization, not a plain class" and
+    skips it, which also matches this project's existing "no `NCollection` type is
+    ever exposed to Lua directly" policy (see `../DESIGN.md`'s Step 5/collections
+    note) rather than introducing an exception to it.
+  - **Performance**: `discover_entities()` (and `find_class_definition()`, used by
+    the base-chain walk) use `cursor.get_children()` - direct children of the
+    translation unit only - rather than `cursor.walk_preorder()`, which recurses
+    into *every* cursor's entire subtree (function bodies, nested expressions,
+    template instantiation internals). Since every entity either function looks
+    for is, by construction, a direct child of the translation unit already
+    (`#include` textually inserts a header's top-level declarations at that point,
+    it doesn't nest them under anything), the recursive walk's extra work bought
+    nothing but cost - confirmed empirically on `TopoDS_Shape.hxx` (which
+    transitively includes a fair amount of OCCT/STL): `walk_preorder()` visits
+    ~212,000 cursors and takes ~0.6s; `get_children()` visits ~850 and takes
+    ~0.01s. This is the difference between a full config regeneration finishing in
+    seconds and not finishing inside a 10-minute timeout at all once `gp`'s
+    headers list grew from 5 hand-picked files to a `gp_*.hxx` glob (~40 files,
+    parsed/walked twice each in the naive two-pass design this was first
+    implemented with, before the `ParsedHeader` cache above eliminated the second
+    pass too).
+- **Wildcard header patterns** (Step 6, revives legacy grocc's own convention -
+  see `grocc/config.yml.in`'s `gp_*.hxx`): a module's `headers` entries accept
+  glob patterns (containing `*`, `?`, or `[`), expanded via `expand_headers()`
+  against `--occt-include-dir` and sorted for a deterministic, reviewable diff -
+  or a literal filename, kept as-is (and required to exist - a typo here is almost
+  certainly a mistake, not something to silently ignore). `gp`'s own config
+  changed from five hand-picked headers to `gp_*.hxx` wholesale as the concrete
+  first case (see `../DESIGN.md`'s own write-up of what this retroactively
+  unlocked in *other* modules, not just `gp` itself).
+  - **A matched header that discovers nothing** (a typedef-only header like
+    `gp_Vec2f.hxx`, above) is skipped quietly if it came from a glob
+    (`expand_headers()` tracks which matched headers were glob-sourced
+    specifically for this), but still a hard `RuntimeError` if it was named
+    literally - preserves the Step 2 MVP's original "a header with nothing
+    registrable is probably a typo" safety net for the common (still
+    hand-picked-header) case, while not making every wildcard module responsible
+    for enumerating its own typedef-only headers as false-positive exceptions.
+  - **Known hazard, not fully solved, documented rather than silently accepted**:
+    a prefix-style glob can sweep in an unrelated header family sharing the same
+    filename prefix - legacy grocc's own generated output shows this actually
+    happening (`TopoDS*.hxx` also matching `TopoDSToStep_*.hxx`, a completely
+    different OCCT package, per the investigation that informed this feature).
+    The blacklist mechanism (a bare `ClassName`/`EnumName`) is the way to exclude
+    something an over-eager glob picked up, same as excluding anything else this
+    generator shouldn't bind - there's no automatic "this looks unrelated"
+    detection.
+- **Enum support** (Step 6): a plain C-style enum (`enum GeomAbs_Shape { ... };`,
+  OCCT's own convention throughout - never `enum class`) discovered by
+  `discover_entities()` is registered via sol2's own `new_enum(...)` rather than
+  `register_type<T, Flags>()` (enums aren't usertypes - no constructors, no
+  methods, no `add_bases`). Each enumerator's own bare C++ name doubles as its
+  Lua-side string key and its value (`occt.GeomAbs_Shape.GeomAbs_C0`), emitted
+  as `sol::table(ns.table()).new_enum("GeomAbs_Shape", "GeomAbs_C0", GeomAbs_C0,
+  ...)`. Two things worth knowing if this needs revisiting:
+  - `grunk::plugin_namespace` has no dedicated enum-registration API - `.table()`
+    returns the underlying `sol::table` (grunk's own raw namespace table), but as
+    `const sol::table&`, and sol2's `new_enum(...)` is a non-`const` method (it
+    mutates the table by inserting the new enum's own sub-table). Constructing a
+    fresh `sol::table` value from the `const&` (`sol::table(ns.table())`) sidesteps
+    the mismatch for free: `sol::table` has reference semantics (a lightweight
+    handle into the Lua registry, not a deep copy of the table's contents), so the
+    copy is cheap and mutating it still mutates the *same* underlying Lua table -
+    no new grunk API needed.
+  - This sol2 version's variadic `new_enum(name, "Key1", Value1, "Key2", Value2,
+    ...)` overload needs **no explicit enum-type template argument** - it deduces
+    the enum type from the value arguments themselves. (A separate, unrelated
+    `new_enum<T, read_only>(name, initializer_list<pair<string_view, T>>)`
+    overload does take one, but isn't used here.)
+  - Once registered, an enum name behaves exactly like `Standard_Integer`/
+    `Standard_Boolean` for parameter/return-type purposes (see the type list
+    above) - passed through as a plain value, no conversion needed in the emitted
+    lambda body.
 - **`extra_includes`** (a module's config, optional, revived from legacy grocc's
   `config.yml.in` - Step 6): extra `#include <...>` lines added to the generated
   `.cpp` (never the `.hpp`, and never a source of new registrable classes - these
@@ -150,8 +255,14 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   `../DESIGN.md`'s policy) - the generator does not (yet) have a mechanism for opting
   a specific type into fuller automagic.
 - **Blacklist**: `ClassName::MethodName` skips one method (all its overloads); a bare
-  `ClassName` skips a whole class. Each entry in `config.yml` should carry an inline
-  comment explaining why - re-derive the reason fresh per the migration plan's Step 6
+  `ClassName` (or `EnumName`) skips the whole entity entirely - no
+  `register_type`/`new_enum` call at all, checked *before* any of its own
+  callables/enumerators are even looked at (a bug in the Step 2-5 implementation
+  meant a bare-blacklisted class still ended up with an empty, useless
+  `register_type<...>()` call with zero constructors/methods - fixed as part of
+  Step 6's discovery rewrite, though never actually exercised by a real config
+  entry before then). Each entry in `config.yml` should carry an inline comment
+  explaining why - re-derive the reason fresh per the migration plan's Step 6
   policy, don't copy a legacy grocc blacklist reason without checking it still applies.
 - **Static-only "namespace classes"** (Step 4 spike, see `../DESIGN.md`): OCCT
   expresses this concept two different ways, both handled: a genuine C++ `namespace`

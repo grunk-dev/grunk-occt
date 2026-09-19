@@ -12,6 +12,9 @@
 #include <Geom_TrimmedCurve.hxx>
 #include <Geom_Conic.hxx>
 #include <Geom_Circle.hxx>
+#include <gp_Lin.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Ax2.hxx>
 
 #include <memory>
 
@@ -25,7 +28,8 @@ void register_geom(grunk::plugin_namespace& ns)
     ns.register_type<Geom_Geometry, sol::automagic_flags::none>("Geom_Geometry")
         .add_member_function("Mirror", sol::overload(
             [](Geom_Geometry& self, const gp_Pnt & P) { self.Mirror(P); },
-            [](Geom_Geometry& self, const gp_Ax1 & A1) { self.Mirror(A1); }
+            [](Geom_Geometry& self, const gp_Ax1 & A1) { self.Mirror(A1); },
+            [](Geom_Geometry& self, const gp_Ax2 & A2) { self.Mirror(A2); }
         ))
         .add_member_function("Rotate", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -48,7 +52,8 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Transform", [](Geom_Geometry& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Mirrored", sol::overload(
             [](Geom_Geometry const& self, const gp_Pnt & P) -> opencascade::handle<Geom_Geometry> { return self.Mirrored(P); },
-            [](Geom_Geometry const& self, const gp_Ax1 & A1) -> opencascade::handle<Geom_Geometry> { return self.Mirrored(A1); }
+            [](Geom_Geometry const& self, const gp_Ax1 & A1) -> opencascade::handle<Geom_Geometry> { return self.Mirrored(A1); },
+            [](Geom_Geometry const& self, const gp_Ax2 & A2) -> opencascade::handle<Geom_Geometry> { return self.Mirrored(A2); }
         ))
         .add_member_function("Rotated", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -141,11 +146,14 @@ void register_geom(grunk::plugin_namespace& ns)
     ns.register_type<Geom_Line, sol::automagic_flags::none>("Geom_Line")
         .add_constructors(
             [](const gp_Ax1 & A1) -> opencascade::handle<Geom_Line> { return opencascade::handle<Geom_Line>(new Geom_Line(A1)); },
+            [](const gp_Lin & L) -> opencascade::handle<Geom_Line> { return opencascade::handle<Geom_Line>(new Geom_Line(L)); },
             [](const gp_Pnt & P, const gp_Dir & V) -> opencascade::handle<Geom_Line> { return opencascade::handle<Geom_Line>(new Geom_Line(P, V)); }
         )
+        .add_member_function("SetLin", [](Geom_Line& self, const gp_Lin & L) { self.SetLin(L); })
         .add_member_function("SetDirection", [](Geom_Line& self, const gp_Dir & V) { self.SetDirection(V); })
         .add_member_function("SetLocation", [](Geom_Line& self, const gp_Pnt & P) { self.SetLocation(P); })
         .add_member_function("SetPosition", [](Geom_Line& self, const gp_Ax1 & A1) { self.SetPosition(A1); })
+        .add_member_function("Lin", [](Geom_Line const& self) -> gp_Lin { return self.Lin(); })
         .add_member_function("Position", [](Geom_Line const& self) -> const gp_Ax1 & { return self.Position(); })
         .add_member_function("Reverse", [](Geom_Line& self) { self.Reverse(); })
         .add_member_function("ReversedParameter", 
@@ -402,8 +410,10 @@ void register_geom(grunk::plugin_namespace& ns)
     ns.register_type<Geom_Conic, sol::automagic_flags::none>("Geom_Conic")
         .add_member_function("SetAxis", [](Geom_Conic& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
         .add_member_function("SetLocation", [](Geom_Conic& self, const gp_Pnt & theP) { self.SetLocation(theP); })
+        .add_member_function("SetPosition", [](Geom_Conic& self, const gp_Ax2 & theA2) { self.SetPosition(theA2); })
         .add_member_function("Axis", [](Geom_Conic const& self) -> const gp_Ax1 & { return self.Axis(); })
         .add_member_function("Location", [](Geom_Conic const& self) -> const gp_Pnt & { return self.Location(); })
+        .add_member_function("Position", [](Geom_Conic const& self) -> const gp_Ax2 & { return self.Position(); })
         .add_member_function("Eccentricity", [](Geom_Conic const& self) -> Standard_Real { return self.Eccentricity(); })
         .add_member_function("XAxis", [](Geom_Conic const& self) -> gp_Ax1 { return self.XAxis(); })
         .add_member_function("YAxis", [](Geom_Conic const& self) -> gp_Ax1 { return self.YAxis(); })
@@ -418,6 +428,17 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("IsCN", [](Geom_Conic const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
         .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Circle, sol::automagic_flags::none>("Geom_Circle")
+        .add_constructors(
+            [](const gp_Circ & C) -> opencascade::handle<Geom_Circle> { return opencascade::handle<Geom_Circle>(new Geom_Circle(C)); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & A2, sol::object Radius) -> opencascade::handle<Geom_Circle> { return opencascade::handle<Geom_Circle>(new Geom_Circle(A2, occt_plugin::to_real(Radius))); }
+#else
+            [](const gp_Ax2 & A2, const Standard_Real Radius) -> opencascade::handle<Geom_Circle> { return opencascade::handle<Geom_Circle>(new Geom_Circle(A2, Radius)); }
+#endif
+        
+        )
+        .add_member_function("SetCirc", [](Geom_Circle& self, const gp_Circ & C) { self.SetCirc(C); })
         .add_member_function("SetRadius", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](Geom_Circle& self, sol::object R) { self.SetRadius(occt_plugin::to_real(R)); }
@@ -425,6 +446,7 @@ void register_geom(grunk::plugin_namespace& ns)
             [](Geom_Circle& self, const Standard_Real R) { self.SetRadius(R); }
 #endif
         )
+        .add_member_function("Circ", [](Geom_Circle const& self) -> gp_Circ { return self.Circ(); })
         .add_member_function("Radius", [](Geom_Circle const& self) -> Standard_Real { return self.Radius(); })
         .add_member_function("ReversedParameter", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)

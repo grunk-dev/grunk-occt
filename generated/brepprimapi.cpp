@@ -30,7 +30,14 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](const gp_Pnt & P, const Standard_Real dx, const Standard_Real dy, const Standard_Real dz) { return std::make_unique<BRepPrimAPI_MakeBox>(P, dx, dy, dz); }
 #endif
         ,
-            [](const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepPrimAPI_MakeBox>(P1, P2); }
+            [](const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepPrimAPI_MakeBox>(P1, P2); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & Axes, sol::object dx, sol::object dy, sol::object dz) { return std::make_unique<BRepPrimAPI_MakeBox>(Axes, occt_plugin::to_real(dx), occt_plugin::to_real(dy), occt_plugin::to_real(dz)); }
+#else
+            [](const gp_Ax2 & Axes, const Standard_Real dx, const Standard_Real dy, const Standard_Real dz) { return std::make_unique<BRepPrimAPI_MakeBox>(Axes, dx, dy, dz); }
+#endif
+        
         )
         .add_member_function("Init", sol::overload(
             
@@ -47,7 +54,14 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](BRepPrimAPI_MakeBox& self, const gp_Pnt & thePnt, const Standard_Real theDX, const Standard_Real theDY, const Standard_Real theDZ) { self.Init(thePnt, theDX, theDY, theDZ); }
 #endif
         ,
-            [](BRepPrimAPI_MakeBox& self, const gp_Pnt & thePnt1, const gp_Pnt & thePnt2) { self.Init(thePnt1, thePnt2); }
+            [](BRepPrimAPI_MakeBox& self, const gp_Pnt & thePnt1, const gp_Pnt & thePnt2) { self.Init(thePnt1, thePnt2); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepPrimAPI_MakeBox& self, const gp_Ax2 & theAxes, sol::object theDX, sol::object theDY, sol::object theDZ) { self.Init(theAxes, occt_plugin::to_real(theDX), occt_plugin::to_real(theDY), occt_plugin::to_real(theDZ)); }
+#else
+            [](BRepPrimAPI_MakeBox& self, const gp_Ax2 & theAxes, const Standard_Real theDX, const Standard_Real theDY, const Standard_Real theDZ) { self.Init(theAxes, theDX, theDY, theDZ); }
+#endif
+        
         ))
         .add_member_function("Build", [](BRepPrimAPI_MakeBox& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
         .add_member_function("Shell", [](BRepPrimAPI_MakeBox& self) -> const TopoDS_Shell & { return self.Shell(); })
@@ -73,6 +87,20 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](sol::object R, sol::object H, sol::object Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(occt_plugin::to_real(R), occt_plugin::to_real(H), occt_plugin::to_real(Angle)); }
 #else
             [](const Standard_Real R, const Standard_Real H, const Standard_Real Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(R, H, Angle); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & Axes, sol::object R, sol::object H) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, occt_plugin::to_real(R), occt_plugin::to_real(H)); }
+#else
+            [](const gp_Ax2 & Axes, const Standard_Real R, const Standard_Real H) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, R, H); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & Axes, sol::object R, sol::object H, sol::object Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, occt_plugin::to_real(R), occt_plugin::to_real(H), occt_plugin::to_real(Angle)); }
+#else
+            [](const gp_Ax2 & Axes, const Standard_Real R, const Standard_Real H, const Standard_Real Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, R, H, Angle); }
 #endif
         
         )

@@ -18,12 +18,43 @@ void register_gc(grunk::plugin_namespace& ns)
         .add_member_function("IsDone", [](GC_Root const& self) -> Standard_Boolean { return self.IsDone(); });
     ns.register_type<GC_MakeSegment, sol::automagic_flags::none>("GC_MakeSegment")
         .add_constructors(
-            [](const gp_Pnt & P1, const gp_Pnt & P2) { return GC_MakeSegment(P1, P2); }
+            [](const gp_Pnt & P1, const gp_Pnt & P2) { return GC_MakeSegment(P1, P2); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Lin & Line, sol::object U1, sol::object U2) { return GC_MakeSegment(Line, occt_plugin::to_real(U1), occt_plugin::to_real(U2)); }
+#else
+            [](const gp_Lin & Line, const Standard_Real U1, const Standard_Real U2) { return GC_MakeSegment(Line, U1, U2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Lin & Line, const gp_Pnt & Point, sol::object Ulast) { return GC_MakeSegment(Line, Point, occt_plugin::to_real(Ulast)); }
+#else
+            [](const gp_Lin & Line, const gp_Pnt & Point, const Standard_Real Ulast) { return GC_MakeSegment(Line, Point, Ulast); }
+#endif
+        ,
+            [](const gp_Lin & Line, const gp_Pnt & P1, const gp_Pnt & P2) { return GC_MakeSegment(Line, P1, P2); }
         )
         .add_member_function("Value", [](GC_MakeSegment const& self) -> opencascade::handle<Geom_TrimmedCurve> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeCircle, sol::automagic_flags::none>("GC_MakeCircle")
         .add_constructors(
+            [](const gp_Circ & C) { return GC_MakeCircle(C); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & A2, sol::object Radius) { return GC_MakeCircle(A2, occt_plugin::to_real(Radius)); }
+#else
+            [](const gp_Ax2 & A2, const Standard_Real Radius) { return GC_MakeCircle(A2, Radius); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Circ & Circ, sol::object Dist) { return GC_MakeCircle(Circ, occt_plugin::to_real(Dist)); }
+#else
+            [](const gp_Circ & Circ, const Standard_Real Dist) { return GC_MakeCircle(Circ, Dist); }
+#endif
+        ,
+            [](const gp_Circ & Circ, const gp_Pnt & Point) { return GC_MakeCircle(Circ, Point); },
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeCircle(P1, P2, P3); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)

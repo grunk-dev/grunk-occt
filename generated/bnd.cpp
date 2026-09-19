@@ -110,6 +110,8 @@ void register_bnd(grunk::plugin_namespace& ns)
         ))
         .add_member_function("IsOut", sol::overload(
             [](Bnd_Box const& self, const gp_Pnt & P) -> Standard_Boolean { return self.IsOut(P); },
+            [](Bnd_Box const& self, const gp_Lin & L) -> Standard_Boolean { return self.IsOut(L); },
+            [](Bnd_Box const& self, const gp_Pln & P) -> Standard_Boolean { return self.IsOut(P); },
             [](Bnd_Box const& self, const Bnd_Box & Other) -> Standard_Boolean { return self.IsOut(Other); },
             [](Bnd_Box const& self, const Bnd_Box & Other, const gp_Trsf & T) -> Standard_Boolean { return self.IsOut(Other, T); },
             [](Bnd_Box const& self, const gp_Trsf & T1, const Bnd_Box & Other, const gp_Trsf & T2) -> Standard_Boolean { return self.IsOut(T1, Other, T2); },

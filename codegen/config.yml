@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: MPL-2.0
 
 # Declarative generator config (see DESIGN.md and codegen/README.md): one entry per
-# OCCT "module", each naming the headers to wrap (one class per header, matched by
-# filename stem - true for every gp_* header) and a blacklist of specific
-# ClassName::MethodName (or bare ClassName) symbols to exclude, each with a reason.
+# OCCT "module", each naming the headers to wrap (a glob pattern or a literal
+# filename - see codegen/README.md's "Wildcard header patterns"; a header may define
+# more than one class/struct/enum/namespace - see "Lifting the one-class-per-header
+# assumption") and a blacklist of specific ClassName::MethodName (or bare
+# ClassName/EnumName) symbols to exclude, each with a reason.
 #
 # Revives legacy grocc's config.yml.in shape (modules -> headers -> blacklist),
 # repointed at the new register_type/add_constructors/add_member_function API - see
@@ -13,18 +15,26 @@
 
 modules:
   - name: gp
+    # gp_*.hxx (all ~40 headers, not the original hand-picked 5) - matches legacy
+    # grocc's own config.yml.in convention directly. gp_TrsfForm/gp_EulerSequence
+    # are plain enums, registered via the generator's new_enum(...) support (see
+    # codegen/README.md's "Enum support") rather than rejected outright.
     headers:
-      - gp_Pnt.hxx
-      - gp_Vec.hxx
-      - gp_Dir.hxx
-      - gp_Ax1.hxx
-      - gp_Trsf.hxx
+      - gp_*.hxx
     blacklist:
       # Step 2 checkpoint (see DESIGN.md/migration plan): deliberately blacklisted to
       # prove the mechanism works end to end, not because it's actually unwrappable -
       # BaryCenter is real, accepted by the type filter, and not needed by any target
       # recipe today.
       - gp_Pnt::BaryCenter
+      # A gp_Vec/gp_Vec2d constructed from a null-magnitude direction throws this
+      # exception type (Standard_DomainError-derived) - not a geometric value type
+      # in its own right, and re-deriving this fresh (Step 6 policy) rather than
+      # just carrying legacy grocc's own identical blacklist entry forward: it has
+      # no accepted constructor of its own (its only one takes no arguments and
+      # would need real exception-object construction semantics this generator
+      # doesn't model), so it would register as an empty, useless type either way.
+      - gp_VectorWithNullMagnitude
 
   - name: geom
     # Step 3 validation module (see DESIGN.md/migration plan): Standard_Transient/
@@ -62,6 +72,16 @@ modules:
       - Geom_TrimmedCurve.hxx
       - Geom_Conic.hxx
       - Geom_Circle.hxx
+    # extra_includes: needed once the gp module's own wildcard expansion (Step 6)
+    # registered gp_Lin/gp_Circ/gp_Ax2 - several Geom_* methods return/take them by
+    # value (Geom_Line::Lin, Geom_Circle::Circ, Geom_Conic::SetAxis/Position, ...),
+    # newly accepted now that those types are registered, but this module's own
+    # headers only forward-declare them (e.g. Geom_Line.hxx's `class gp_Lin;`) -
+    # same reasoning as bnd/brep/breptools/toploc's own extra_includes.
+    extra_includes:
+      - gp_Lin.hxx
+      - gp_Circ.hxx
+      - gp_Ax2.hxx
 
   - name: message_progress
     # Message_ProgressRange appears as a defaulted parameter across a large swath of

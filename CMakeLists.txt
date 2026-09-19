@@ -150,6 +150,7 @@ if(GRUNK_OCCT_TESTS)
         tests/test_breptools.cpp
         tests/test_toploc.cpp
         tests/test_gc.cpp
+        tests/test_gp_wildcard.cpp
     )
     target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE
