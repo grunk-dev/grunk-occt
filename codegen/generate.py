@@ -57,7 +57,7 @@ def system_cxx_include_dirs() -> list[str]:
         return []
     return [line.strip() for line in match.group(1).splitlines() if line.strip()]
 
-def expand_headers(patterns: list[str], occt_include_dir: Path) -> tuple[list[str], set[str]]:
+def expand_headers(patterns: list[str], occt_include_dir: Path, exclude_headers: list[str] = ()) -> tuple[list[str], set[str]]:
     """Expands a module's `headers` list: a literal filename is kept as-is (and must
     exist), a glob pattern (contains any of *?[) is matched against
     occt_include_dir and expanded to every matching filename, sorted for a
@@ -66,6 +66,18 @@ def expand_headers(patterns: list[str], occt_include_dir: Path) -> tuple[list[st
     hand, which both undersold how many OCCT types are one glob away and made
     growing a module tedious. Deduplicates across all patterns in the list (in case
     two overlap) while preserving first-seen order.
+
+    exclude_headers drops specific glob-matched filenames before they're ever
+    parsed - needed for a header that doesn't even *parse* standalone (a hard clang
+    error, not a rejected/blacklisted symbol - blacklist only excludes a symbol
+    *after* its header has already parsed successfully, so it can't help here). Found
+    with BRepBuilderAPI_CellFilter.hxx (Step 6.5): it instantiates
+    NCollection_CellFilter<gp_XY> without gp_XY's own header, incomplete-type errors
+    result - a real, narrow header-level parse gap, not a symbol this generator
+    should even attempt to discover. Only ever applies to headers a glob actually
+    matched (a literal, hand-picked header listed in exclude_headers as well as
+    headers would be a config contradiction, not a real use case, so this isn't
+    guarded against explicitly).
 
     Returns (headers, glob_matched) - glob_matched is the subset that came from a
     wildcard rather than being named explicitly, which process_module uses to
@@ -83,13 +95,14 @@ def expand_headers(patterns: list[str], occt_include_dir: Path) -> tuple[list[st
     blacklist mechanism (a bare ClassName) is the way to exclude something an
     over-eager glob picked up, same as excluding anything else this generator
     shouldn't bind."""
+    excluded = set(exclude_headers)
     seen: set[str] = set()
     result: list[str] = []
     glob_matched: set[str] = set()
     for pattern in patterns:
         is_glob = any(ch in pattern for ch in "*?[")
         if is_glob:
-            matches = sorted(p.name for p in occt_include_dir.glob(pattern))
+            matches = sorted(p.name for p in occt_include_dir.glob(pattern) if p.name not in excluded)
             if not matches:
                 raise RuntimeError(f"header glob {pattern!r} matched no files in {occt_include_dir}")
         else:
@@ -855,7 +868,9 @@ def main() -> int:
     clang_args = build_clang_args(args.occt_include_dir)
 
     for module in config["modules"]:
-        module["headers"], module["_glob_matched_headers"] = expand_headers(module["headers"], args.occt_include_dir)
+        module["headers"], module["_glob_matched_headers"] = expand_headers(
+            module["headers"], args.occt_include_dir, module.get("exclude_headers", [])
+        )
 
     # Every header across the whole config is parsed/discovered exactly once here
     # (see parse_headers()'s own docstring) - both registered_types/registered_enums

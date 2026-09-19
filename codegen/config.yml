@@ -124,20 +124,60 @@ modules:
     # what every BRepPrimAPI_Make*/BRepAlgoAPI_* algorithm class below actually
     # inherits and needs - registered here once, reached via add_bases from each of
     # them (same base-class-method-reuse pattern as Step 3's Geom_Curve::Value).
+    #
+    # Step 6.5 (see DESIGN.md/migration plan): widened from the Step 4b hand-picked
+    # pair to the whole module (BRepBuilderAPI_*.hxx), matching legacy grocc's own
+    # config.yml.in wildcard - needed to unlock MakeEdge/MakeWire/MakePolygon/
+    # MakeFace/Transform for the ported example recipes (examples/). Re-derives
+    # legacy's own two blacklist entries fresh per Step 6 policy rather than
+    # carrying them forward uncritically:
+    #   - BRepBuilderAPI_FastSewing: a protected nested class (legacy's own comment:
+    #     "protected nested classes should not be considered by code generator") -
+    #     confirmed still a real generator gap (this generator's own class-discovery
+    #     walk has no public/protected distinction for *nested* class definitions
+    #     the way it does for members - out of scope to fix here).
+    #   - BRepBuilderAPI_BndBoxTreeSelector: needs Bnd_BoundSortBox/NCollection_UBTree
+    #     internals, none registered - confirmed still unusable, kept blacklisted.
     headers:
-      - BRepBuilderAPI_Command.hxx
-      - BRepBuilderAPI_MakeShape.hxx
+      - BRepBuilderAPI_*.hxx
+    # These four headers don't even parse standalone - each instantiates
+    # NCollection_CellFilter<gp_XY> or NCollection_UBTree (BndBoxTreeSelector) without
+    # gp_XY's own header, an incomplete-type error unrelated to any symbol this
+    # generator would otherwise accept/reject (see expand_headers' own
+    # exclude_headers doc comment - a hard header-level parse gap, not a
+    # blacklist-able symbol; blacklist can't help here since it only excludes a
+    # symbol *after* its header has already parsed). BRepBuilderAPI_FastSewing was
+    # legacy grocc's own blacklist entry too (their stated reason: a protected
+    # nested class its old generator couldn't handle) - re-confirmed here as
+    # unusable for this more fundamental parse reason instead, still excluded.
+    exclude_headers:
+      - BRepBuilderAPI_CellFilter.hxx
+      - BRepBuilderAPI_VertexInspector.hxx
+      - BRepBuilderAPI_FastSewing.hxx
+      - BRepBuilderAPI_BndBoxTreeSelector.hxx
+    extra_includes:
+      - TopoDS_Shape.hxx
+      - TopoDS_Vertex.hxx
+      - TopoDS_Edge.hxx
+      - TopoDS_Wire.hxx
+      - TopoDS_Face.hxx
+      - TopoDS_Shell.hxx
+      - TopoDS_Solid.hxx
+      - TopoDS_Compound.hxx
 
   - name: brepprimapi
     # Step 4b validation module: reproduces legacy grocc's test_simple_boolean_op.cpp
-    # (box, cylinder, cut).
+    # (box, cylinder, cut). Widened to the whole module (Step 6.5, see DESIGN.md) -
+    # matches legacy grocc's own wildcard, needed to unlock MakeRevol/MakeHalfSpace/
+    # MakeSphere/MakePrism for the ported example recipes.
     headers:
-      - BRepPrimAPI_MakeBox.hxx
-      - BRepPrimAPI_MakeCylinder.hxx
+      - BRepPrimAPI_*.hxx
 
   - name: brepalgoapi
+    # Widened to the whole module (Step 6.5, see DESIGN.md) - matches legacy grocc's
+    # own wildcard, needed to unlock Fuse/Common for the ported example recipes.
     headers:
-      - BRepAlgoAPI_Cut.hxx
+      - BRepAlgoAPI_*.hxx
 
   - name: bnd
     # Step 6 module expansion sweep (see DESIGN.md/migration plan) - the first new

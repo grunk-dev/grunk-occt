@@ -4,7 +4,16 @@
 
 #include "brepalgoapi.hpp"
 
+#include <BRepAlgoAPI_Algo.hxx>
+#include <BRepAlgoAPI_BooleanOperation.hxx>
+#include <BRepAlgoAPI_BuilderAlgo.hxx>
+#include <BRepAlgoAPI_Check.hxx>
+#include <BRepAlgoAPI_Common.hxx>
 #include <BRepAlgoAPI_Cut.hxx>
+#include <BRepAlgoAPI_Defeaturing.hxx>
+#include <BRepAlgoAPI_Fuse.hxx>
+#include <BRepAlgoAPI_Section.hxx>
+#include <BRepAlgoAPI_Splitter.hxx>
 
 #include <memory>
 
@@ -12,11 +21,108 @@
 
 void register_brepalgoapi(grunk::plugin_namespace& ns)
 {
+    ns.register_type<BRepAlgoAPI_Algo, sol::automagic_flags::none>("BRepAlgoAPI_Algo")
+        .add_member_function("Shape", [](BRepAlgoAPI_Algo& self) -> const TopoDS_Shape & { return self.Shape(); })
+        .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
+    ns.register_type<BRepAlgoAPI_BooleanOperation, sol::automagic_flags::none>("BRepAlgoAPI_BooleanOperation")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_BooleanOperation>(); }
+        )
+        .add_member_function("Shape1", [](BRepAlgoAPI_BooleanOperation const& self) -> const TopoDS_Shape & { return self.Shape1(); })
+        .add_member_function("Shape2", [](BRepAlgoAPI_BooleanOperation const& self) -> const TopoDS_Shape & { return self.Shape2(); })
+        .add_member_function("Build", [](BRepAlgoAPI_BooleanOperation& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_bases<BRepAlgoAPI_BuilderAlgo, BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
+    ns.register_type<BRepAlgoAPI_BuilderAlgo, sol::automagic_flags::none>("BRepAlgoAPI_BuilderAlgo")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_BuilderAlgo>(); }
+        )
+        .add_member_function("SetNonDestructive", [](BRepAlgoAPI_BuilderAlgo& self, const Standard_Boolean theFlag) { self.SetNonDestructive(theFlag); })
+        .add_member_function("NonDestructive", [](BRepAlgoAPI_BuilderAlgo const& self) -> Standard_Boolean { return self.NonDestructive(); })
+        .add_member_function("SetCheckInverted", [](BRepAlgoAPI_BuilderAlgo& self, const Standard_Boolean theCheck) { self.SetCheckInverted(theCheck); })
+        .add_member_function("CheckInverted", [](BRepAlgoAPI_BuilderAlgo const& self) -> Standard_Boolean { return self.CheckInverted(); })
+        .add_member_function("Build", [](BRepAlgoAPI_BuilderAlgo& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("SimplifyResult", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepAlgoAPI_BuilderAlgo& self, const Standard_Boolean theUnifyEdges, const Standard_Boolean theUnifyFaces, sol::object theAngularTol) { self.SimplifyResult(theUnifyEdges, theUnifyFaces, occt_plugin::to_real(theAngularTol)); }
+#else
+            [](BRepAlgoAPI_BuilderAlgo& self, const Standard_Boolean theUnifyEdges, const Standard_Boolean theUnifyFaces, const Standard_Real theAngularTol) { self.SimplifyResult(theUnifyEdges, theUnifyFaces, theAngularTol); }
+#endif
+        )
+        .add_member_function("IsDeleted", [](BRepAlgoAPI_BuilderAlgo& self, const TopoDS_Shape & aS) -> Standard_Boolean { return self.IsDeleted(aS); })
+        .add_member_function("HasModified", [](BRepAlgoAPI_BuilderAlgo const& self) -> Standard_Boolean { return self.HasModified(); })
+        .add_member_function("HasGenerated", [](BRepAlgoAPI_BuilderAlgo const& self) -> Standard_Boolean { return self.HasGenerated(); })
+        .add_member_function("HasDeleted", [](BRepAlgoAPI_BuilderAlgo const& self) -> Standard_Boolean { return self.HasDeleted(); })
+        .add_member_function("SetToFillHistory", [](BRepAlgoAPI_BuilderAlgo& self, const Standard_Boolean theHistFlag) { self.SetToFillHistory(theHistFlag); })
+        .add_member_function("HasHistory", [](BRepAlgoAPI_BuilderAlgo const& self) -> Standard_Boolean { return self.HasHistory(); })
+        .add_bases<BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
+    ns.register_type<BRepAlgoAPI_Check, sol::automagic_flags::none>("BRepAlgoAPI_Check")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_Check>(); },
+            [](const TopoDS_Shape & theS, const Standard_Boolean bTestSE, const Standard_Boolean bTestSI, const Message_ProgressRange & theRange) { return std::make_unique<BRepAlgoAPI_Check>(theS, bTestSE, bTestSI, theRange); }
+        )
+        .add_member_function("SetData", [](BRepAlgoAPI_Check& self, const TopoDS_Shape & theS, const Standard_Boolean bTestSE, const Standard_Boolean bTestSI) { self.SetData(theS, bTestSE, bTestSI); })
+        .add_member_function("Perform", [](BRepAlgoAPI_Check& self, const Message_ProgressRange & theRange) { self.Perform(theRange); })
+        .add_member_function("IsValid", [](BRepAlgoAPI_Check& self) -> Standard_Boolean { return self.IsValid(); })
+        .add_bases<BOPAlgo_Options>();
+    ns.register_type<BRepAlgoAPI_Common, sol::automagic_flags::none>("BRepAlgoAPI_Common")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_Common>(); },
+            [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const Message_ProgressRange & theRange) { return std::make_unique<BRepAlgoAPI_Common>(S1, S2, theRange); }
+        )
+        .add_bases<BRepAlgoAPI_BooleanOperation, BRepAlgoAPI_BuilderAlgo, BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepAlgoAPI_Cut, sol::automagic_flags::none>("BRepAlgoAPI_Cut")
         .add_constructors(
             []() { return std::make_unique<BRepAlgoAPI_Cut>(); },
             [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const Message_ProgressRange & theRange) { return std::make_unique<BRepAlgoAPI_Cut>(S1, S2, theRange); }
         )
         .add_bases<BRepAlgoAPI_BooleanOperation, BRepAlgoAPI_BuilderAlgo, BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
+    ns.register_type<BRepAlgoAPI_Defeaturing, sol::automagic_flags::none>("BRepAlgoAPI_Defeaturing")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_Defeaturing>(); }
+        )
+        .add_member_function("SetShape", [](BRepAlgoAPI_Defeaturing& self, const TopoDS_Shape & theShape) { self.SetShape(theShape); })
+        .add_member_function("InputShape", [](BRepAlgoAPI_Defeaturing const& self) -> const TopoDS_Shape & { return self.InputShape(); })
+        .add_member_function("AddFaceToRemove", [](BRepAlgoAPI_Defeaturing& self, const TopoDS_Shape & theFace) { self.AddFaceToRemove(theFace); })
+        .add_member_function("Build", [](BRepAlgoAPI_Defeaturing& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("SetToFillHistory", [](BRepAlgoAPI_Defeaturing& self, const Standard_Boolean theFlag) { self.SetToFillHistory(theFlag); })
+        .add_member_function("HasHistory", [](BRepAlgoAPI_Defeaturing const& self) -> Standard_Boolean { return self.HasHistory(); })
+        .add_member_function("IsDeleted", [](BRepAlgoAPI_Defeaturing& self, const TopoDS_Shape & theS) -> Standard_Boolean { return self.IsDeleted(theS); })
+        .add_member_function("HasModified", [](BRepAlgoAPI_Defeaturing const& self) -> Standard_Boolean { return self.HasModified(); })
+        .add_member_function("HasGenerated", [](BRepAlgoAPI_Defeaturing const& self) -> Standard_Boolean { return self.HasGenerated(); })
+        .add_member_function("HasDeleted", [](BRepAlgoAPI_Defeaturing const& self) -> Standard_Boolean { return self.HasDeleted(); })
+        .add_bases<BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
+    ns.register_type<BRepAlgoAPI_Fuse, sol::automagic_flags::none>("BRepAlgoAPI_Fuse")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_Fuse>(); },
+            [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const Message_ProgressRange & theRange) { return std::make_unique<BRepAlgoAPI_Fuse>(S1, S2, theRange); }
+        )
+        .add_bases<BRepAlgoAPI_BooleanOperation, BRepAlgoAPI_BuilderAlgo, BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
+    ns.register_type<BRepAlgoAPI_Section, sol::automagic_flags::none>("BRepAlgoAPI_Section")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_Section>(); },
+            [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, S2, PerformNow); },
+            [](const TopoDS_Shape & S1, const gp_Pln & Pl, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, Pl, PerformNow); }
+        )
+        .add_member_function("Init1", sol::overload(
+            [](BRepAlgoAPI_Section& self, const TopoDS_Shape & S1) { self.Init1(S1); },
+            [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init1(Pl); }
+        ))
+        .add_member_function("Init2", sol::overload(
+            [](BRepAlgoAPI_Section& self, const TopoDS_Shape & S2) { self.Init2(S2); },
+            [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init2(Pl); }
+        ))
+        .add_member_function("Approximation", [](BRepAlgoAPI_Section& self, const Standard_Boolean B) { self.Approximation(B); })
+        .add_member_function("ComputePCurveOn1", [](BRepAlgoAPI_Section& self, const Standard_Boolean B) { self.ComputePCurveOn1(B); })
+        .add_member_function("ComputePCurveOn2", [](BRepAlgoAPI_Section& self, const Standard_Boolean B) { self.ComputePCurveOn2(B); })
+        .add_member_function("Build", [](BRepAlgoAPI_Section& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_member_function("HasAncestorFaceOn1", [](BRepAlgoAPI_Section const& self, const TopoDS_Shape & E, TopoDS_Shape & F) -> Standard_Boolean { return self.HasAncestorFaceOn1(E, F); })
+        .add_member_function("HasAncestorFaceOn2", [](BRepAlgoAPI_Section const& self, const TopoDS_Shape & E, TopoDS_Shape & F) -> Standard_Boolean { return self.HasAncestorFaceOn2(E, F); })
+        .add_bases<BRepAlgoAPI_BooleanOperation, BRepAlgoAPI_BuilderAlgo, BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
+    ns.register_type<BRepAlgoAPI_Splitter, sol::automagic_flags::none>("BRepAlgoAPI_Splitter")
+        .add_constructors(
+            []() { return std::make_unique<BRepAlgoAPI_Splitter>(); }
+        )
+        .add_member_function("Build", [](BRepAlgoAPI_Splitter& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
+        .add_bases<BRepAlgoAPI_BuilderAlgo, BRepAlgoAPI_Algo, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
 
 }

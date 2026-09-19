@@ -58,6 +58,13 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("SetOptions", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeDraft& self, const BRepBuilderAPI_TransitionMode Style, sol::object AngleMin, sol::object AngleMax) { self.SetOptions(Style, occt_plugin::to_real(AngleMin), occt_plugin::to_real(AngleMax)); }
+#else
+            [](BRepOffsetAPI_MakeDraft& self, const BRepBuilderAPI_TransitionMode Style, const Standard_Real AngleMin, const Standard_Real AngleMax) { self.SetOptions(Style, AngleMin, AngleMax); }
+#endif
+        )
         .add_member_function("SetDraft", [](BRepOffsetAPI_MakeDraft& self, const Standard_Boolean IsInternal) { self.SetDraft(IsInternal); })
         .add_member_function("Perform", sol::overload(
             
@@ -171,6 +178,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         ))
         .add_member_function("Delete", [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile) { self.Delete(Profile); })
         .add_member_function("IsReady", [](BRepOffsetAPI_MakePipeShell const& self) -> Standard_Boolean { return self.IsReady(); })
+        .add_member_function("GetStatus", [](BRepOffsetAPI_MakePipeShell const& self) -> BRepBuilderAPI_PipeError { return self.GetStatus(); })
         .add_member_function("SetTolerance", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_MakePipeShell& self, sol::object Tol3d, sol::object BoundTol, sol::object TolAngular) { self.SetTolerance(occt_plugin::to_real(Tol3d), occt_plugin::to_real(BoundTol), occt_plugin::to_real(TolAngular)); }
@@ -181,6 +189,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         .add_member_function("SetMaxDegree", [](BRepOffsetAPI_MakePipeShell& self, const Standard_Integer NewMaxDegree) { self.SetMaxDegree(NewMaxDegree); })
         .add_member_function("SetMaxSegments", [](BRepOffsetAPI_MakePipeShell& self, const Standard_Integer NewMaxSegments) { self.SetMaxSegments(NewMaxSegments); })
         .add_member_function("SetForceApproxC1", [](BRepOffsetAPI_MakePipeShell& self, const Standard_Boolean ForceApproxC1) { self.SetForceApproxC1(ForceApproxC1); })
+        .add_member_function("SetTransitionMode", [](BRepOffsetAPI_MakePipeShell& self, const BRepBuilderAPI_TransitionMode Mode) { self.SetTransitionMode(Mode); })
         .add_member_function("Build", [](BRepOffsetAPI_MakePipeShell& self, const Message_ProgressRange & theRange) { self.Build(theRange); })
         .add_member_function("MakeSolid", [](BRepOffsetAPI_MakePipeShell& self) -> Standard_Boolean { return self.MakeSolid(); })
         .add_member_function("FirstShape", [](BRepOffsetAPI_MakePipeShell& self) -> TopoDS_Shape { return self.FirstShape(); })
