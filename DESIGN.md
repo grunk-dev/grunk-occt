@@ -520,3 +520,24 @@ internally by `gp_QuaternionNLerp`/`gp_QuaternionSLerp`/`gp_TrsfNLerp`) takes a 
 Low-value fix (this is about the only place in OCCT's own headers observed writing
 `double` instead of `Standard_Real`) - noted here rather than carrying an unexplained
 rejection silently.
+
+**Windows CI fallout from the `gp` wildcard expansion**: `occt_plugin_unity.cpp`
+(the unity build, see its own section above) failed to compile on Windows CI only,
+with:
+
+```
+fatal error C1128: number of sections exceeded object file format limit: compile with /bigobj
+```
+
+A well-known MSVC limitation, not specific to this project - a single translation
+unit generating enough object-file sections (unsurprising once `gp` alone
+contributes ~1255 registered callables to that one TU) can exceed the default COFF
+format's section-count limit. Linux/macOS (GCC/Clang) have no equivalent limit, so
+this never surfaced there. Fixed with CMake's standard answer:
+`target_compile_options(occt_plugin PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)` -
+gated to MSVC only via a generator expression (a no-op, not merely harmless, on
+every other compiler/platform). Could not be verified against a real MSVC compiler
+in this environment - confirmed only that the generator-expression gating doesn't
+regress the Linux build, and that `/bigobj` is CMake's own long-standing, standard
+remedy for exactly this MSVC error class; real confirmation is Windows CI itself
+going green on this fix.

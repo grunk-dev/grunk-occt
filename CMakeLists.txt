@@ -126,6 +126,15 @@ set_source_files_properties("${OCCT_PLUGIN_UNITY_CPP}" PROPERTIES
 )
 target_link_libraries(occt_plugin PRIVATE grunk::plugin ${OpenCASCADE_LIBRARIES})
 target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+# MSVC only: the unity file's own object now has more COFF sections than the
+# default format allows ("fatal error C1128: number of sections exceeded object
+# file format limit") - a well-known consequence of a single translation unit
+# this large (found on Windows CI once the gp module's own wildcard expansion,
+# see DESIGN.md, pushed occt_plugin_unity.cpp's generated code past MSVC's
+# default limit). /bigobj raises that limit; GCC/Clang have no equivalent
+# limitation; MSVC's own /bigobj sacrifices nothing to be enabled unconditionally
+# whether truly needed or not.
+target_compile_options(occt_plugin PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
 
 # --- test harness: loads occt_plugin via grunk::plugin::load_native and drives it
 # through raw Lua via the sol2 state directly (see DESIGN.md - deliberately not routed
