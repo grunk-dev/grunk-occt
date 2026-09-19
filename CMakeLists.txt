@@ -32,7 +32,7 @@ include(FetchContent)
 
 FetchContent_Declare(grunk
     GIT_REPOSITORY https://github.com/grunk-dev/grunk.git
-    GIT_TAG 1ad286bfdc937ff75735c20db4358eb282f48c02
+    GIT_TAG c16f519888eae62564145b1ba4c025c1e6dcc6c2
 )
 
 FetchContent_GetProperties(grunk)
@@ -160,6 +160,7 @@ if(GRUNK_OCCT_TESTS)
         tests/test_toploc.cpp
         tests/test_gc.cpp
         tests/test_gp_wildcard.cpp
+        tests/test_brepoffsetapi.cpp
     )
     target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE

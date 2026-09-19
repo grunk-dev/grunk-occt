@@ -12,8 +12,9 @@
 // src/shape_io.hpp. Step 5 adds NCollection_Array1/2 <-> std::vector<T> support
 // (Geom_BezierCurve, src/collections.hpp). Step 6 is the module expansion sweep -
 // bnd (Bnd_Box/BRepBndLib), brep (BRep_Builder/BRep_Tool), breptools
-// (BRepTools), toploc (TopLoc_Location), and gc (GC_Root/GC_MakeSegment/
-// GC_MakeCircle) so far - toploc retroactively unlocked several
+// (BRepTools), toploc (TopLoc_Location), gc (GC_Root/GC_MakeSegment/
+// GC_MakeCircle), and brepoffsetapi (BRepOffsetAPI_*, whole-module wildcard) so
+// far - toploc retroactively unlocked several
 // TopLoc_Location&/const& parameters in topods/brep that were rejected before it
 // existed. gc's own Value() methods return Handle(Geom_TrimmedCurve)/
 // Handle(Geom_Circle), registered in a *different* generated file (geom.cpp) -
@@ -36,10 +37,12 @@
 #include "../generated/brep.hpp"
 #include "../generated/breptools.hpp"
 #include "../generated/gc.hpp"
+#include "../generated/brepoffsetapi.hpp"
 #include "gp/gp_extras.hpp"
 #include "brep/brep_extras.hpp"
 #include "geom/geom_extras.hpp"
 #include "shape_io.hpp"
+#include "topexp_extras.hpp"
 
 namespace {
 
@@ -61,14 +64,12 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_brep_extras(ns);
     register_breptools(ns);
     register_gc(ns);
+    register_brepoffsetapi(ns);
     register_shape_io(ns);
+    register_topexp_extras(ns);
 }
 
 } // anonymous namespace
 
-GRUNK_PLUGIN_EXPORT grunk::PluginInfo grunk_plugin_info()
-{
-    return grunk::PluginInfo{"occt", "0.1.0"};
-}
-
+GRUNK_PLUGIN_INFO("occt", "0.1.0")
 GRUNK_PLUGIN_REGISTER(register_occt)

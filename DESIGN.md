@@ -19,9 +19,13 @@ step-by-step rationale; this file only records the *outcomes*.
 - **Namespace**: the plugin registers as `PluginInfo{"occt", version}` → Lua namespace `occt`
   (`occt.gp_Pnt`, `occt.BRepBuilderAPI_MakeEdge`, ...).
 - **grunk pin**: `CMakeLists.txt`'s `FetchContent_Declare(grunk ...)` pins a specific commit
-  (`ac5a90d18cbb78c21c96829e535b4d17c6322fb1`), not a tag — grunk's plugin interface and 0.5.0
-  rewrite are only on `main`, untagged as of this writing. Bump the pin deliberately, in its own
-  PR, gated by the full grunk-occt test suite - never as a side effect of an unrelated change.
+  (currently `c16f519888eae62564145b1ba4c025c1e6dcc6c2`), not a tag — grunk's plugin interface and
+  0.5.0 rewrite are only on `main`, untagged as of this writing. Bump the pin deliberately, in its
+  own PR, gated by the full grunk-occt test suite - never as a side effect of an unrelated change.
+  Latest bump (from `1ad286bfdc937ff75735c20db4358eb282f48c02`) picks up
+  [grunk-dev/grunk#284](https://github.com/grunk-dev/grunk/pull/284) (`GRUNK_PLUGIN_INFO`, an
+  MSVC C4190 fix for `grunk_plugin_info`'s `extern "C"` return of a non-POD `PluginInfo`) -
+  `src/occt_plugin.cpp` now uses the macro instead of the hand-written form.
 
 ## OCCT dependency
 
@@ -393,6 +397,43 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   (also unregistered). `Value()` returns `Handle(Geom_TrimmedCurve)`/
   `Handle(Geom_Circle)` - this surfaced a real, general compile-time limitation,
   described next.
+- **`brepoffsetapi`** (`BRepOffsetAPI_*`, whole-module wildcard): legacy grocc's own
+  `config.yml.in` already wildcarded this entire module
+  (`BRepOffsetAPI_*.hxx`) with one blacklist entry
+  (`BRepOffsetAPI_FindContigousEdges` - a real OCCT bug, undefined symbol `NbEdges`
+  at Windows link time, not a toolchain/generator artifact - re-derived fresh per
+  Step 0.5 policy rather than carried forward uncritically, but kept since the
+  underlying OCCT issue has no reason to be gone). 103 accepted, 50 rejected
+  (`GeomAbs_Shape`/`GeomAbs_JoinType`/`Approx_ParametrizationType`/other unregistered
+  enums, `TopTools_ListOfShape&`/`const&` out-params and returns, `Standard_OStream&`,
+  `Handle(Law_Function)`/`Handle(OSD_FileSystem)`, mutable `Standard_Real&`/
+  `Standard_Boolean&` out-params - the same categories of gap as brep/breptools).
+  `BRepOffsetAPI_Sewing.hxx` is a bare `typedef BRepBuilderAPI_Sewing
+  BRepOffsetAPI_Sewing;` (no class of its own) - the same glob-noise case as
+  `gp_Vec2f.hxx`, skipped quietly by `expand_headers`'s existing handling rather
+  than a new gap. No `extra_includes` needed: every accepted signature's
+  `TopoDS_*`/`gp_*`/`Message_ProgressRange` types are already registered by prior
+  modules and each `BRepOffsetAPI_*.hxx` header fully includes what it needs (also
+  true of `brepbuilderapi`/`brepprimapi`/`brepalgoapi`, unlike bnd/brep/breptools's
+  forward-declare-only headers - confirmed by building, not assumed).
+  - **`BRepOffsetAPI_MakeThickSolid::MakeThickSolidBySimple` requires a non-closed
+    shell or face, not a closed solid** - stated in the header's own doc comment
+    ("Non-closed shell or face is expected as input"), but found the hard way first:
+    calling it on a `BRepPrimAPI_MakeBox`/`MakeCylinder` result compiles fine but
+    throws a non-`std::exception` OCCT failure at `Shape()`/`Build()` time (surfaces
+    in Lua as sol2's generic `"caught (...) exception"`, not a message naming the
+    real cause - GRUNK_PLUGIN_REGISTER's own `catch (...)` branch, doing exactly its
+    documented job, but with no `.what()` to report). No `TopExp_Explorer`-equivalent
+    is registered (its `More()`/`Next()`/`Current()` iterator pattern has no
+    generator support, same category of gap as legacy grocc's own iterator-shaped
+    classes), so there was no existing way to pull a single face out of a solid
+    either - added `src/topexp_extras.hpp`'s `occt.first_face(shape)` (a thin,
+    single-use `TopExp_Explorer` wrapper returning the first `TopAbs_FACE` found) as
+    a hand-written escape hatch, same category as `shape_io.hpp`'s `export_brep`.
+    `tests/test_brepoffsetapi.cpp`'s `ThickSolidFromBox` shells a single face of the
+    Step 4b smoke test's own cylinder (not the box - a box's sharp corners were
+    tried too before isolating the real cause, a closed vs. non-closed input, not
+    corner geometry).
 
 ## Handle(X) return type requires being in the same translation unit as X
 

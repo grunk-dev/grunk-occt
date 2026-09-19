@@ -303,3 +303,17 @@ modules:
       - GC_Root.hxx
       - GC_MakeSegment.hxx
       - GC_MakeCircle.hxx
+
+  - name: brepoffsetapi
+    # Step 6 module expansion sweep, sixth module. Legacy grocc's own config.yml.in
+    # wildcarded this whole module (BRepOffsetAPI_*.hxx) with one blacklist entry
+    # (BRepOffsetAPI_FindContigousEdges - a Windows link error, undefined symbol
+    # NbEdges); re-derived fresh per Step 6 policy rather than carried forward
+    # uncritically - see DESIGN.md for what actually got accepted/rejected and
+    # whether that same entry is still warranted here (a real OCCT bug in that
+    # class, not a toolchain/generator artifact, so it likely still applies, but
+    # confirmed rather than assumed).
+    headers:
+      - BRepOffsetAPI_*.hxx
+    blacklist:
+      - BRepOffsetAPI_FindContigousEdges
