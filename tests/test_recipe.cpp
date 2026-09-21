@@ -21,6 +21,14 @@
 
 #include <gtest/gtest.h>
 
+#include <gp_Dir.hxx>
+#include <gp_Pnt.hxx>
+#include <gp_Vec.hxx>
+
+#include "../src/occt_ad_support.hpp"
+
+#include <cstdio>
+#include <filesystem>
 #include <string>
 
 namespace {
@@ -86,4 +94,51 @@ TEST_F(RecipeTest, CavityModelReactsToParameterChange)
 
     recipe.get_feature("cavity_h").set_value(45.0);
     EXPECT_TRUE(ok.value().as<bool>());
+}
+
+// gp_Pnt/gp_Vec/gp_Dir as independent (parameter-typed, not just step-local) recipe
+// values - mirrors grunk's own tests/cpp/recipe_simple.cpp,
+// TEST(Recipe, simple_userdata_parameters), which is what src/gp/gp_extras.hpp's own
+// sol::meta_function::to_string registration for these three types is modeled on.
+// Confirms recipe.to_string() produces the expected "occt.gp_Pnt.new(...)"-shaped Lua
+// expression (grunk::serialize throws "Cannot serialize an opaque type ..." for any
+// userdata type without a tostring metamethod - this is the failure mode being
+// guarded against) and that writing the recipe out and reading it back reproduces the
+// same values - not just that serialization doesn't throw.
+TEST_F(RecipeTest, GpTypesRoundTripAsIndependentParameters)
+{
+    std::string const path = (std::filesystem::temp_directory_path() / "grunk_occt_gp_types_round_trip.grr.yml").string();
+
+    {
+        auto recipe = state_->create_recipe();
+        recipe["p"] = state_->feature<gp_Pnt>(gp_Pnt(1.0, 2.5, -3.0));
+        recipe["v"] = state_->feature<gp_Vec>(gp_Vec(0.0, 1.0, 0.0));
+        recipe["d"] = state_->feature<gp_Dir>(gp_Dir(1.0, 0.0, 0.0));
+        recipe.tag();
+
+        std::string const out = recipe.to_string();
+        EXPECT_NE(out.find("occt.gp_Pnt.new(1.0, 2.5, -3.0)"), std::string::npos);
+        EXPECT_NE(out.find("occt.gp_Vec.new(0.0, 1.0, 0.0)"), std::string::npos);
+        EXPECT_NE(out.find("occt.gp_Dir.new(1.0, 0.0, 0.0)"), std::string::npos);
+
+        state_->write(path, recipe);
+    }
+
+    auto recipe = state_->read(path);
+    auto p = recipe.get_feature("p").value().as<gp_Pnt>();
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(p.X()), 1.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(p.Y()), 2.5);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(p.Z()), -3.0);
+
+    auto v = recipe.get_feature("v").value().as<gp_Vec>();
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(v.X()), 0.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(v.Y()), 1.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(v.Z()), 0.0);
+
+    auto d = recipe.get_feature("d").value().as<gp_Dir>();
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(d.X()), 1.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(d.Y()), 0.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(d.Z()), 0.0);
+
+    std::remove(path.c_str());
 }

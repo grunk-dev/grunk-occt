@@ -18,9 +18,7 @@ parameters:
   cavity_w: 20.8
   dh: 1.0
   cyl2_radius: 3.0
-  cyl2_dir_x: -0.6666666666666666
-  cyl2_dir_y: 0.3333333333333333
-  cyl2_dir_z: -0.6666666666666666
+  cyl2_dir: occt.gp_Dir.new(-0.6666666666666666, 0.3333333333333333, -0.6666666666666666)
   radius: 150.0
   angle_deg: 30.0
   cyl1_radius: 1.5
@@ -30,7 +28,6 @@ parameters:
   cyl2_dh: 0.5
   cyl2_shift: -10.0
 steps: |
-  cyl2_dir = occt.gp_Dir.new(cyl2_dir_x, cyl2_dir_y, cyl2_dir_z)
   x_axis = occt.gp_Dir.new(1.0, 0.0, 0.0)
 
   angle_rad = occt.pi() * angle_deg / 180.0

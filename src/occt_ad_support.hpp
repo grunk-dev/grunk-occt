@@ -110,6 +110,19 @@ inline double to_double(sol::object o)
 #endif
 }
 
+// Same as above, but for a caller that already has a Standard_Real in hand (e.g.
+// a member function's own return value, like gp_Pnt::X()) rather than a decorated
+// Lua sol::object to unwrap first - see e.g. src/gp/gp_extras.hpp's
+// sol::meta_function::to_string registrations.
+inline double to_double(Standard_Real v)
+{
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+    return v.getValue();
+#else
+    return v;
+#endif
+}
+
 #if defined(GRUNK_OCCT_WITH_ADOLC)
 // .add_bases<adtl::adouble>() (below) covers plain member-function/__index
 // dispatch (colon-calls like x:getValue(), and to_double()'s own to_real(...)
