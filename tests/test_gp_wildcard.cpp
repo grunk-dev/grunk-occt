@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../src/occt_ad_support.hpp"
+
 namespace {
 
 class GpWildcardTest : public ::testing::Test {
@@ -24,6 +26,13 @@ protected:
     static void SetUpTestSuite()
     {
         state_ = new grunk::state();
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+        // Shared Standard_Real/adtl::adouble registration (see ../DESIGN.md's
+        // "Reusing one shared Standard_Real/adtl::adouble registration, not two") -
+        // grunk-adolc's own plugin has to be loaded into this same grunk::state
+        // before anything below can read/write occt.Standard_Real correctly.
+        grunk::plugin::load_native(*state_, ADTL_PLUGIN_SO_PATH);
+#endif
         grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
 
@@ -71,9 +80,9 @@ TEST_F(GpWildcardTest, GeomLineLinAccessor)
         lx = loc:X(); ly = loc:Y(); lz = loc:Z()
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("lx"), 1.);
-    EXPECT_DOUBLE_EQ(env.get<double>("ly"), 2.);
-    EXPECT_DOUBLE_EQ(env.get<double>("lz"), 3.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("lx")), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("ly")), 2.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("lz")), 3.);
 }
 
 // BRepPrimAPI_MakeCylinder(gp_Ax2 const&, R, H) - a positioned cylinder - was

@@ -14,6 +14,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../src/occt_ad_support.hpp"
+
 namespace {
 
 class BRepTest : public ::testing::Test {
@@ -21,6 +23,13 @@ protected:
     static void SetUpTestSuite()
     {
         state_ = new grunk::state();
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+        // Shared Standard_Real/adtl::adouble registration (see ../DESIGN.md's
+        // "Reusing one shared Standard_Real/adtl::adouble registration, not two") -
+        // grunk-adolc's own plugin has to be loaded into this same grunk::state
+        // before anything below can read/write occt.Standard_Real correctly.
+        grunk::plugin::load_native(*state_, ADTL_PLUGIN_SO_PATH);
+#endif
         grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
 
@@ -51,10 +60,10 @@ TEST_F(BRepTest, MakeVertexAndInspect)
         tol = occt.BRep_Tool_Tolerance(v)
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("px"), 1.);
-    EXPECT_DOUBLE_EQ(env.get<double>("py"), 2.);
-    EXPECT_DOUBLE_EQ(env.get<double>("pz"), 3.);
-    EXPECT_DOUBLE_EQ(env.get<double>("tol"), 0.01);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("px")), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("py")), 2.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("pz")), 3.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("tol")), 0.01);
 }
 
 // BRep_Tool::IsClosed(TopoDS_Shape const&) on a real shape from a different module

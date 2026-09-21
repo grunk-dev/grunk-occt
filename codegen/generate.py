@@ -119,9 +119,48 @@ def expand_headers(patterns: list[str], occt_include_dir: Path, exclude_headers:
 
 
 STANDARD_REAL = "Standard_Real"
-PASSTHROUGH_TYPES = {"Standard_Integer", "Standard_Boolean"}
+# "double"/"unsigned int"/"bool" (bare fundamental spellings, as opposed to OCCT's
+# own Standard_Real/Standard_Integer/Standard_Boolean typedefs above) are only ever
+# actually written that way in a header this generator targets *outside* OCCT
+# itself (e.g. ADOL-C's own adtl.h, for grunk-adolc's own native binding - see
+# codegen/README.md's "Operator overloads and friend free functions") - OCCT's own
+# headers consistently spell these through their own typedefs, never bare, so
+# adding them here doesn't change any existing OCCT-targeting config's behavior.
+PASSTHROUGH_TYPES = {"Standard_Integer", "Standard_Boolean", "double", "unsigned int", "bool", "size_t"}
 TRANSIENT_ROOT = "Standard_Transient"
 HANDLE_PATTERN = re.compile(r"^opencascade::handle<\s*(\w+)\s*>$")
+
+# Operator overloads (see codegen/README.md's "Operator overloads and friend free
+# functions"): C++ operator token -> sol2 meta_function name. Deliberately a small
+# subset of what C++ allows overloading, not "every operator token" - each entry
+# here corresponds to a real Lua metamethod slot; several common C++ operators have
+# *no* Lua equivalent at all and are silently skipped (never added to either map
+# below, falling through collect_class_callables' own "not a recognized operator"
+# branch exactly like an unsupported one): operator!=/>/>= (Lua derives these from
+# __eq/__lt/__le itself - see lua.org's manual on operator inheritance for
+# comparisons - registering them natively would be redundant, not wrong, but
+# pointless surface area), compound assignment (+=, -=, ...- Lua has no
+# assignment-operator metamethod, `x += y` isn't valid Lua syntax at all),
+# increment/decrement (same reason), plain operator= (assignment has its own
+# grunk-level semantics via sol2's usertype machinery, not a metamethod), and
+# conversion operators (operator double() etc. - would need a different mechanism
+# entirely, not attempted here).
+BINARY_OPERATOR_META = {
+    "+": "addition",
+    "-": "subtraction",
+    "*": "multiplication",
+    "/": "division",
+    "==": "equal_to",
+    "<": "less_than",
+    "<=": "less_than_or_equal_to",
+}
+# Unary operators - a *different* map since the same token ("-") means something
+# else with zero arguments than with one (subtraction is binary, unary_minus takes
+# no other operand) - collect_class_callables tells them apart by each candidate
+# operator method's own argument count, not by token alone.
+UNARY_OPERATOR_META = {
+    "-": "unary_minus",
+}
 
 # NCollection_Array1<T>/NCollection_Array2<T> (e.g. TColgp_Array1OfPnt, TColStd_Array1OfReal)
 # are typedefs, invisible as such to a parameter's own (non-canonical) spelling - only
@@ -265,12 +304,22 @@ class Param:
 @dataclass
 class Callable:
     class_name: str
-    kind: str  # "constructor" | "method"
+    kind: str  # "constructor" | "method" | "operator"
     cpp_name: str
     params: list[Param]
     return_spelling: str | None  # None for constructors
     is_const: bool
     is_static: bool = False  # static class method, or a namespace free function - no "self"
+    # Only set for kind == "operator" (see collect_class_callables' own operator
+    # handling and codegen/README.md's "Operator overloads and friend free
+    # functions"): meta_function is the sol2 sol::meta_function member name
+    # (e.g. "addition"); operator_token is the real C++ operator token (e.g. "+"),
+    # used by emit_operator_lambda to build the actual C++ expression - self OP
+    # other for a normal member operator, other OP self for the synthesized
+    # reversed-operand sibling process_module() adds for a binary operator whose
+    # only parameter is a plain literal (double) rather than the class's own type.
+    meta_function: str | None = None
+    operator_token: str | None = None
 
     def rejection_reason(self, registered_types: set[str], registered_enums: set[str]) -> str | None:
         for p in self.params:
@@ -330,36 +379,54 @@ class Entity:
 
 def discover_entities(tu: cindex.TranslationUnit, header_path: Path) -> list[Entity]:
     """Finds every class/struct, enum, and namespace declared *directly* in
-    header_path (not nested inside another class/namespace, and not merely
-    transitively #included from it) - see codegen/README.md's "Lifting the
-    one-class-per-header assumption". Each becomes its own Entity, independent of
-    the header's own filename: a header may define zero, one, or several (a real
-    case once `headers` accepts glob patterns - see expand_headers() - rather than
-    each header being hand-picked to match exactly one wanted class).
+    header_path (not nested inside another class, and not merely transitively
+    #included from it) - see codegen/README.md's "Lifting the one-class-per-header
+    assumption". Each becomes its own Entity, independent of the header's own
+    filename: a header may define zero, one, or several (a real case once
+    `headers` accepts glob patterns - see expand_headers() - rather than each
+    header being hand-picked to match exactly one wanted class).
 
-    Only *direct* children of the translation unit are considered - this is what
-    excludes a class's own protected/private nested helper classes (see
-    codegen/README.md's "Known gaps") and a class-scoped member enum, without
-    needing a separate filter for each. A class/struct must be a real definition
-    (`is_definition()`, excludes forward declarations); an enum must additionally
-    have a name (skips anonymous enums, which have no symbolic type to register).
-    "std" is excluded by name even though it technically qualifies (headers using
-    OCCT's hashing support commonly reopen `namespace std { template<> struct
-    hash<...> {...}; }` right there, at true TU-child scope) - harmless either way
-    (render_module skips every "namespace" entity's own registration regardless,
-    and a plain namespace reopen has no free FUNCTION_DECLs for
-    collect_namespace_callables to find), just noise in the discovered-entity list.
+    Only *direct* children of the translation unit, or of a namespace that is
+    itself one, are considered - one level of namespace nesting is followed (see
+    below), but never a second (a namespace inside a namespace) or into a class
+    body at all - this is what excludes a class's own protected/private nested
+    helper classes (see codegen/README.md's "Known gaps") and a class-scoped
+    member enum, without needing a separate filter for each. A class/struct must
+    be a real definition (`is_definition()`, excludes forward declarations); an
+    enum must additionally have a name (skips anonymous enums, which have no
+    symbolic type to register). "std" is excluded by name even though it
+    technically qualifies (headers using OCCT's hashing support commonly reopen
+    `namespace std { template<> struct hash<...> {...}; }` right there, at true
+    TU-child scope) - harmless either way (render_module skips every "namespace"
+    entity's own registration regardless, and a plain namespace reopen has no free
+    FUNCTION_DECLs for collect_namespace_callables to find), just noise in the
+    discovered-entity list.
 
-    Performance note: uses `tu.cursor.get_children()` (direct children of the
-    translation unit only), *not* `tu.cursor.walk_preorder()` (which recurses into
-    every cursor's entire subtree - function bodies, nested expressions, template
-    instantiation internals, the works). Since every entity this function looks for
-    is by definition a direct TU child already, walk_preorder()'s extra recursion
-    buys nothing here but cost: for a single moderately-included header, it visits
-    on the order of 10^5 cursors where get_children() visits closer to 10^3 -
-    confirmed empirically (0.6s vs 0.01s on TopoDS_Shape.hxx) - the difference
-    between this finishing in well under a second and a full regen run not
-    finishing inside a 10-minute timeout at all. Found the hard way."""
+    One level of namespace nesting is followed - found needing this the hard way,
+    not anticipated in advance: no OCCT header this generator has ever targeted
+    wraps its classes in a namespace (OCCT uses prefix-based naming instead, e.g.
+    `TopoDS_Shape`, never `namespace TopoDS { class Shape; }`), but ADOL-C's own
+    `adtl::adouble` does - without this, `adouble` itself (a child of the `adtl`
+    namespace, not of the translation unit) was never discovered as a "class"
+    entity at all, silently registering none of its constructors/methods/
+    operators and leaving every friend function nested inside it (see
+    collect_friend_functions) permanently "unsupported parameter type 'const
+    adouble &'" - *itself* never being a registered type. A second level of
+    nesting (a namespace inside a namespace) is deliberately not followed - not
+    needed by anything targeted so far, and each additional level compounds the
+    performance cost the note below is about.
+
+    Performance note: uses `cursor.get_children()` (direct children only, of the
+    translation unit and - one level down - of a namespace within it), *not*
+    `tu.cursor.walk_preorder()` (which recurses into every cursor's entire subtree
+    - function bodies, nested expressions, template instantiation internals, the
+    works). Since every entity this function looks for is by definition at most
+    one level down already, walk_preorder()'s extra recursion buys nothing here
+    but cost: for a single moderately-included header, it visits on the order of
+    10^5 cursors where get_children() visits closer to 10^3 - confirmed
+    empirically (0.6s vs 0.01s on TopoDS_Shape.hxx) - the difference between this
+    finishing in well under a second and a full regen run not finishing inside a
+    10-minute timeout at all. Found the hard way."""
     interesting_kinds = (
         cindex.CursorKind.CLASS_DECL,
         cindex.CursorKind.STRUCT_DECL,
@@ -368,32 +435,52 @@ def discover_entities(tu: cindex.TranslationUnit, header_path: Path) -> list[Ent
     )
     header_path_resolved = header_path.resolve()
     entities: list[Entity] = []
-    for cursor in tu.cursor.get_children():
-        if cursor.kind not in interesting_kinds:
-            continue
-        loc_file = cursor.location.file
-        if loc_file is None or Path(loc_file.name).resolve() != header_path_resolved:
-            continue
-        if cursor.kind in (cindex.CursorKind.CLASS_DECL, cindex.CursorKind.STRUCT_DECL) and cursor.is_definition():
-            # Excludes an explicit template specialization defined right in a
-            # header (a real case, not hypothetical: gp_TrsfNLerp.hxx defines
-            # `class NCollection_Lerp<gp_Trsf> { ... };` directly) - its cursor.kind
-            # is an ordinary CLASS_DECL and cursor.spelling is just the bare
-            # template name ("NCollection_Lerp", no argument), which would
-            # otherwise get registered as if it were a plain, template-free class
-            # named that - cursor.type.spelling, unlike .spelling, does include the
-            # template argument ("NCollection_Lerp<gp_Trsf>"), so a mismatch
-            # between the two is exactly the signal a specialization is present.
-            # Matches this project's existing "no NCollection type is ever exposed
-            # to Lua directly" policy (see DESIGN.md's collections/Step 5 note) -
-            # this isn't a new exclusion so much as that policy applying here too.
-            if strip_type(cursor.type.spelling) != cursor.spelling:
+
+    def visit(cursors) -> None:
+        for cursor in cursors:
+            if cursor.kind not in interesting_kinds:
                 continue
-            entities.append(Entity(cursor.spelling, cursor, "class"))
-        elif cursor.kind == cindex.CursorKind.ENUM_DECL and cursor.is_definition() and cursor.spelling:
-            entities.append(Entity(cursor.spelling, cursor, "enum"))
-        elif cursor.kind == cindex.CursorKind.NAMESPACE and cursor.spelling != "std":
-            entities.append(Entity(cursor.spelling, cursor, "namespace"))
+            loc_file = cursor.location.file
+            if loc_file is None or Path(loc_file.name).resolve() != header_path_resolved:
+                continue
+            if cursor.kind in (cindex.CursorKind.CLASS_DECL, cindex.CursorKind.STRUCT_DECL) and cursor.is_definition():
+                # Excludes an explicit template specialization defined right in a
+                # header (a real case, not hypothetical: gp_TrsfNLerp.hxx defines
+                # `class NCollection_Lerp<gp_Trsf> { ... };` directly) - its cursor.kind
+                # is an ordinary CLASS_DECL and cursor.spelling is just the bare
+                # template name ("NCollection_Lerp", no argument), which would
+                # otherwise get registered as if it were a plain, template-free class
+                # named that - cursor.type.spelling, unlike .spelling, does include the
+                # template argument ("NCollection_Lerp<gp_Trsf>"), so a mismatch
+                # between the two is exactly the signal a specialization is present.
+                # Matches this project's existing "no NCollection type is ever exposed
+                # to Lua directly" policy (see DESIGN.md's collections/Step 5 note) -
+                # this isn't a new exclusion so much as that policy applying here too.
+                #
+                # .rsplit("::", 1)[-1] first: cursor.type.spelling is fully qualified
+                # (e.g. "adtl::adouble" for a class one level inside a namespace -
+                # see this function's own note on following namespace nesting),
+                # cursor.spelling never is - comparing the two directly, unqualified,
+                # would flag *every* namespaced class as a false-positive
+                # "specialization" and silently drop it. No OCCT class this
+                # generator has targeted is ever namespaced, so this never mattered
+                # until ADOL-C's own adtl::adouble did - found the hard way
+                # (registered_types came back empty, silently rejecting every
+                # friend function that takes an adouble parameter, and no amount of
+                # staring at the operator/friend-function code itself explained why -
+                # adouble was never being discovered as a class at all).
+                if strip_type(cursor.type.spelling).rsplit("::", 1)[-1] != cursor.spelling:
+                    continue
+                entities.append(Entity(cursor.spelling, cursor, "class"))
+            elif cursor.kind == cindex.CursorKind.ENUM_DECL and cursor.is_definition() and cursor.spelling:
+                entities.append(Entity(cursor.spelling, cursor, "enum"))
+            elif cursor.kind == cindex.CursorKind.NAMESPACE and cursor.spelling != "std":
+                entities.append(Entity(cursor.spelling, cursor, "namespace"))
+
+    visit(tu.cursor.get_children())
+    for entity in list(entities):
+        if entity.kind == "namespace":
+            visit(entity.cursor.get_children())
     return entities
 
 
@@ -464,17 +551,35 @@ def collect_namespace_callables(namespace_cursors: list[cindex.Cursor], ns_name:
     """Returns every free FUNCTION_DECL directly inside the given namespace
     fragment(s) as unfiltered, is_static=True Callables (see codegen/README.md's
     "Static-only 'namespace classes'" - a namespace free function and a class's
-    static method are emitted identically: no self, ns_name::cpp_name(args))."""
+    static method are emitted identically: no self, ns_name::cpp_name(args)).
+
+    Deduplicates by (spelling, parameter-type tuple) across every fragment - not a
+    hypothetical: a header can reopen the same namespace more than once with a
+    forward *declaration* in one place and the real *definition* in another (ADOL-C's
+    own adtl.h does exactly this for makeNaN/makeInf/setNumDir/getNumDir - a bare
+    prototype up top, the real `inline` bodies further down, in a second `namespace
+    adtl { ... }` block) - both are independent FUNCTION_DECL cursors for the
+    logically same function, and without this, both would be collected as separate
+    overloads, generating the same lambda body twice. Never triggered by any OCCT
+    header targeted so far (none of them reopen a namespace this way), so this is
+    strictly additive - a single-fragment, single-declaration case (the only kind
+    seen until now) has nothing to deduplicate against."""
     callables: list[Callable] = []
+    seen: set[tuple[str, tuple[str, ...]]] = set()
     for target in namespace_cursors:
         for child in target.get_children():
             if child.kind != cindex.CursorKind.FUNCTION_DECL:
                 continue
             if child.spelling.startswith("operator"):
                 continue  # operators not handled yet - see codegen/README.md's "Known gaps"
+            args = list(child.get_arguments())
+            key = (child.spelling, tuple(arg.type.spelling for arg in args))
+            if key in seen:
+                continue
+            seen.add(key)
             params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling,
                              has_default=param_has_default(arg))
-                      for i, arg in enumerate(child.get_arguments())]
+                      for i, arg in enumerate(args)]
             callables.append(Callable(ns_name, "method", child.spelling, params,
                                        child.result_type.spelling, is_const=False, is_static=True))
     return callables
@@ -568,7 +673,31 @@ def collect_class_callables(target: cindex.Cursor, class_name: str) -> list[Call
             kind, cpp_name, return_spelling, is_const, is_static = "constructor", class_name, None, False, False
         elif child.kind == cindex.CursorKind.CXX_METHOD:
             if child.spelling.startswith("operator"):
-                continue  # operators not handled yet - see codegen/README.md's "Known gaps"
+                # See codegen/README.md's "Operator overloads and friend free
+                # functions" - only a member operator whose *token* has a real Lua
+                # metamethod slot (BINARY_OPERATOR_META/UNARY_OPERATOR_META) is
+                # ever emitted; everything else (operator!=, compound assignment,
+                # increment/decrement, conversion operators, ...) is silently
+                # skipped here exactly like an unrecognized method would be -
+                # there is no Lua-side slot for it to occupy, not a gap to close.
+                token = child.spelling[len("operator"):].strip()
+                args = list(child.get_arguments())
+                if not args and token in UNARY_OPERATOR_META:
+                    callables.append(Callable(
+                        class_name, "operator", child.spelling, [], child.result_type.spelling,
+                        child.is_const_method(), is_static=False,
+                        meta_function=UNARY_OPERATOR_META[token], operator_token=token,
+                    ))
+                elif len(args) == 1 and token in BINARY_OPERATOR_META:
+                    arg = args[0]
+                    p = Param(arg.type.spelling, arg.spelling or "other", arg.type.get_canonical().spelling,
+                              has_default=param_has_default(arg))
+                    callables.append(Callable(
+                        class_name, "operator", child.spelling, [p], child.result_type.spelling,
+                        child.is_const_method(), is_static=False,
+                        meta_function=BINARY_OPERATOR_META[token], operator_token=token,
+                    ))
+                continue
             kind, cpp_name, return_spelling, is_const, is_static = (
                 "method", child.spelling, child.result_type.spelling,
                 child.is_const_method(), child.is_static_method(),
@@ -583,6 +712,68 @@ def collect_class_callables(target: cindex.Cursor, class_name: str) -> list[Call
     return callables
 
 
+def collect_friend_functions(class_cursor: cindex.Cursor, ns_name: str) -> list[Callable]:
+    """Free functions declared `friend` inside a class body - a real C++ idiom
+    (ADOL-C's own adtl::adouble uses it throughout for its math functions - sin,
+    cos, ... - and its reversed-operand arithmetic/comparison operators) with
+    *namespace* scope for the function itself despite being lexically nested
+    inside the class (see codegen/README.md's "Operator overloads and friend free
+    functions") - collect_class_callables' own get_children() walk never finds
+    these (a FRIEND_DECL wraps the actual FUNCTION_DECL as its own child, not a
+    CXX_METHOD), so this is a separate, dedicated walk. Only *non-operator* friend
+    functions are collected here (sin/cos/... and similar) - a friend operator
+    (e.g. `friend adouble operator+(double, const adouble&)`) is deliberately
+    *not* picked up this way; process_module() instead synthesizes the reversed-
+    operand sibling for a matching member operator directly (see its own comment),
+    since that also lets it decide arity/kind() acceptance the normal way rather
+    than needing this function to duplicate that logic for a second cursor shape.
+
+    Returned as is_static=True Callables with class_name=ns_name (the *enclosing
+    namespace*, not the class the friend declaration happens to be lexically
+    nested in) - render_module already renders a static Callable as a plain
+    qualified call (ns_name::cpp_name(args)), which is exactly correct here: C++
+    itself gives a friend function namespace scope, so e.g. `adtl::sin(x)` is a
+    real, valid call regardless of `sin` being declared inside `adouble`."""
+    callables: list[Callable] = []
+    for child in class_cursor.get_children():
+        if child.kind != cindex.CursorKind.FRIEND_DECL:
+            continue
+        for inner in child.get_children():
+            if inner.kind != cindex.CursorKind.FUNCTION_DECL:
+                continue
+            if inner.spelling.startswith("operator"):
+                continue  # handled via process_module's reversed-operand synthesis instead
+            params = [Param(arg.type.spelling, arg.spelling or f"arg{i}", arg.type.get_canonical().spelling,
+                             has_default=param_has_default(arg))
+                      for i, arg in enumerate(inner.get_arguments())]
+            callables.append(Callable(ns_name, "method", inner.spelling, params,
+                                       inner.result_type.spelling, is_const=False, is_static=True))
+    return callables
+
+
+def find_friend_operator_reversed(class_cursor: cindex.Cursor, token: str) -> bool:
+    """Whether class_cursor's own body declares a *binary* friend
+    `operator<token>` (two parameters) - used by process_module's reversed-
+    operand synthesis to *confirm*, not assume, that a scalar-taking member
+    operator's reversed-operand sibling (e.g. `double + adouble` alongside
+    `adouble::operator+(double) const`) actually exists before emitting a Lua
+    binding for it. Deliberately doesn't check the friend's own parameter types
+    match exactly (self is always one of them, structurally, or it wouldn't be
+    a meaningful operator for this class at all) - just that a two-argument
+    friend by that name exists at all, which is enough to tell "OCCT/ADOL-C
+    really defines this direction" apart from "it doesn't, and self OP other
+    only ever works one way" (see process_module's own comment - gp_XYZ's
+    operator/ is exactly the case that doesn't)."""
+    for child in class_cursor.get_children():
+        if child.kind != cindex.CursorKind.FRIEND_DECL:
+            continue
+        for inner in child.get_children():
+            if inner.kind == cindex.CursorKind.FUNCTION_DECL and inner.spelling == f"operator{token}" \
+                    and len(list(inner.get_arguments())) == 2:
+                return True
+    return False
+
+
 def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) -> str:
     param_decls = []
     call_args = []
@@ -593,11 +784,19 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) 
         elif k == "array1":
             elem = array_element_type(p.canonical, ARRAY1_PATTERN)
             param_decls.append(f"std::vector<{elem}> const& {p.name}")
-            call_args.append(f"occt_plugin::to_array1({p.name})")
+            # A real-element array1 (e.g. TColStd_Array1OfReal) needs
+            # to_real_array1, not to_array1<double> - see its own comment in
+            # src/collections.hpp for why: the Lua-side vector is always
+            # std::vector<double> regardless of build, but the OCCT array's own
+            # element type is Standard_Real, a distinct C++ type from double under
+            # GRUNK_OCCT_WITH_ADOLC.
+            fn = "to_real_array1" if elem in REAL_ELEMENT_SPELLINGS else "to_array1"
+            call_args.append(f"occt_plugin::{fn}({p.name})")
         elif k == "array2":
             elem = array_element_type(p.canonical, ARRAY2_PATTERN)
             param_decls.append(f"std::vector<{elem}> const& {p.name}_flat, Standard_Integer {p.name}_rows, Standard_Integer {p.name}_cols")
-            call_args.append(f"occt_plugin::to_array2({p.name}_flat, {p.name}_rows, {p.name}_cols)")
+            fn = "to_real_array2" if elem in REAL_ELEMENT_SPELLINGS else "to_array2"
+            call_args.append(f"occt_plugin::{fn}({p.name}_flat, {p.name}_rows, {p.name}_cols)")
         else:
             param_decls.append(f"{p.spelling} {p.name}")
             call_args.append(p.name)
@@ -656,7 +855,38 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) 
     return f"[]({all_decls}) -> {ret} {{ return {call_expr}; }}"
 
 
+def emit_operator_lambda(c: Callable) -> str:
+    """Emits a lambda for an operator Callable (c.kind == "operator" - see
+    collect_class_callables' own operator handling and codegen/README.md's
+    "Operator overloads and friend free functions"). Never needs the
+    Standard_Real AD dual-emission emit_lambda applies to ordinary methods/
+    constructors - an operator is only ever emitted for the class *being*
+    registered here (grunk-adolc's own adtl::adouble, today), never for
+    Standard_Real itself, so its own parameter (if any) is never itself
+    "real"-kind by construction (see emit_callable_expr's own dispatch)."""
+    ret = (c.return_spelling or "").strip()
+    if not c.params:
+        # Unary (e.g. operator-() const) - self is the only operand.
+        return f"[]({c.class_name} const& self) -> {ret} {{ return {c.operator_token}self; }}"
+    other_decl = f"{c.params[0].spelling} {c.params[0].name}"
+    if c.is_static:
+        # Reversed-operand sibling (see process_module's own synthesis) - `other`
+        # is the *first* Lua-facing argument, self the second: `other OP self`,
+        # e.g. `double + adouble` via the real friend operator+(double, const
+        # adouble&) - relies on C++ operator resolution finding it, not on this
+        # generator having parsed that friend declaration itself (see
+        # collect_friend_functions' own comment on why friend operators aren't
+        # collected that way at all).
+        return (f"[]({other_decl}, {c.class_name} const& self) -> {ret} "
+                f"{{ return {c.params[0].name} {c.operator_token} self; }}")
+    # Normal member form: self OP other.
+    return (f"[]({c.class_name} const& self, {other_decl}) -> {ret} "
+            f"{{ return self {c.operator_token} {c.params[0].name}; }}")
+
+
 def emit_callable_expr(c: Callable, kinds: list[str], ctor_mode: str) -> str:
+    if c.kind == "operator":
+        return emit_operator_lambda(c)
     has_real = "real" in kinds
     plain = emit_lambda(c, kinds, ad_branch=False, ctor_mode=ctor_mode)
     if not has_real:
@@ -682,6 +912,19 @@ class ModuleResult:
     # one-name-per-header assumption (Path(h).stem for h in headers); a single header can now
     # contribute zero, one, or several entities (see discover_entities).
     enum_values: dict[str, list[str]] = field(default_factory=dict)  # enum name -> its enumerator names
+    # Dedup key set for the main acceptance loop below - see its own comment on
+    # why the same signature can genuinely be discovered twice (ADOL-C's own
+    # friend-declared-and-separately-namespace-defined functions).
+    seen_signatures: set[tuple] = field(default_factory=set)
+    # class/enum name -> its enclosing namespace, only for an entity actually
+    # found nested one level inside one (see discover_entities' own namespace-
+    # recursion note) - e.g. "adouble" -> "adtl". render_module emits a `using
+    # ns::Name;` for each of these, because every other place in this generator
+    # (emit_lambda, register_type<...>, etc.) emits the *bare* entity name as a
+    # C++ type - correct for every OCCT class (none of them are namespaced), but
+    # not otherwise valid C++ for one that is; `using` makes the bare name resolve
+    # without having to qualify it everywhere the bare name is used as a type.
+    namespace_of: dict[str, str] = field(default_factory=dict)
 
 
 def process_module(module: dict, cache: dict[str, ParsedHeader], registered_types: set[str], registered_enums: set[str]) -> ModuleResult:
@@ -727,10 +970,32 @@ def process_module(module: dict, cache: dict[str, ParsedHeader], registered_type
                 continue
             raise RuntimeError(f"no class/struct/enum/namespace definitions found in {header}")
 
+        # A header can reopen the same namespace more than once - not hypothetical:
+        # ADOL-C's own adtl.h has one `namespace adtl { ... }` block for its
+        # (forward-declared) free functions/class and a *second* one further down
+        # for their real `inline` definitions. Grouped by name up front so the
+        # entity loop below processes each unique namespace name exactly once,
+        # using *every* one of its cursors together (collect_namespace_callables
+        # itself dedupes by (name, param types) across them - see its own
+        # comment) - without this, the second occurrence would be silently
+        # skipped (losing whatever's only declared there) instead of merged.
+        namespace_cursors_by_name: dict[str, list[cindex.Cursor]] = {}
+        for entity in entities:
+            if entity.kind == "namespace":
+                namespace_cursors_by_name.setdefault(entity.name, []).append(entity.cursor)
+        processed_namespaces: set[str] = set()
+
         for entity in entities:
             name = entity.name
+            if name == "TopoDS":
+                import sys as _sys
+                print(f"DEBUG entity TopoDS kind={entity.kind!r} header={header!r}", file=_sys.stderr)
             if name in blacklist:
                 continue  # a bare ClassName/EnumName in the blacklist skips it entirely
+            if entity.kind == "namespace":
+                if name in processed_namespaces:
+                    continue  # already handled via its first occurrence, above
+                processed_namespaces.add(name)
             result.entity_kind[name] = entity.kind
             result.entity_names.append(name)
 
@@ -749,18 +1014,89 @@ def process_module(module: dict, cache: dict[str, ParsedHeader], registered_type
                 else:
                     result.ctor_mode[name] = "value"
                 callables = collect_class_callables(entity.cursor, name)
+
+                # Friend free functions (see collect_friend_functions' own doc
+                # comment) have namespace, not class, scope - collected under the
+                # class's enclosing namespace name if it has one (e.g. adtl::sin
+                # for adtl::adouble's own friend sin), or the class's own name
+                # otherwise (matches every OCCT class this generator has targeted
+                # so far, none of which need this at all - friend functions are
+                # only actually found once something targets a header that uses
+                # this idiom, e.g. ADOL-C's own adtl.h).
+                parent = entity.cursor.semantic_parent
+                friend_ns = parent.spelling if parent and parent.kind == cindex.CursorKind.NAMESPACE else name
+                callables += collect_friend_functions(entity.cursor, friend_ns)
+                if parent and parent.kind == cindex.CursorKind.NAMESPACE:
+                    result.namespace_of[name] = friend_ns
+
+                # Reversed-operand synthesis for a binary operator whose one
+                # parameter is a plain literal (e.g. `adouble::operator+(double)
+                # const`), not the class's own type: C++ operator overload
+                # resolution requires the *class* to appear as one of the two
+                # operands (adouble::operator+ can't be a member of `double`), so
+                # the "double + adouble" direction is only ever reachable via a
+                # separate friend/free operator (see codegen/README.md's "Operator
+                # overloads and friend free functions").
+                #
+                # Confirmed to exist via find_friend_operator_reversed() before
+                # synthesizing anything - NOT assumed just because the member form
+                # exists. Found the hard way, regenerating this project's own
+                # existing OCCT config: ADOL-C's adtl::adouble (a pure arithmetic
+                # type) really does define all four reversed forms (+, -, *, /)
+                # alongside every scalar-taking member operator, but OCCT's own
+                # geometric types don't follow that uniformly - gp_XYZ has
+                # operator/(Standard_Real) const (scale down) with no reversed
+                # friend at all (dividing a scalar *by* a vector isn't a defined
+                # operation), while gp_Mat's own operator* does have one (scalar *
+                # matrix is standard). Assuming the reversed form always exists
+                # alongside the member one compiled cleanly for adtl::adouble but
+                # broke gp_XYZ's own division - a real, loud compile error, exactly
+                # as expected for a wrong assumption, but not something to leave
+                # sitting as a landmine for the next new module/operator either.
+                #
+                # is_static=True marks the synthesized sibling for
+                # emit_operator_lambda (self is the *second* operand, not the
+                # first) - a normal member operator Callable is never itself
+                # is_static, so this can't collide with one.
+                reversed_callables = []
+                for c in callables:
+                    if c.kind != "operator" or c.is_static or len(c.params) != 1:
+                        continue
+                    other_kind = c.params[0].kind(registered_types, registered_enums)
+                    if other_kind not in ("passthrough", "real") or c.params[0].base == name:
+                        continue
+                    if not find_friend_operator_reversed(entity.cursor, c.operator_token):
+                        continue
+                    reversed_callables.append(Callable(
+                        name, "operator", c.cpp_name, [c.params[0]], c.return_spelling, c.is_const,
+                        is_static=True, meta_function=c.meta_function, operator_token=c.operator_token,
+                    ))
+                callables += reversed_callables
             else:
                 # Namespace (e.g. TopoDS.hxx's `namespace TopoDS { ... }` - see
                 # codegen/README.md's "Static-only 'namespace classes'"). No base
-                # chain/Transient concept applies. Treated as a single fragment -
-                # every namespace this generator has targeted so far is fully
-                # defined in one header, so reopening across multiple headers in
-                # the same module isn't handled (would need merging by name here).
-                callables = collect_namespace_callables([entity.cursor], name)
+                # chain/Transient concept applies. namespace_cursors_by_name[name]
+                # (computed above) already has every cursor for this name across
+                # this header - reopened within one header (adtl.h) or not.
+                # Reopened across *multiple headers* in the same module still
+                # isn't handled (would need the same grouping one level up, across
+                # the outer `for header in headers:` loop - not needed by anything
+                # targeted so far).
+                callables = collect_namespace_callables(namespace_cursors_by_name[name], name)
 
             result.accepted_methods.setdefault(name, {})
 
             for c in callables:
+                # c.class_name, not the outer `name`: identical for every
+                # "ordinary" callable (collect_class_callables/
+                # collect_namespace_callables always set it to the entity being
+                # processed), but a friend function's own class_name is its
+                # *enclosing namespace* instead (see collect_friend_functions'
+                # own doc comment) - using c.class_name here, not name, is what
+                # actually routes it there rather than under the class it was
+                # lexically found nested inside.
+                result.accepted_methods.setdefault(c.class_name, {})
+
                 symbol = f"{c.class_name}::{c.cpp_name}"
                 if symbol in blacklist:
                     result.blacklisted.append(c)
@@ -779,10 +1115,46 @@ def process_module(module: dict, cache: dict[str, ParsedHeader], registered_type
                 full_kinds = [p.kind(registered_types, registered_enums) for p in c.params]
                 for i in arities:
                     kinds = full_kinds[:i]
+                    # A real signature can be discovered more than once via two
+                    # genuinely different AST paths - not hypothetical: ADOL-C's
+                    # own `sin`/`cos`/... are declared once as a `friend` inside
+                    # adouble's own class body (found via collect_friend_functions)
+                    # *and* separately defined again as a plain namespace-level
+                    # function (found via collect_namespace_callables, since the
+                    # real `inline` body sits directly in `namespace adtl { ... }`,
+                    # not nested in any class) - two different Callable objects,
+                    # from two different collection functions, for what is C++-wise
+                    # the exact same overload. Deduplicated here, at the one point
+                    # every acceptance path converges, rather than trying to make
+                    # each collection function aware of what the others might also
+                    # find - the same signature tuple (spelling per parameter,
+                    # truncated to this arity) can never legitimately appear twice
+                    # for one cpp_name/meta_function under one class_name.
+                    sig = tuple(p.spelling for p in c.params[:i])
                     if c.kind == "constructor":
+                        dedup_key = (name, "__ctor__", sig)
+                        if dedup_key in result.seen_signatures:
+                            continue
+                        result.seen_signatures.add(dedup_key)
                         result.accepted_ctors.setdefault(name, []).append((c, kinds))
+                    elif c.kind == "operator":
+                        # Grouped by meta_function, not cpp_name - every operator
+                        # sharing one meta_function (e.g. the member "self + double"
+                        # and "self + adouble" forms, plus the reversed "double +
+                        # self" sibling) becomes overloads of the *same*
+                        # sol::meta_function slot, never a named method - see
+                        # render_module's own "__meta_" key handling.
+                        dedup_key = (c.class_name, f"__meta_{c.meta_function}", c.is_static, sig)
+                        if dedup_key in result.seen_signatures:
+                            continue
+                        result.seen_signatures.add(dedup_key)
+                        result.accepted_methods[c.class_name].setdefault(f"__meta_{c.meta_function}", []).append((c, kinds))
                     else:
-                        result.accepted_methods[name].setdefault(c.cpp_name, []).append((c, kinds))
+                        dedup_key = (c.class_name, c.cpp_name, sig)
+                        if dedup_key in result.seen_signatures:
+                            continue
+                        result.seen_signatures.add(dedup_key)
+                        result.accepted_methods[c.class_name].setdefault(c.cpp_name, []).append((c, kinds))
 
     return result
 
@@ -811,6 +1183,26 @@ void register_{result.name}(grunk::plugin_namespace& ns);
         for _, kinds in overloads
         for k in kinds
     )
+    # Whether this module actually emitted any Standard_Real AD dual-emission
+    # code (occt_plugin::to_real calls - see emit_lambda) - never true for a
+    # module with no genuine Standard_Real parameter anywhere (e.g. grunk-adolc's
+    # own adtl module, which only ever sees bare "double", a different Param.kind()
+    # - see PASSTHROUGH_TYPES). occt_ad_support.hpp is grunk-occt-specific (its
+    # own #include path below is relative to *this* repo's src/ directory) and
+    # must not be pulled into an unrelated project's own generated code that never
+    # needed it in the first place.
+    any_real = any(
+        k == "real"
+        for overloads in result.accepted_ctors.values()
+        for _, kinds in overloads
+        for k in kinds
+    ) or any(
+        k == "real"
+        for methods in result.accepted_methods.values()
+        for overloads in methods.values()
+        for _, kinds in overloads
+        for k in kinds
+    )
     all_class_names = result.entity_names
     registered_here = set(all_class_names)
 
@@ -821,6 +1213,8 @@ void register_{result.name}(grunk::plugin_namespace& ns);
         ctor_mode = result.ctor_mode.get(class_name, "value")
 
         for method_name, overloads in list(result.accepted_methods.get(class_name, {}).items()):
+            if method_name.startswith("__meta_"):
+                continue  # operators always go through the instance-method loop below, never this one
             if not overloads[0][0].is_static:
                 continue
             if len(overloads) == 1:
@@ -831,7 +1225,27 @@ void register_{result.name}(grunk::plugin_namespace& ns);
                     emit_callable_expr(c, kinds, ctor_mode) for c, kinds in overloads
                 ) + "\n    )"
 
+            # A *genuine* C++ namespace's own free functions (result.entity_kind
+            # == "namespace") get registered under their own bare name where
+            # possible, not prefixed - "adtl.sin", not "adtl.adtl_sin" - since
+            # nothing stops them from keeping their own name directly under the
+            # plugin namespace table, exactly mirroring their real C++ nesting.
+            # BUT the collision check below always has to test the *prefixed*
+            # name regardless of whether the enclosing scope is a genuine
+            # namespace or one of OCCT's "namespace classes" (a plain C++ class
+            # with only static members, e.g. the older `class TopoDS { public:
+            # static ... };` form) - OCCT's own naming convention (TopoDS::Face
+            # downcasting to TopoDS_Face) creates the exact same collision
+            # either way, and newer OCCT (found via this project's own OCCT
+            # version) actually declares TopoDS as a real `namespace`, not a
+            # class, while still colliding with TopoDS_Face by that same
+            # convention - checking only the bare name here would silently miss
+            # it and register a plain occt.Face(shape) function instead of
+            # attaching occt.TopoDS_Face.DownCast(shape), the same regression a
+            # namespace-vs-class libclang cursor-kind change on OCCT's side
+            # (not this generator's) can reintroduce on any future OCCT bump.
             composed_name = f"{class_name}_{method_name}"
+            is_namespace = result.entity_kind.get(class_name) == "namespace"
             if composed_name in registered_here:
                 # Naming collision (e.g. TopoDS::Face(shape) composes to the same
                 # name as the registered TopoDS_Face class itself - a real case, not
@@ -847,7 +1261,8 @@ void register_{result.name}(grunk::plugin_namespace& ns);
                     f'        .add_member_function("DownCast", {fun_expr})'
                 )
             else:
-                free_function_parts.append(f'    ns.register_function("{composed_name}", {fun_expr});')
+                final_name = method_name if is_namespace else composed_name
+                free_function_parts.append(f'    ns.register_function("{final_name}", {fun_expr});')
 
     body_parts = []
     for class_name in all_class_names:
@@ -876,7 +1291,14 @@ void register_{result.name}(grunk::plugin_namespace& ns);
         instance_methods = {
             method_name: overloads
             for method_name, overloads in result.accepted_methods.get(class_name, {}).items()
-            if not overloads[0][0].is_static
+            # An operator group's own overloads mix is_static=False (normal member
+            # forms: self OP double, self OP self) and is_static=True (the
+            # reversed-operand sibling: double OP self) Callables - is_static there
+            # only ever meant "which operand is self" (see emit_operator_lambda),
+            # never "register this as a free function", so every __meta_-keyed
+            # group always belongs here regardless of what its first overload's own
+            # is_static happens to be.
+            if method_name.startswith("__meta_") or not overloads[0][0].is_static
         }
 
         lines = [f'    ns.register_type<{class_name}, sol::automagic_flags::none>("{class_name}")']
@@ -894,7 +1316,16 @@ void register_{result.name}(grunk::plugin_namespace& ns);
                 fun_expr = "sol::overload(\n            " + ",\n            ".join(
                     emit_callable_expr(c, kinds, ctor_mode) for c, kinds in overloads
                 ) + "\n        )"
-            lines.append(f'        .add_member_function("{method_name}", {fun_expr})')
+            if method_name.startswith("__meta_"):
+                # An operator group (see process_module's own "__meta_" keying) -
+                # a real sol2/Lua metamethod slot, not a named method: the key
+                # here must be the sol::meta_function value itself, never a
+                # quoted string, or sol2 would register it as an ordinary method
+                # literally named e.g. "addition" instead of wiring up `+`.
+                key_expr = f"sol::meta_function::{method_name[len('__meta_'):]}"
+            else:
+                key_expr = f'"{method_name}"'
+            lines.append(f'        .add_member_function({key_expr}, {fun_expr})')
 
         lines.extend(extra_member_functions.get(class_name, []))
 
@@ -911,6 +1342,19 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
     extra_includes = '\n#include "../src/occt_sol_traits.hpp"' if any_transient else ""
     extra_includes += '\n#include "../src/collections.hpp"\n#include <vector>' if any_array else ""
+    extra_includes += '\n#include "../src/occt_ad_support.hpp"' if any_real else ""
+
+    # A `using` for every entity actually found nested inside a namespace (see
+    # discover_entities' own namespace-recursion note and ModuleResult.namespace_of's
+    # own comment) - every other place in this file emits the entity's *bare* name
+    # as a C++ type (register_type<Name>, lambda parameter types, Name(args)
+    # construction, ...), which is correct only because no OCCT class this generator
+    # has ever targeted is namespaced; for one that is (ADOL-C's own adtl::adouble),
+    # this makes the bare name resolve without threading a second, qualified name
+    # through every one of those emission sites instead.
+    using_decls = "\n".join(
+        f"using {ns}::{name};" for name, ns in sorted(result.namespace_of.items())
+    )
 
     cpp_source = GENERATED_BANNER + f"""
 #include "{result.name}.hpp"
@@ -918,8 +1362,9 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 {includes}
 
 #include <memory>
+{extra_includes}
 
-#include "../src/occt_ad_support.hpp"{extra_includes}
+{using_decls}
 
 void register_{result.name}(grunk::plugin_namespace& ns)
 {{

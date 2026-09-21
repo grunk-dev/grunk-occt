@@ -89,16 +89,59 @@ endif()
 # OCCT's own upstream CMake config, independent of which build/package provides it).
 # Only one of these two branches ever runs per configure.
 if(GRUNK_OCCT_ENABLE_AD)
-    # NO_DEFAULT_PATH + explicit PATHS: CMAKE_PREFIX_PATH (above) also has
-    # conda-forge's own stock occt==7.9.3 on it (needed for Lua/sol2/etc regardless
-    # of this option) - its own OpenCASCADEConfig.cmake would otherwise be found
-    # ahead of adOCCT's, silently linking against the wrong, non-AD OCCT.
+    # NO_DEFAULT_PATH + explicit PATHS: the pixi `ad` environment (see pixi.toml's
+    # [environments]) deliberately has no `occt` package at all, so this guard isn't
+    # normally load-bearing there - but CMAKE_PREFIX_PATH still points at whatever
+    # $CONDA_PREFIX this was configured with, and someone can always reuse
+    # ADOCCT_DIR against a different (occt-containing) environment by hand - defense
+    # in depth against silently linking the wrong, non-AD OCCT either way.
     find_package(OpenCASCADE CONFIG REQUIRED PATHS "${ADOCCT_DIR}" NO_DEFAULT_PATH)
 
     # ADOL-C itself: found via pkg-config - needs ADOL-C's own lib{,64}/pkgconfig
     # directory on PKG_CONFIG_PATH (see README.md's "Building with AD support").
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(ADOLC REQUIRED IMPORTED_TARGET GLOBAL adolc)
+
+    # --- grunk-adolc (FetchContent, pinned to a specific commit, same policy as
+    # grunk's own pin above): the sibling repo whose own plugin registers
+    # adtl::adouble (== Standard_Adouble, under adOCCT) as a native sol2 usertype -
+    # see DESIGN.md's "Reusing one shared Standard_Real/adtl::adouble registration,
+    # not two" for why occt_plugin itself never registers this type. Builds
+    # grunk-adolc's own `adtl_plugin` target; the test harness below loads it
+    # alongside occt_plugin. Only ever populated when GRUNK_OCCT_ENABLE_AD is ON -
+    # adtl_plugin needs the exact same ADOL-C install occt_plugin was just pointed
+    # at above (both must resolve to the same compiled adtl::adouble/Standard_Real
+    # type), and has no reason to exist in a plain, non-AD build at all.
+    FetchContent_Declare(grunk-adolc
+        GIT_REPOSITORY https://github.com/grunk-dev/grunk-adolc.git
+        GIT_TAG dd7dac1ad9bcbb761439fddc55f771c92bee0e5b
+    )
+
+    FetchContent_GetProperties(grunk-adolc)
+    if(NOT grunk-adolc_POPULATED)
+        if(POLICY CMP0169)
+            cmake_policy(SET CMP0169 OLD)
+        endif()
+        FetchContent_Populate(grunk-adolc)
+
+        # grunk-adolc's own CMakeLists.txt FetchContent_Declare(grunk ...)s the
+        # *same* "grunk" content name, at the *same* pinned commit as this project's
+        # own declaration above - by the time its add_subdirectory runs below,
+        # grunk_POPULATED is already TRUE (set above), so its own populate/
+        # add_subdirectory block is skipped entirely and it simply reuses the grunk
+        # already added into this build - not a second, independent copy of
+        # grunk::plugin/grunk::recipe (which would collide as duplicate targets).
+        #
+        # GRUNK_ADOLC_TESTS OFF is not optional, it's required: grunk-adolc's own
+        # CMakeLists.txt (with its own test harness enabled) defines an
+        # add_executable(runUnitTests ...) too - the exact same target name this
+        # project's own test harness below uses. Leaving it ON would fail the
+        # configure outright with a duplicate-target error.
+        set(GRUNK_ADOLC_TESTS OFF CACHE BOOL "" FORCE)
+        set(GRUNK_ADOLC_GENERATE_CODE OFF CACHE BOOL "" FORCE)
+
+        add_subdirectory(${grunk-adolc_SOURCE_DIR} ${grunk-adolc_BINARY_DIR} EXCLUDE_FROM_ALL)
+    endif()
 else()
     find_package(OpenCASCADE REQUIRED)
 endif()
@@ -213,10 +256,13 @@ target_link_libraries(occt_plugin PRIVATE grunk::plugin ${OpenCASCADE_LIBRARIES}
 target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
 if(GRUNK_OCCT_ENABLE_AD)
     # Activates every generated module's own #ifdef GRUNK_OCCT_WITH_ADOLC dual-
-    # emission overload (see src/occt_ad_support.hpp) and register_standard_real_ad's
-    # own registration of Standard_Real/Standard_Adouble itself, called first thing
-    # inside register_occt() (src/occt_plugin.cpp) - without it, is<Standard_Real>()
-    # could never be true for anything and every derivative would silently read 0.
+    # emission overload (see src/occt_ad_support.hpp's own to_real()) - the actual
+    # Standard_Real/Standard_Adouble (== adtl::adouble) registration itself comes
+    # from grunk-adolc's own plugin (adtl_plugin, built above), not from anything
+    # here; see DESIGN.md's "Reusing one shared Standard_Real/adtl::adouble
+    # registration, not two". Without adtl_plugin actually loaded into the same
+    # grunk::state occt_plugin is, is<Standard_Real>() below could never be true for
+    # anything and every derivative would silently read 0.
     target_compile_definitions(occt_plugin PRIVATE GRUNK_OCCT_WITH_ADOLC)
     target_link_libraries(occt_plugin PRIVATE PkgConfig::ADOLC)
 endif()
@@ -261,8 +307,9 @@ if(GRUNK_OCCT_TESTS)
     )
     if(GRUNK_OCCT_ENABLE_AD)
         # AD validation milestone (Step 7, see DESIGN.md) - a closed-form derivative
-        # check, only meaningful (and only compiles cleanly, since occt.Standard_Real
-        # only exists) when occt_plugin was actually built against adOCCT.
+        # check, only meaningful (and only compiles cleanly, since adtl.adouble/
+        # occt.Standard_Real only round-trips AD state under this build) when
+        # occt_plugin was actually built against adOCCT.
         list(APPEND OCCT_TEST_SOURCES tests/test_ad.cpp)
     endif()
 
@@ -286,6 +333,30 @@ if(GRUNK_OCCT_TESTS)
     # to blow its 5s default timeout on macOS CI.
     target_include_directories(runUnitTests PRIVATE ${OpenCASCADE_INCLUDE_DIR})
     target_link_libraries(runUnitTests PRIVATE TKernel TKMath)
+    if(GRUNK_OCCT_ENABLE_AD)
+        # adOCCT's own Standard_Adouble.hxx unconditionally #includes <adolc/adtl.h>
+        # whenever anything touches Standard_Real (not gated by our own
+        # GRUNK_OCCT_WITH_ADOLC macro - that's adOCCT's doing, not ours) - so any TU
+        # that reaches an OCCT header at all under this option needs ADOL-C's own
+        # include dir, not just occt_plugin's TUs. test_collections.cpp is the one
+        # test file that does (see its own comment above); link PkgConfig::ADOLC the
+        # same way occt_plugin does above for consistency, since a future AD test
+        # calling into ADOL-C directly would otherwise fail to link, not just to
+        # compile.
+        target_link_libraries(runUnitTests PRIVATE PkgConfig::ADOLC)
+
+        # Every fixture's own SetUpTestSuite (see e.g. tests/test_gp.cpp) loads
+        # grunk-adolc's own adtl_plugin into the same grunk::state as occt_plugin,
+        # guarded by this same macro (occt_plugin's own generated code already sees
+        # it via its own target_compile_definitions above - this is the test
+        # executable's copy of the same flag) - see DESIGN.md's "Reusing one shared
+        # Standard_Real/adtl::adouble registration, not two".
+        target_compile_definitions(runUnitTests PRIVATE
+            GRUNK_OCCT_WITH_ADOLC
+            ADTL_PLUGIN_SO_PATH="$<TARGET_FILE:adtl_plugin>"
+        )
+        add_dependencies(runUnitTests adtl_plugin)
+    endif()
     add_dependencies(runUnitTests occt_plugin)
     gtest_discover_tests(runUnitTests)
 endif()

@@ -39,7 +39,7 @@ steps: |
   origin = occt.gp_Pnt.new(0.0, 0.0, 0.0)
   dome_bottom = occt_helpers.mirror_point(dome_top, origin)
 
-  tank = occt_helpers.compound({cylinder, dome_top, dome_bottom})
+  tank = occt_helpers.compound(cylinder, dome_top, dome_bottom)
 
   ok = occt.export_brep(tank, "tank_model.brep")
 outputs:
@@ -106,7 +106,7 @@ recipes:
       dome_wedge_side2 = occt_helpers.rotate(dome_wedge_side1, default_axis, ninetydeg)
       dome_wedge_side3 = occt_helpers.rotate(dome_wedge_side2, default_axis, ninetydeg)
 
-      dome = occt_helpers.compound({dome_core, dome_wedge_side0, dome_wedge_side1, dome_wedge_side2, dome_wedge_side3, dome_wedge_top})
+      dome = occt_helpers.compound(dome_core, dome_wedge_side0, dome_wedge_side1, dome_wedge_side2, dome_wedge_side3, dome_wedge_top)
     outputs:
       dome: dome
     recipes:
@@ -179,7 +179,7 @@ recipes:
       box_translation = occt.gp_Vec.new(half_box_width_neg, half_box_width_neg, 0.0)
       cylinder_core = occt_helpers.translate(cylinder_core_untranslated, box_translation)
 
-      cylinder = occt_helpers.compound({cylinder_core, cylinder_segment0, cylinder_segment1, cylinder_segment2, cylinder_segment3})
+      cylinder = occt_helpers.compound(cylinder_core, cylinder_segment0, cylinder_segment1, cylinder_segment2, cylinder_segment3)
     outputs:
       cylinder: cylinder
     recipes:
@@ -209,6 +209,6 @@ recipes:
 
           edge0 = occt.BRepBuilderAPI_MakeEdge.new(p4, p2):Edge()
 
-          face = occt_helpers.wire_face({edge0, edge1, edge2, edge3})
+          face = occt_helpers.wire_face(edge0, edge1, edge2, edge3)
         outputs:
           face: face

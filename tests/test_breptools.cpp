@@ -19,6 +19,13 @@ protected:
     static void SetUpTestSuite()
     {
         state_ = new grunk::state();
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+        // Shared Standard_Real/adtl::adouble registration (see ../DESIGN.md's
+        // "Reusing one shared Standard_Real/adtl::adouble registration, not two") -
+        // grunk-adolc's own plugin has to be loaded into this same grunk::state
+        // before anything below can read/write occt.Standard_Real correctly.
+        grunk::plugin::load_native(*state_, ADTL_PLUGIN_SO_PATH);
+#endif
         grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
 

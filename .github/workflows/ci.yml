@@ -39,13 +39,13 @@ jobs:
           cache: true
 
       - name: Configure
-        run: pixi run configure Release
+        run: pixi run -e default configure Release
 
       - name: Build
-        run: pixi run build
+        run: pixi run -e default build
 
       - name: Test
-        run: pixi run test
+        run: pixi run -e default test
 
       - name: Run examples
-        run: pixi run run_examples
+        run: pixi run -e default run_examples

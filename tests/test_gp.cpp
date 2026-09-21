@@ -14,6 +14,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../src/occt_ad_support.hpp"
+
 namespace {
 
 class GpTest : public ::testing::Test {
@@ -21,6 +23,13 @@ protected:
     static void SetUpTestSuite()
     {
         state_ = new grunk::state();
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+        // Shared Standard_Real/adtl::adouble registration (see ../DESIGN.md's
+        // "Reusing one shared Standard_Real/adtl::adouble registration, not two") -
+        // grunk-adolc's own plugin has to be loaded into this same grunk::state
+        // before anything below can read/write occt.Standard_Real correctly.
+        grunk::plugin::load_native(*state_, ADTL_PLUGIN_SO_PATH);
+#endif
         grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
 
@@ -46,10 +55,10 @@ TEST_F(GpTest, PntConstructorAndAccessors)
         default_pnt_x = occt.gp_Pnt.new():X()
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("px"), 1.);
-    EXPECT_DOUBLE_EQ(env.get<double>("py"), 2.);
-    EXPECT_DOUBLE_EQ(env.get<double>("pz"), 3.);
-    EXPECT_DOUBLE_EQ(env.get<double>("default_pnt_x"), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("px")), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("py")), 2.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("pz")), 3.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("default_pnt_x")), 0.);
 }
 
 TEST_F(GpTest, DirConstructorAndAccessors)
@@ -60,9 +69,9 @@ TEST_F(GpTest, DirConstructorAndAccessors)
         dx = d:X(); dy = d:Y(); dz = d:Z()
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("dx"), 1.);
-    EXPECT_DOUBLE_EQ(env.get<double>("dy"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("dz"), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("dx")), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("dy")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("dz")), 0.);
 }
 
 TEST_F(GpTest, VecConstructorsAndMultiplied)
@@ -76,8 +85,8 @@ TEST_F(GpTest, VecConstructorsAndMultiplied)
         v3x = v:Multiplied(3.):X()
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("v_from_dir_x"), 1.);
-    EXPECT_DOUBLE_EQ(env.get<double>("v3x"), 6.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("v_from_dir_x")), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("v3x")), 6.);
 }
 
 TEST_F(GpTest, Ax1ConstructorAndAccessors)
@@ -91,8 +100,8 @@ TEST_F(GpTest, Ax1ConstructorAndAccessors)
         ax_dir_x = ax:Direction():X()
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("ax_loc_x"), 1.);
-    EXPECT_DOUBLE_EQ(env.get<double>("ax_dir_x"), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("ax_loc_x")), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("ax_dir_x")), 1.);
 }
 
 TEST_F(GpTest, TrsfSetTranslationRotationMirror)

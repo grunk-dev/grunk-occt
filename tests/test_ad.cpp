@@ -15,19 +15,27 @@
 // This is otherwise the exact same test-harness shape as ../tests/test_geom.cpp
 // (grunk::state + create_env() + raw Lua via env.eval(), see its own doc comment for
 // why: the recipe/YAML layer isn't exercised by any AD test in this repo yet). The
-// one difference: occt.Standard_Real itself is a real, distinct Lua usertype under
-// this build (register_standard_real_ad, see ../src/occt_ad_support.hpp) - it does
-// not exist at all in a plain (non-AD) build, so a plain double can't carry a seeded
-// AD direction the way occt.Standard_Real.new(...):setADValue(...) does here.
+// one difference: occt.Standard_Real (== Standard_Adouble under this build) needs an
+// actual AD-tracked value to seed a direction into, which a plain Lua number can't
+// carry - that value is adtl.adouble, grunk-adolc's own plugin (loaded below,
+// alongside occt_plugin - see ../DESIGN.md's "Reusing one shared Standard_Real/
+// adtl::adouble registration, not two"), not a distinct occt.Standard_Real usertype
+// of this project's own (an earlier design had one; superseded, see that same
+// DESIGN.md section for why).
 //
 // OCCT_PLUGIN_SO_PATH is the same compile definition every other test file here
 // uses (see ../CMakeLists.txt) - occt_plugin is one target either way, GRUNK_OCCT_
-// ENABLE_AD only changes what it's linked against, not its name.
+// ENABLE_AD only changes what it's linked against, not its name. ADTL_PLUGIN_SO_PATH
+// is only ever defined when GRUNK_OCCT_ENABLE_AD is (see ../CMakeLists.txt) - exactly
+// when this file is even compiled, so no #ifdef guard is needed around using it here,
+// unlike every other test file's own SetUpTestSuite.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>
 
 #include <gtest/gtest.h>
+
+#include "../src/occt_ad_support.hpp"
 
 namespace {
 
@@ -36,6 +44,7 @@ protected:
     static void SetUpTestSuite()
     {
         state_ = new grunk::state();
+        grunk::plugin::load_native(*state_, ADTL_PLUGIN_SO_PATH);
         grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
 
@@ -66,7 +75,7 @@ TEST_F(BezierAdTest, DerivativeMatchesClosedFormBernsteinWeight)
 {
     auto env = state_->create_env();
     auto res = env.eval(R"(
-        X0 = occt.Standard_Real.new(1.0)
+        X0 = adtl.adouble.new(1.0)
         X0:setADValue(0, 1.0)
 
         p0 = occt.gp_Pnt.new(X0, 0.0, 0.0)
@@ -89,10 +98,10 @@ TEST_F(BezierAdTest, DerivativeMatchesClosedFormBernsteinWeight)
     ASSERT_TRUE(res.valid());
 
     // x(0.5) = 0.125*X0 + 0.375*2 + 0.375*3 + 0.125*4, X0 = 1.0
-    EXPECT_NEAR(env.get<double>("mx_value"), 2.5, 1e-9);
-    EXPECT_NEAR(env.get<double>("mx_deriv"), 0.125, 1e-9);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("mx_value")), 2.5, 1e-9);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("mx_deriv")), 0.125, 1e-9);
 
     // y(0.5) = 0.125*0 + 0.375*1 + 0.375*1 + 0.125*1 - constant in X0
-    EXPECT_NEAR(env.get<double>("my_value"), 0.875, 1e-9);
-    EXPECT_NEAR(env.get<double>("my_deriv"), 0.0, 1e-9);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("my_value")), 0.875, 1e-9);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("my_deriv")), 0.0, 1e-9);
 }

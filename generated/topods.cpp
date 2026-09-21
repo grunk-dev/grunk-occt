@@ -17,7 +17,8 @@
 
 #include <memory>
 
-#include "../src/occt_ad_support.hpp"
+
+
 
 void register_topods(grunk::plugin_namespace& ns)
 {
@@ -84,6 +85,7 @@ void register_topods(grunk::plugin_namespace& ns)
         .add_member_function("IsPartner", [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self.IsPartner(theOther); })
         .add_member_function("IsSame", [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self.IsSame(theOther); })
         .add_member_function("IsEqual", [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self.IsEqual(theOther); })
+        .add_member_function(sol::meta_function::equal_to, [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self == theOther; })
         .add_member_function("IsNotEqual", [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self.IsNotEqual(theOther); })
         .add_member_function("EmptyCopy", [](TopoDS_Shape& self) { self.EmptyCopy(); })
         .add_member_function("EmptyCopied", [](TopoDS_Shape const& self) -> TopoDS_Shape { return self.EmptyCopied(); });

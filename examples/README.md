@@ -122,7 +122,16 @@ If you extend either recipe (or write your own against `occt_plugin`) and hit
 dispatch does not walk `add_bases<...>()`" section before assuming something is
 broken - it's grunk's own documented, deliberate behavior (recipe `steps:`/
 `recipes:` need an explicit `:as(BaseType)` cast to reach an inherited method;
-plugin/module bodies don't have this problem, but a plugin/module parameter that's
-a *table* of features needs each element unwrapped with `:value()` first). Both
-`cavity_model.grr.yml`/`tank_model.grr.yml` and `plugins/occt_helpers.lua` already
-show both patterns in context.
+plugin/module bodies don't have this problem). Both `cavity_model.grr.yml`/
+`tank_model.grr.yml` and `plugins/occt_helpers.lua` already show this pattern in
+context.
+
+Separately: if a plugin/module function needs a *list* of tracked values
+(points, edges, shapes, ...), pass them as trailing varargs
+(`helpers.polygon_face(p0, p1, ...)`), not as a single Lua table
+(`helpers.polygon_face({p0, p1, ...})`) - the latter is not just clunkier, it can
+silently read back the wrong (default/stale) value due to an upstream grunk
+dependency-tracking bug, [grunk-dev/grunk#289](https://github.com/grunk-dev/grunk/issues/289).
+See `../DESIGN.md`'s "A related, narrower gotcha..." section and
+`plugins/occt_helpers.lua`'s own `polygon_face`/`wire_face`/`compound` for the
+varargs pattern.

@@ -98,6 +98,15 @@ modules:
       - Geom_Line.hxx
       - Geom_BoundedCurve.hxx
       - Geom_BezierCurve.hxx
+      # A genuine B-spline (explicit knots/multiplicities), not an interpolation
+      # curve (GeomAPI_PointsToBSpline, geomapi module) or a Bezier curve above -
+      # added for the examples/bspline_curve.grr.yml AD example, "fashioned out
+      # of" adOCCT's own tests-ad/src/bspline_curve.cpp. Its own
+      # (TColgp_Array1OfPnt const&, TColStd_Array1OfReal const&,
+      # TColStd_Array1OfInteger const&, Standard_Integer) constructor is exactly
+      # what exercises to_real_array1 (src/collections.hpp) under AD - a real
+      # (TColStd_Array1OfReal), not just points, array parameter.
+      - Geom_BSplineCurve.hxx
       - Geom_TrimmedCurve.hxx
       - Geom_Conic.hxx
       - Geom_Circle.hxx

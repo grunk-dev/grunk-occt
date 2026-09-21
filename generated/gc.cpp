@@ -36,6 +36,8 @@
 
 #include "../src/occt_ad_support.hpp"
 
+
+
 void register_gc(grunk::plugin_namespace& ns)
 {
     ns.register_type<GC_MakeArcOfCircle, sol::automagic_flags::none>("GC_MakeArcOfCircle")

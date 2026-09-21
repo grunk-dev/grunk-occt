@@ -10,9 +10,14 @@ channels = ["conda-forge"]
 platforms = ["linux-64", "osx-64", "win-64"]
 
 [dependencies]
+# The `default` environment's own build tooling (see [environments] at the bottom) -
+# `occt` itself is deliberately *not* here - see [feature.occt.dependencies] below -
+# so it stays possible to keep it out of a different environment entirely (see
+# [feature.ad] - a full, independent copy of this same list, deliberately *not*
+# shared via implicit-default-feature inheritance: see that section's own comment
+# for why).
 cmake = "*"
 ninja = "*"
-occt = { version = "==7.9.3", build = "novtk_*" }
 lua = "*"
 sol2 = "*"
 taskflow = "*"
@@ -21,16 +26,13 @@ libparametric = "*"
 python = ">=3.9"
 pyyaml = "*"
 gtest = "*"
-# Not used by the root CMakeLists.txt/occt_plugin itself - needed by occt_adolc/'s own
-# standalone CMake project (Step 7, see DESIGN.md), which has no pixi.toml of its own
-# and instead builds inside this same environment (see occt_adolc/README.md).
-# find_package(PkgConfig REQUIRED) there locates ADOL-C via its own adolc.pc.
-pkg-config = "*"
 
 [pypi-dependencies]
 # Self-contained (bundles libclang.so + the clang.cindex Python bindings) - conda-forge's
 # own `libclang` package is the bare C library only, no Python bindings. See
-# codegen/README.md.
+# codegen/README.md. Only ever used by the `default` environment's own generate_code
+# task - the `ad` environment has no equivalent (see [feature.ad]'s own comment) and
+# doesn't need this either.
 libclang = "*"
 # grunk's own Python bindings, needed by examples/run_example.py (see its own
 # README.md) - built from source (scikit-build-core + nanobind, per grunk's own
@@ -40,6 +42,81 @@ libclang = "*"
 # never independently, or the C++ occt_plugin.so and the Python `grunk` package
 # loading it could disagree about the plugin ABI.
 grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "c16f519888eae62564145b1ba4c025c1e6dcc6c2" }
+
+# Stock OCCT - only pulled in by the `default` environment (see [environments]).
+# Kept out of [dependencies] specifically so the `ad` environment (adOCCT instead,
+# see [feature.ad] below) never installs it at all - the two OCCT builds have no
+# business coexisting in the same environment's own package set.
+[feature.occt.dependencies]
+occt = { version = "==7.9.3", build = "novtk_*" }
+
+# AD-enabled build (Step 7, see DESIGN.md/README.md's "Building with AD support") -
+# Linux-only, the one accepted platform exception in the migration plan; restricting
+# the feature itself to linux-64 (rather than gating every task under
+# [target.linux-64.tasks] as before) means `pixi run -e ad ...` simply isn't
+# resolvable at all on macOS/Windows, instead of resolving and then failing.
+#
+# This feature does *not* inherit [dependencies]/[tasks]/[pypi-dependencies]/
+# [target.linux-64.activation.env] above at all (see its `no-default-feature = true`
+# in [environments]) - full isolation, not just "occt swapped for adOCCT": tried the
+# implicit-inheritance version of this first (`ad = { features = ["ad"] }`, no
+# `no-default-feature`), and it silently made every task the two environments happen
+# to share by name (configure/build/test/all, but also generate_code/run_examples,
+# which were never meant to differ per environment at all) *ambiguous* - `pixi run
+# build` on its own no longer resolves without an explicit `-e default`/`-e ad`,
+# breaking every existing bare `pixi run <task>` call site (this repo's own CI,
+# README.md). Re-declaring the shared toolchain deps/activation env below instead
+# keeps the `ad` environment*'s own task set completely separate from `default`'s -
+# `pixi run build`/`test`/etc. (no `-e`) keep meaning "the default environment", the
+# same as before this environment split existed, and only `-e ad` ever sees the
+# AD-specific task definitions. Yes, this duplicates the toolchain dependency list
+# from [dependencies] above - the accepted cost of that isolation, not an oversight.
+[feature.ad]
+platforms = ["linux-64"]
+
+[feature.ad.dependencies]
+cmake = "*"
+ninja = "*"
+lua = "*"
+sol2 = "*"
+taskflow = "*"
+yaml-cpp = "*"
+libparametric = "*"
+python = ">=3.9"
+pyyaml = "*"
+gtest = "*"
+# find_package(PkgConfig REQUIRED) in CMakeLists.txt (GRUNK_OCCT_ENABLE_AD branch
+# only) uses this to locate ADOL-C via its own adolc.pc.
+pkg-config = "*"
+
+# grunk's own Python bindings - needed for this environment's own run_examples task
+# (examples/run_example.py), same as the default environment's own copy of this
+# dependency in [pypi-dependencies] above (kept in sync manually - see that
+# comment for the pin's own rationale). libclang is deliberately *not* duplicated
+# here - codegen/ is opt-in and only ever run against the default environment (see
+# [tasks]'s own generate_code, not duplicated into [feature.ad.tasks] either).
+[feature.ad.pypi-dependencies]
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "c16f519888eae62564145b1ba4c025c1e6dcc6c2" }
+
+[feature.ad.activation.env]
+# Needed for the same reason [target.linux-64.activation.env]'s own copy is - cmake's
+# own package discovery (find_package(parametric REQUIRED) etc.) via this
+# environment's own $CONDA_PREFIX (.pixi/envs/ad, not .pixi/envs/default).
+CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
+# .deps/adolc and .deps/adocct - ADOL-C's own libadolc.so and adOCCT's own build of
+# OCCT's shared libraries - used to be activated via LD_LIBRARY_PATH/PKG_CONFIG_PATH
+# for *every* pixi task (see git history), which was a real bug, not just untidy:
+# once `pixi run install_adocct` actually populated .deps/adocct/lib, having it on
+# every task's LD_LIBRARY_PATH meant a plain, non-AD libocct_plugin.so could dlopen
+# and resolve its OCCT symbols against adOCCT's differently-built libraries instead
+# of conda-forge's stock `occt` package - version-skewed and silently wrong
+# (surfaced as an undefined-symbol error, BOPAlgo_Algo::fillPIConstants, only when
+# run through `pixi run`, never through a raw `ctest` next to it). Scoping this to
+# the `ad` feature's own activation - which only the `ad` environment ever loads -
+# fixes that at the root: the default environment's own activation never sees these
+# paths at all now, not even via LD_LIBRARY_PATH being merely unset/harmless.
+LD_LIBRARY_PATH = "$PIXI_PROJECT_ROOT/.deps/adolc/lib64:$PIXI_PROJECT_ROOT/.deps/adolc/lib:$PIXI_PROJECT_ROOT/.deps/adocct/lib64:$PIXI_PROJECT_ROOT/.deps/adocct/lib:$LD_LIBRARY_PATH"
+PKG_CONFIG_PATH = "$PIXI_PROJECT_ROOT/.deps/adolc/lib64/pkgconfig:$PIXI_PROJECT_ROOT/.deps/adolc/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 [target.win-64.activation.env]
 CMAKE_PREFIX_PATH = "%CONDA_PREFIX%/Library"
@@ -61,16 +138,6 @@ SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
 [target.linux-64.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
 SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
-# Only load-bearing for the AD-enabled build (GRUNK_OCCT_ENABLE_AD, see README.md's
-# "Building with AD support") - occt_plugin built that way links against ADOL-C's
-# own libadolc.so and adOCCT's own OCCT libraries at runtime, not just at link time.
-# Harmless for a plain build: a nonexistent path here is simply ignored by the
-# dynamic linker/pkg-config, and both lib/lib64 variants are listed since which one
-# each install uses is distro-dependent (see scripts/install_adolc.sh's own
-# comment). .deps/, not build/_deps/ - see that same script's comment for why
-# ADOL-C/adOCCT install outside the CMake build directory.
-LD_LIBRARY_PATH = "$PIXI_PROJECT_ROOT/.deps/adolc/lib64:$PIXI_PROJECT_ROOT/.deps/adolc/lib:$PIXI_PROJECT_ROOT/.deps/adocct/lib64:$PIXI_PROJECT_ROOT/.deps/adocct/lib:$LD_LIBRARY_PATH"
-PKG_CONFIG_PATH = "$PIXI_PROJECT_ROOT/.deps/adolc/lib64/pkgconfig:$PIXI_PROJECT_ROOT/.deps/adolc/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 [target.osx-64.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
@@ -116,16 +183,26 @@ description = "Configure, build, test, and run the examples."
 [target.linux-64.tasks]
 run_examples = { cmd = "python examples/run_example.py build/libocct_plugin.so", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
 
-# AD-enabled build (Step 7, see DESIGN.md/README.md's "Building with AD support") -
-# Linux-only, the one accepted platform exception in the migration plan. Uses a
-# separate build directory (build-ad/) rather than build/, so the plain and
-# AD-enabled variants can coexist without reconfiguring/rebuilding one to get the
-# other - pick whichever `pixi run` task set matches what you need.
+[target.osx-64.tasks]
+run_examples = { cmd = "python examples/run_example.py build/libocct_plugin.dylib", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
+
+[target.win-64.tasks]
+run_examples = { cmd = "python examples/run_example.py build/occt_plugin.dll", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
+
+# AD-enabled build/test tasks - same names as the plain ones above (configure/build/
+# test/all), but only ever visible in the `ad` environment (see [environments] -
+# `no-default-feature = true` there means this feature's own tasks are the *only*
+# ones `ad` has, no collision with the plain ones above): `pixi run -e ad configure`/
+# `pixi run -e ad build`/`pixi run -e ad test` instead of the old configure_ad/
+# build_ad/test_ad names. Uses a separate build directory (build-ad/) rather than
+# build/, so the plain and AD-enabled variants can coexist without reconfiguring/
+# rebuilding one to get the other.
+[feature.ad.tasks]
 install_adolc = { cmd = "bash scripts/install_adolc.sh", description = "Download, build, and install ADOL-C 2.7.2 into .deps/adolc (idempotent)." }
 
 install_adocct = { cmd = "bash scripts/install_adocct.sh", depends-on = ["install_adolc"], description = "Clone and build adOCCT against the ADOL-C install above, into .deps/adocct (idempotent, involved - see scripts/install_adocct.sh)." }
 
-configure_ad = { cmd = [
+configure = { cmd = [
     "cmake",
     "-G", "Ninja",
     "-S", ".",
@@ -139,16 +216,29 @@ configure_ad = { cmd = [
     { "arg" = "config", "default" = "Release" }
 ], depends-on = ["install_adocct"], description = "Configure the AD-enabled build (build-ad/)." }
 
-build_ad = { cmd = "cmake --build build-ad --parallel", description = "Build the AD-enabled plugin and test harness." }
+build = { cmd = "cmake --build build-ad --parallel", description = "Build the AD-enabled plugin and test harness." }
 
-test_ad = { cmd = "ctest --test-dir build-ad --output-on-failure", depends-on = ["build_ad"], description = "Run the AD-enabled test harness (tests/test_ad.cpp - a closed-form derivative check)." }
+test = { cmd = "ctest --test-dir build-ad --output-on-failure", depends-on = ["build"], description = "Run the AD-enabled test harness (tests/test_ad.cpp - a closed-form derivative check)." }
 
-[target.linux-64.tasks.all_ad]
-depends-on = ["configure_ad", "build_ad", "test_ad"]
-description = "Bootstrap ADOL-C/adOCCT if needed, then configure, build, and test the AD-enabled variant."
+# Same examples/run_example.py the default environment's own run_examples task
+# uses (see [target.linux-64.tasks] above) - the *second* argument (grunk-adolc's
+# own adtl_plugin, built alongside occt_plugin here - see CMakeLists.txt's own
+# GRUNK_OCCT_ENABLE_AD FetchContent block) is what makes run_example.py verify
+# examples/bspline_curve.grr.yml's own AD derivative against finite differences,
+# not just check the primal curve position - see that script's own top comment.
+run_examples = { cmd = "python examples/run_example.py build-ad/libocct_plugin.so build-ad/_deps/grunk-adolc-build/libadtl_plugin.so", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md), including the AD derivative check." }
 
-[target.osx-64.tasks]
-run_examples = { cmd = "python examples/run_example.py build/libocct_plugin.dylib", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
+[feature.ad.tasks.all]
+depends-on = ["configure", "build", "test", "run_examples"]
+description = "Bootstrap ADOL-C/adOCCT if needed, then configure, build, test, and run the examples for the AD-enabled variant."
 
-[target.win-64.tasks]
-run_examples = { cmd = "python examples/run_example.py build/occt_plugin.dll", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
+# Two fully separate pixi environments, each with their own .pixi/envs/<name>
+# package set and no task-name collisions between them (see [feature.ad]'s own
+# comment for why `ad` needs `no-default-feature = true`, not just its own
+# `features = ["ad"]`): `default` (implicit [dependencies]/[tasks]/[pypi-
+# dependencies]/[target.linux-64.activation.env] plus [feature.occt.dependencies] -
+# stock occt) and `ad` (only [feature.ad.*] - adOCCT/ADOL-C, no occt package, no
+# Python/codegen tooling, at all).
+[environments]
+default = { features = ["occt"] }
+ad = { features = ["ad"], no-default-feature = true }

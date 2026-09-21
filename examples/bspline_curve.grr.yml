@@ -1,0 +1,120 @@
+# SPDX-FileCopyrightText: 2026 Jan Kleinert <jan.kleinert@dlr.de>
+#
+# SPDX-License-Identifier: MPL-2.0
+
+# Fashioned after adOCCT's own tests-ad/src/bspline_curve.cpp (dlr-sp/adOCCT,
+# TestGeomBSplineCurveByParameterId.SensitivityWrtPoleCoordinateXYZ) - the same
+# 5-pole, degree-2 B-spline curve (explicit knots/multiplicities - a genuine
+# Geom_BSplineCurve, not an interpolation curve or a Bezier curve), evaluated at
+# u=0.5. One pole's own X coordinate (p2_x) is the design parameter being
+# differentiated - matches the reference test's own independent_idx=0 case.
+#
+# Works unmodified against *either* occt_plugin variant (see ../README.md's
+# "Building with AD support"): seed_point (below) only takes the AD-seeding
+# branch if the `adtl` global table exists at all - i.e. only if grunk-adolc's
+# own plugin is also loaded into this grunk::state, which only ever happens for
+# the AD-enabled variant (see run_example.py's own comment on how it decides
+# which plugins to load, and why it verifies the derivative via finite
+# differences rather than a hardcoded expected value - this curve has no simple
+# closed form). Against the plain occt_plugin, mid_x_value/mid_y_value/
+# mid_z_value (the primal curve position) come out identically; mid_x_deriv/
+# mid_y_deriv/mid_z_deriv (d(position)/d(p2_x)) are only ever meaningfully
+# nonzero under AD - primal_value/ad_derivative below read them back the same
+# way regardless of build, so steps: itself never needs its own AD/non-AD
+# branch, only the two module functions that actually touch adtl do.
+uses:
+  grunk: 0.5.0
+  occt: 0.1.0
+modules:
+  me: |
+    -- x:setADValue(...) is a mutating call - has to run inside a module (an
+    -- eagerly-executed Lua function body), not a bare `steps:` statement, or its
+    -- own DAG node might never be scheduled under grunk's lazy evaluation - the
+    -- same hazard grunk-adolc's own tests/test_recipe.cpp first found (see
+    -- ../DESIGN.md's "Reusing one shared Standard_Real/adtl::adouble
+    -- registration, not two").
+    function seed_point(x, y, z)
+        if adtl ~= nil then
+            local xa = adtl.adouble.new(x)
+            xa:setADValue(0, 1.0)
+            return occt.gp_Pnt.new(xa, y, z)
+        end
+        return occt.gp_Pnt.new(x, y, z)
+    end
+
+    -- mid:X()/mid:Y()/mid:Z() (steps: below) are Standard_Real-valued -
+    -- Standard_Adouble under AD (a real, if AD-inert, value whenever this
+    -- particular coordinate wasn't itself seeded - see occt_ad_support.hpp),
+    -- plain double otherwise. Both cases need reading back the same way from
+    -- Lua, without steps: itself needing to know which build it's running
+    -- under.
+    function primal_value(v)
+        if adtl ~= nil then
+            return v:getValue()
+        end
+        return v
+    end
+
+    function ad_derivative(v)
+        if adtl ~= nil then
+            return v:getADValue(0)
+        end
+        return 0.0
+    end
+parameters:
+  p2_x: 0.0
+  p2_y: 1.0
+  p2_z: 2.0
+steps: |
+  p1 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+  p2 = me.seed_point(p2_x, p2_y, p2_z)
+  p3 = occt.gp_Pnt.new(0.0, 2.0, -1.0)
+  p4 = occt.gp_Pnt.new(0.0, 0.0, 3.0)
+  p5 = occt.gp_Pnt.new(0.0, 4.0, 0.0)
+
+  poles = occt.gp_Pnt.as_vec(p1, p2, p3, p4, p5)
+  -- occt.real_vec/occt.int_vec (src/vector_extras.hpp), not a plain Lua table
+  -- literal - sol2 only auto-converts a bare table argument to std::vector<T>
+  -- for the *first* such parameter in a given call; Geom_BSplineCurve's own
+  -- constructor has two (Knots and Multiplicities), and a table literal for the
+  -- second one fails with "expected userdata, received table" - confirmed via a
+  -- minimal, unrelated-to-this-project sol2 repro. occt.gp_Pnt.as_vec (Poles,
+  -- above) doesn't hit this at all - it always returns real vector userdata,
+  -- never accepts a raw table for the *element* type here anyway.
+  knots = occt.real_vec(0.0, 1.0, 2.0, 3.0)
+  mults = occt.int_vec(3, 1, 1, 3)
+  degree = 2
+
+  curve = occt.Geom_BSplineCurve.new(poles, knots, mults, degree)
+
+  -- The qualified "Type.method(instance, args...)" form, not curve:Value(0.5) -
+  -- unlike the plain create_env()-based tests (see ../tests/test_geom.cpp's own
+  -- ValueViaInheritedGeomCurve), the recipe/DAG layer's own DynamicFeature
+  -- type-hint dispatch doesn't walk add_bases<...>() inheritance chains the way
+  -- create_env()'s own colon-call dispatch does (grunk-dev/grunk#285, filed, not
+  -- yet fixed upstream) - Value() is registered on Geom_Curve, not
+  -- Geom_BSplineCurve itself, so an unqualified curve:Value(0.5) fails outright
+  -- ("has no member Value") here specifically. curve:as(occt.Geom_Curve):Value
+  -- (0.5) - the workaround this project's own cavity_model.grr.yml/
+  -- tank_model.grr.yml use for the exact same gap on BRepBuilderAPI_MakeShape -
+  -- doesn't error here, but silently reads back the wrong (all-zero) value
+  -- instead - confirmed empirically, not yet understood why, so the qualified
+  -- form is used instead: it isn't affected by #285 at all (a different dispatch
+  -- path, per grunk-adolc's own tests/test_recipe.cpp - see its own
+  -- QualifiedCallWorksInsideRecipeAndReactsToParameterChanges).
+  mid = occt.Geom_Curve.Value(curve, 0.5)
+
+  mid_x_value = me.primal_value(mid:X())
+  mid_y_value = me.primal_value(mid:Y())
+  mid_z_value = me.primal_value(mid:Z())
+
+  mid_x_deriv = me.ad_derivative(mid:X())
+  mid_y_deriv = me.ad_derivative(mid:Y())
+  mid_z_deriv = me.ad_derivative(mid:Z())
+outputs:
+  mid_x_value: mid_x_value
+  mid_y_value: mid_y_value
+  mid_z_value: mid_z_value
+  mid_x_deriv: mid_x_deriv
+  mid_y_deriv: mid_y_deriv
+  mid_z_deriv: mid_z_deriv

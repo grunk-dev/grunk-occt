@@ -9,6 +9,7 @@
 #include <Geom_Line.hxx>
 #include <Geom_BoundedCurve.hxx>
 #include <Geom_BezierCurve.hxx>
+#include <Geom_BSplineCurve.hxx>
 #include <Geom_TrimmedCurve.hxx>
 #include <Geom_Conic.hxx>
 #include <Geom_Circle.hxx>
@@ -18,10 +19,12 @@
 
 #include <memory>
 
-#include "../src/occt_ad_support.hpp"
 #include "../src/occt_sol_traits.hpp"
 #include "../src/collections.hpp"
 #include <vector>
+#include "../src/occt_ad_support.hpp"
+
+
 
 void register_geom(grunk::plugin_namespace& ns)
 {
@@ -221,7 +224,7 @@ void register_geom(grunk::plugin_namespace& ns)
     ns.register_type<Geom_BezierCurve, sol::automagic_flags::none>("Geom_BezierCurve")
         .add_constructors(
             [](std::vector<gp_Pnt> const& CurvePoles) -> opencascade::handle<Geom_BezierCurve> { return opencascade::handle<Geom_BezierCurve>(new Geom_BezierCurve(occt_plugin::to_array1(CurvePoles))); },
-            [](std::vector<gp_Pnt> const& CurvePoles, std::vector<double> const& PoleWeights) -> opencascade::handle<Geom_BezierCurve> { return opencascade::handle<Geom_BezierCurve>(new Geom_BezierCurve(occt_plugin::to_array1(CurvePoles), occt_plugin::to_array1(PoleWeights))); }
+            [](std::vector<gp_Pnt> const& CurvePoles, std::vector<double> const& PoleWeights) -> opencascade::handle<Geom_BezierCurve> { return opencascade::handle<Geom_BezierCurve>(new Geom_BezierCurve(occt_plugin::to_array1(CurvePoles), occt_plugin::to_real_array1(PoleWeights))); }
         )
         .add_member_function("Increase", [](Geom_BezierCurve& self, const Standard_Integer Degree) { self.Increase(Degree); })
         .add_member_function("InsertPoleAfter", sol::overload(
@@ -326,6 +329,255 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Weight", [](Geom_BezierCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Weight(Index); })
         .add_member_function("Transform", [](Geom_BezierCurve& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BezierCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_BSplineCurve, sol::automagic_flags::none>("Geom_BSplineCurve")
+        .add_constructors(
+            [](std::vector<gp_Pnt> const& Poles, std::vector<double> const& Knots, std::vector<int> const& Multiplicities, const Standard_Integer Degree) -> opencascade::handle<Geom_BSplineCurve> { return opencascade::handle<Geom_BSplineCurve>(new Geom_BSplineCurve(occt_plugin::to_array1(Poles), occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Multiplicities), Degree)); },
+            [](std::vector<gp_Pnt> const& Poles, std::vector<double> const& Knots, std::vector<int> const& Multiplicities, const Standard_Integer Degree, const Standard_Boolean Periodic) -> opencascade::handle<Geom_BSplineCurve> { return opencascade::handle<Geom_BSplineCurve>(new Geom_BSplineCurve(occt_plugin::to_array1(Poles), occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Multiplicities), Degree, Periodic)); },
+            [](std::vector<gp_Pnt> const& Poles, std::vector<double> const& Weights, std::vector<double> const& Knots, std::vector<int> const& Multiplicities, const Standard_Integer Degree) -> opencascade::handle<Geom_BSplineCurve> { return opencascade::handle<Geom_BSplineCurve>(new Geom_BSplineCurve(occt_plugin::to_array1(Poles), occt_plugin::to_real_array1(Weights), occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Multiplicities), Degree)); },
+            [](std::vector<gp_Pnt> const& Poles, std::vector<double> const& Weights, std::vector<double> const& Knots, std::vector<int> const& Multiplicities, const Standard_Integer Degree, const Standard_Boolean Periodic) -> opencascade::handle<Geom_BSplineCurve> { return opencascade::handle<Geom_BSplineCurve>(new Geom_BSplineCurve(occt_plugin::to_array1(Poles), occt_plugin::to_real_array1(Weights), occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Multiplicities), Degree, Periodic)); },
+            [](std::vector<gp_Pnt> const& Poles, std::vector<double> const& Weights, std::vector<double> const& Knots, std::vector<int> const& Multiplicities, const Standard_Integer Degree, const Standard_Boolean Periodic, const Standard_Boolean CheckRational) -> opencascade::handle<Geom_BSplineCurve> { return opencascade::handle<Geom_BSplineCurve>(new Geom_BSplineCurve(occt_plugin::to_array1(Poles), occt_plugin::to_real_array1(Weights), occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Multiplicities), Degree, Periodic, CheckRational)); }
+        )
+        .add_member_function("IncreaseDegree", [](Geom_BSplineCurve& self, const Standard_Integer Degree) { self.IncreaseDegree(Degree); })
+        .add_member_function("IncreaseMultiplicity", sol::overload(
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const Standard_Integer M) { self.IncreaseMultiplicity(Index, M); },
+            [](Geom_BSplineCurve& self, const Standard_Integer I1, const Standard_Integer I2, const Standard_Integer M) { self.IncreaseMultiplicity(I1, I2, M); }
+        ))
+        .add_member_function("IncrementMultiplicity", [](Geom_BSplineCurve& self, const Standard_Integer I1, const Standard_Integer I2, const Standard_Integer M) { self.IncrementMultiplicity(I1, I2, M); })
+        .add_member_function("InsertKnot", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, sol::object U) { self.InsertKnot(occt_plugin::to_real(U)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Real U) { self.InsertKnot(U); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, sol::object U, const Standard_Integer M) { self.InsertKnot(occt_plugin::to_real(U), M); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Real U, const Standard_Integer M) { self.InsertKnot(U, M); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, sol::object U, const Standard_Integer M, sol::object ParametricTolerance) { self.InsertKnot(occt_plugin::to_real(U), M, occt_plugin::to_real(ParametricTolerance)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Real U, const Standard_Integer M, const Standard_Real ParametricTolerance) { self.InsertKnot(U, M, ParametricTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, sol::object U, const Standard_Integer M, sol::object ParametricTolerance, const Standard_Boolean Add) { self.InsertKnot(occt_plugin::to_real(U), M, occt_plugin::to_real(ParametricTolerance), Add); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Real U, const Standard_Integer M, const Standard_Real ParametricTolerance, const Standard_Boolean Add) { self.InsertKnot(U, M, ParametricTolerance, Add); }
+#endif
+        
+        ))
+        .add_member_function("InsertKnots", sol::overload(
+            [](Geom_BSplineCurve& self, std::vector<double> const& Knots, std::vector<int> const& Mults) { self.InsertKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults)); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, std::vector<double> const& Knots, std::vector<int> const& Mults, sol::object ParametricTolerance) { self.InsertKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), occt_plugin::to_real(ParametricTolerance)); }
+#else
+            [](Geom_BSplineCurve& self, std::vector<double> const& Knots, std::vector<int> const& Mults, const Standard_Real ParametricTolerance) { self.InsertKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), ParametricTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, std::vector<double> const& Knots, std::vector<int> const& Mults, sol::object ParametricTolerance, const Standard_Boolean Add) { self.InsertKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), occt_plugin::to_real(ParametricTolerance), Add); }
+#else
+            [](Geom_BSplineCurve& self, std::vector<double> const& Knots, std::vector<int> const& Mults, const Standard_Real ParametricTolerance, const Standard_Boolean Add) { self.InsertKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), ParametricTolerance, Add); }
+#endif
+        
+        ))
+        .add_member_function("RemoveKnot", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const Standard_Integer M, sol::object Tolerance) -> Standard_Boolean { return self.RemoveKnot(Index, M, occt_plugin::to_real(Tolerance)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const Standard_Integer M, const Standard_Real Tolerance) -> Standard_Boolean { return self.RemoveKnot(Index, M, Tolerance); }
+#endif
+        )
+        .add_member_function("Reverse", [](Geom_BSplineCurve& self) { self.Reverse(); })
+        .add_member_function("ReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U) -> Standard_Real { return self.ReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U) -> Standard_Real { return self.ReversedParameter(U); }
+#endif
+        )
+        .add_member_function("Segment", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, sol::object U1, sol::object U2) { self.Segment(occt_plugin::to_real(U1), occt_plugin::to_real(U2)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Real U1, const Standard_Real U2) { self.Segment(U1, U2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, sol::object U1, sol::object U2, sol::object theTolerance) { self.Segment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(theTolerance)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real theTolerance) { self.Segment(U1, U2, theTolerance); }
+#endif
+        
+        ))
+        .add_member_function("SetKnot", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, sol::object K) { self.SetKnot(Index, occt_plugin::to_real(K)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const Standard_Real K) { self.SetKnot(Index, K); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, sol::object K, const Standard_Integer M) { self.SetKnot(Index, occt_plugin::to_real(K), M); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const Standard_Real K, const Standard_Integer M) { self.SetKnot(Index, K, M); }
+#endif
+        
+        ))
+        .add_member_function("SetKnots", [](Geom_BSplineCurve& self, std::vector<double> const& K) { self.SetKnots(occt_plugin::to_real_array1(K)); })
+        .add_member_function("SetPeriodic", [](Geom_BSplineCurve& self) { self.SetPeriodic(); })
+        .add_member_function("SetOrigin", sol::overload(
+            [](Geom_BSplineCurve& self, const Standard_Integer Index) { self.SetOrigin(Index); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, sol::object U, sol::object Tol) { self.SetOrigin(occt_plugin::to_real(U), occt_plugin::to_real(Tol)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Real U, const Standard_Real Tol) { self.SetOrigin(U, Tol); }
+#endif
+        
+        ))
+        .add_member_function("SetNotPeriodic", [](Geom_BSplineCurve& self) { self.SetNotPeriodic(); })
+        .add_member_function("SetPole", sol::overload(
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const gp_Pnt & P) { self.SetPole(Index, P); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const gp_Pnt & P, sol::object Weight) { self.SetPole(Index, P, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const gp_Pnt & P, const Standard_Real Weight) { self.SetPole(Index, P, Weight); }
+#endif
+        
+        ))
+        .add_member_function("SetWeight", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, sol::object Weight) { self.SetWeight(Index, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BSplineCurve& self, const Standard_Integer Index, const Standard_Real Weight) { self.SetWeight(Index, Weight); }
+#endif
+        )
+        .add_member_function("IsCN", [](Geom_BSplineCurve const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
+        .add_member_function("IsG1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object theTf, sol::object theTl, sol::object theAngTol) -> Standard_Boolean { return self.IsG1(occt_plugin::to_real(theTf), occt_plugin::to_real(theTl), occt_plugin::to_real(theAngTol)); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real theTf, const Standard_Real theTl, const Standard_Real theAngTol) -> Standard_Boolean { return self.IsG1(theTf, theTl, theAngTol); }
+#endif
+        )
+        .add_member_function("IsClosed", [](Geom_BSplineCurve const& self) -> Standard_Boolean { return self.IsClosed(); })
+        .add_member_function("IsPeriodic", [](Geom_BSplineCurve const& self) -> Standard_Boolean { return self.IsPeriodic(); })
+        .add_member_function("IsRational", [](Geom_BSplineCurve const& self) -> Standard_Boolean { return self.IsRational(); })
+        .add_member_function("Degree", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.Degree(); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), P); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, gp_Pnt & P) { self.D0(U, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1) { self.D1(occt_plugin::to_real(U), P, V1); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1) { self.D1(U, P, V1); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(occt_plugin::to_real(U), P, V1, V2); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.D2(U, P, V1, V2); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(occt_plugin::to_real(U), P, V1, V2, V3); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.D3(U, P, V1, V2, V3); }
+#endif
+        )
+        .add_member_function("DN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, const Standard_Integer N) -> gp_Vec { return self.DN(occt_plugin::to_real(U), N); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, const Standard_Integer N) -> gp_Vec { return self.DN(U, N); }
+#endif
+        )
+        .add_member_function("LocalValue", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, const Standard_Integer FromK1, const Standard_Integer ToK2) -> gp_Pnt { return self.LocalValue(occt_plugin::to_real(U), FromK1, ToK2); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, const Standard_Integer FromK1, const Standard_Integer ToK2) -> gp_Pnt { return self.LocalValue(U, FromK1, ToK2); }
+#endif
+        )
+        .add_member_function("LocalD0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P) { self.LocalD0(occt_plugin::to_real(U), FromK1, ToK2, P); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P) { self.LocalD0(U, FromK1, ToK2, P); }
+#endif
+        )
+        .add_member_function("LocalD1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P, gp_Vec & V1) { self.LocalD1(occt_plugin::to_real(U), FromK1, ToK2, P, V1); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P, gp_Vec & V1) { self.LocalD1(U, FromK1, ToK2, P, V1); }
+#endif
+        )
+        .add_member_function("LocalD2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.LocalD2(occt_plugin::to_real(U), FromK1, ToK2, P, V1, V2); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2) { self.LocalD2(U, FromK1, ToK2, P, V1, V2); }
+#endif
+        )
+        .add_member_function("LocalD3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.LocalD3(occt_plugin::to_real(U), FromK1, ToK2, P, V1, V2, V3); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, const Standard_Integer FromK1, const Standard_Integer ToK2, gp_Pnt & P, gp_Vec & V1, gp_Vec & V2, gp_Vec & V3) { self.LocalD3(U, FromK1, ToK2, P, V1, V2, V3); }
+#endif
+        )
+        .add_member_function("LocalDN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, sol::object U, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Integer N) -> gp_Vec { return self.LocalDN(occt_plugin::to_real(U), FromK1, ToK2, N); }
+#else
+            [](Geom_BSplineCurve const& self, const Standard_Real U, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Integer N) -> gp_Vec { return self.LocalDN(U, FromK1, ToK2, N); }
+#endif
+        )
+        .add_member_function("EndPoint", [](Geom_BSplineCurve const& self) -> gp_Pnt { return self.EndPoint(); })
+        .add_member_function("FirstUKnotIndex", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.FirstUKnotIndex(); })
+        .add_member_function("FirstParameter", [](Geom_BSplineCurve const& self) -> Standard_Real { return self.FirstParameter(); })
+        .add_member_function("Knot", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Knot(Index); })
+        .add_member_function("LastUKnotIndex", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.LastUKnotIndex(); })
+        .add_member_function("LastParameter", [](Geom_BSplineCurve const& self) -> Standard_Real { return self.LastParameter(); })
+        .add_member_function("Multiplicity", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Integer { return self.Multiplicity(Index); })
+        .add_member_function("NbKnots", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.NbKnots(); })
+        .add_member_function("NbPoles", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.NbPoles(); })
+        .add_member_function("Pole", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Pole(Index); })
+        .add_member_function("StartPoint", [](Geom_BSplineCurve const& self) -> gp_Pnt { return self.StartPoint(); })
+        .add_member_function("Weight", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Weight(Index); })
+        .add_member_function("Transform", [](Geom_BSplineCurve& self, const gp_Trsf & T) { self.Transform(T); })
+        .add_member_function("Copy", [](Geom_BSplineCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("IsEqual", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineCurve const& self, const opencascade::handle<Geom_BSplineCurve> & theOther, sol::object thePreci) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(thePreci)); }
+#else
+            [](Geom_BSplineCurve const& self, const opencascade::handle<Geom_BSplineCurve> & theOther, const Standard_Real thePreci) -> Standard_Boolean { return self.IsEqual(theOther, thePreci); }
+#endif
+        )
         .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_TrimmedCurve, sol::automagic_flags::none>("Geom_TrimmedCurve")
         .add_constructors(
@@ -529,4 +781,5 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Copy", [](Geom_Circle const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_function("Geom_BezierCurve_MaxDegree", []() -> Standard_Integer { return Geom_BezierCurve::MaxDegree(); });
+    ns.register_function("Geom_BSplineCurve_MaxDegree", []() -> Standard_Integer { return Geom_BSplineCurve::MaxDegree(); });
 }

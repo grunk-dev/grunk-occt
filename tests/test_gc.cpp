@@ -12,6 +12,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../src/occt_ad_support.hpp"
+
 namespace {
 
 class GcTest : public ::testing::Test {
@@ -19,6 +21,13 @@ protected:
     static void SetUpTestSuite()
     {
         state_ = new grunk::state();
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+        // Shared Standard_Real/adtl::adouble registration (see ../DESIGN.md's
+        // "Reusing one shared Standard_Real/adtl::adouble registration, not two") -
+        // grunk-adolc's own plugin has to be loaded into this same grunk::state
+        // before anything below can read/write occt.Standard_Real correctly.
+        grunk::plugin::load_native(*state_, ADTL_PLUGIN_SO_PATH);
+#endif
         grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
 
@@ -60,12 +69,12 @@ TEST_F(GcTest, MakeSegmentBetweenTwoPoints)
     )");
     ASSERT_TRUE(res.valid());
     EXPECT_TRUE(env.get<bool>("is_done"));
-    EXPECT_DOUBLE_EQ(env.get<double>("sx"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("sy"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("sz"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("fx"), 3.);
-    EXPECT_DOUBLE_EQ(env.get<double>("fy"), 4.);
-    EXPECT_DOUBLE_EQ(env.get<double>("fz"), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sx")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sy")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sz")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fx")), 3.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fy")), 4.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fz")), 0.);
 }
 
 // GC_MakeCircle's axis+radius constructor - Value() returns Handle(Geom_Circle),
@@ -90,7 +99,7 @@ TEST_F(GcTest, MakeCircleFromAxisAndRadius)
     EXPECT_TRUE(env.get<bool>("is_done"));
     // A circle of radius 5 centered at the origin, in the XY plane (normal = Z),
     // passes through (5, 0, 0) at parameter 0.
-    EXPECT_NEAR(env.get<double>("p0x"), 5., 1e-9);
-    EXPECT_NEAR(env.get<double>("p0y"), 0., 1e-9);
-    EXPECT_NEAR(env.get<double>("p0z"), 0., 1e-9);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("p0x")), 5., 1e-9);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("p0y")), 0., 1e-9);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("p0z")), 0., 1e-9);
 }

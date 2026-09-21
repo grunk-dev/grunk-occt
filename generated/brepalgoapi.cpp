@@ -20,6 +20,8 @@
 
 #include "../src/occt_ad_support.hpp"
 
+
+
 void register_brepalgoapi(grunk::plugin_namespace& ns)
 {
     ns.register_type<BRepAlgoAPI_Algo, sol::automagic_flags::none>("BRepAlgoAPI_Algo")

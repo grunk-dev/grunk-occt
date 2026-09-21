@@ -55,6 +55,7 @@
 #include "shape_io.hpp"
 #include "topexp_extras.hpp"
 #include "math_extras.hpp"
+#include "vector_extras.hpp"
 #include "occt_ad_support.hpp"
 
 namespace {
@@ -63,16 +64,27 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
 {
     auto ns = state.begin_plugin(info);
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-    // Must run before anything else: occt_plugin::to_real's own `is<Standard_Real>()`
-    // check (used throughout every generated module's dual-emission overloads) can
-    // never be true for anything until Standard_Real itself is registered - see
-    // occt_ad_support.hpp's own doc comment on register_standard_real_ad. Order among
-    // the register_*(ns) calls below doesn't otherwise matter (registration all
-    // happens before any Lua code runs), but this one is placed first anyway so
-    // there's no need to reason about it again later if another AD-only registration
-    // is ever added.
-    register_standard_real_ad(ns);
+    // Standard_Adouble is genuinely OCCT's own type (adOCCT's own derived class
+    // over grunk-adolc's adtl::adouble - see occt_ad_support.hpp's own comment for
+    // why this needs its own registration, not just reusing adtl::adouble's), so it
+    // belongs here, not in grunk-adolc, which has no OCCT dependency at all.
+    occt_plugin::register_standard_adouble(ns);
 #endif
+    // No runtime check here that grunk-adolc's own "adtl" plugin is loaded, even
+    // though this build (GRUNK_OCCT_WITH_ADOLC) needs it before any AD-enabled OCCT
+    // Lua code runs - see occt_ad_support.hpp's own comment and DESIGN.md's
+    // "Reusing one shared Standard_Real/adtl::adouble registration, not two" for why
+    // and what happens if that requirement isn't met (occt_plugin::to_real's
+    // is<Standard_Real>()/is<adtl::adouble>() checks silently take the plain-double
+    // fallback branch instead of failing loudly). An earlier version of this
+    // function *did* check state.plugins() for "adtl" here, but that check ran at
+    // this plugin's own registration time, which wrongly forced a specific load
+    // order (adtl must load before occt) rather than the actual requirement (both
+    // loaded before any AD Lua code executes) - see grunk-dev/grunk#287, filed to
+    // give grunk itself a general, load-order-independent mechanism for a plugin to
+    // declare this kind of runtime dependency, rather than every plugin
+    // hand-rolling its own state.plugins() scan at the wrong checkpoint. Once that
+    // lands, occt_plugin should use it instead of staying silent here.
     register_gp(ns);
     register_gp_extras(ns);
     register_toploc(ns);
@@ -95,6 +107,7 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_shape_io(ns);
     register_topexp_extras(ns);
     register_math_extras(ns);
+    register_vector_extras(ns);
 }
 
 } // anonymous namespace

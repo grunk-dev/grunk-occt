@@ -8,7 +8,8 @@
 
 #include <memory>
 
-#include "../src/occt_ad_support.hpp"
+
+
 
 void register_toploc(grunk::plugin_namespace& ns)
 {
@@ -24,10 +25,14 @@ void register_toploc(grunk::plugin_namespace& ns)
         .add_member_function("Transformation", [](TopLoc_Location const& self) -> const gp_Trsf & { return self.Transformation(); })
         .add_member_function("Inverted", [](TopLoc_Location const& self) -> TopLoc_Location { return self.Inverted(); })
         .add_member_function("Multiplied", [](TopLoc_Location const& self, const TopLoc_Location & Other) -> TopLoc_Location { return self.Multiplied(Other); })
+        .add_member_function(sol::meta_function::multiplication, [](TopLoc_Location const& self, const TopLoc_Location & Other) -> TopLoc_Location { return self * Other; })
         .add_member_function("Divided", [](TopLoc_Location const& self, const TopLoc_Location & Other) -> TopLoc_Location { return self.Divided(Other); })
+        .add_member_function(sol::meta_function::division, [](TopLoc_Location const& self, const TopLoc_Location & Other) -> TopLoc_Location { return self / Other; })
         .add_member_function("Predivided", [](TopLoc_Location const& self, const TopLoc_Location & Other) -> TopLoc_Location { return self.Predivided(Other); })
         .add_member_function("Powered", [](TopLoc_Location const& self, const Standard_Integer pwr) -> TopLoc_Location { return self.Powered(pwr); })
+        .add_member_function("HashCode", [](TopLoc_Location const& self) -> size_t { return self.HashCode(); })
         .add_member_function("IsEqual", [](TopLoc_Location const& self, const TopLoc_Location & Other) -> Standard_Boolean { return self.IsEqual(Other); })
+        .add_member_function(sol::meta_function::equal_to, [](TopLoc_Location const& self, const TopLoc_Location & Other) -> Standard_Boolean { return self == Other; })
         .add_member_function("IsDifferent", [](TopLoc_Location const& self, const TopLoc_Location & Other) -> Standard_Boolean { return self.IsDifferent(Other); })
         .add_member_function("Clear", [](TopLoc_Location& self) { self.Clear(); });
     ns.register_function("TopLoc_Location_ScalePrec", []() -> Standard_Real { return TopLoc_Location::ScalePrec(); });

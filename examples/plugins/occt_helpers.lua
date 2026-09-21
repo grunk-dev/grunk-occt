@@ -49,10 +49,32 @@
 -- add_bases<...>() correctly there, same as every tests/test_*.cpp file's own raw
 -- Lua strings - see translate/rotate/mirror_point's own plain ":Shape()" calls
 -- below. Only genuinely *incoming* values - a module's own parameters, populated
--- from the calling recipe's tracked features - need unwrapping, and only when
--- extracted from inside a table argument (see polygon_face/wire_face/compound's
--- own ":value()" calls below): a plain top-level parameter (shape/vec/axis/...)
--- already arrives unwrapped, but a table's individual elements do not.
+-- from the calling recipe's tracked features - need unwrapping.
+--
+-- polygon_face/wire_face/compound take their list of points/edges/shapes as
+-- trailing varargs (...) from their CALLER's side, NOT as a single Lua table
+-- argument - this is not a style choice, it works around a real grunk
+-- dependency-tracking bug (reported upstream, see grunk-dev/grunk#289): a
+-- tracked value read straight back out of an incoming module parameter
+-- reflects the caller's current (possibly overridden) value correctly, but
+-- the exact same value, if the caller first wraps it in a Lua table and
+-- passes *that table* as the module parameter, silently reads back
+-- stale/default - dependency tracking does not see through a table built on
+-- the CALLER's side of the boundary. Passing each element as its own vararg
+-- sidesteps this entirely (confirmed via a minimal repro isolating that
+-- table-wrapping + module-call combination as the two jointly-necessary
+-- conditions). Each vararg element, like any other top-level module
+-- parameter, arrives already unwrapped - no ":value()" needed.
+--
+-- Each function below still packs its own already-unwrapped `...` into a
+-- local table (`{...}`) internally, purely for plain-Lua iteration (`#`/`[i]`)
+-- - this is safe and unrelated to the bug above: `select`/`select('#', ...)`
+-- aren't reachable from this decorated environment (same restriction as
+-- Lua's own error()/assert(), see src/math_extras.hpp's comment on
+-- occt.error()), and by the time `...` reaches a function body, its elements
+-- are already plain, correctly-valued Lua values - the bug is specifically
+-- about a table crossing INTO a module call from the recipe side, not about
+-- any table built afterwards, inside the module, from already-arrived values.
 
 -- BRepBuilderAPI_Transform's trailing theCopyGeom/theCopyMesh (both = Standard_False
 -- by default) are omitted below - grunk-occt's code generator now expands trailing
@@ -78,38 +100,62 @@ function mirror_point(shape, point)
     return occt.BRepBuilderAPI_Transform.new(shape, trsf):Shape()
 end
 
--- Builds a closed planar face from an ordered list of gp_Pnt (a Lua array/table),
--- via BRepBuilderAPI_MakePolygon (Add one point at a time, then Close) followed by
--- BRepBuilderAPI_MakeFace on the resulting wire. BRepBuilderAPI_MakeFace's own
--- trailing OnlyPlane (default Standard_False) is likewise omitted below.
-function polygon_face(points)
+-- Builds a closed planar face from an ordered list of gp_Pnt (passed as
+-- varargs - see this file's top comment), via BRepBuilderAPI_MakePolygon (Add
+-- one point at a time, then Close) followed by BRepBuilderAPI_MakeFace on the
+-- resulting wire. BRepBuilderAPI_MakeFace's own trailing OnlyPlane (default
+-- Standard_False) is likewise omitted below.
+function polygon_face(...)
+    local points = {...}
     local mp = occt.BRepBuilderAPI_MakePolygon.new()
     for i = 1, #points do
-        mp:Add(points[i]:value())
+        mp:Add(points[i])
     end
     mp:Close()
     return occt.BRepBuilderAPI_MakeFace.new(mp:Wire()):Face()
 end
 
--- Builds a face from an ordered list of already-built TopoDS_Edge (a Lua
--- array/table), via BRepBuilderAPI_MakeWire (Add each edge) followed by
--- BRepBuilderAPI_MakeFace on the resulting wire.
-function wire_face(edges)
+-- Builds a face from an ordered list of already-built TopoDS_Edge (passed as
+-- varargs - see this file's top comment), via BRepBuilderAPI_MakeWire (Add
+-- each edge) followed by BRepBuilderAPI_MakeFace on the resulting wire.
+function wire_face(...)
+    local edges = {...}
     local mw = occt.BRepBuilderAPI_MakeWire.new()
     for i = 1, #edges do
-        mw:Add(edges[i]:value())
+        mw:Add(edges[i])
     end
     return occt.BRepBuilderAPI_MakeFace.new(mw:Wire()):Face()
 end
 
--- Builds a TopoDS_Compound out of an arbitrary list of shapes (a Lua array/table),
--- via BRep_Builder/TopoDS_Builder's MakeCompound + Add.
-function compound(shapes)
+-- Builds a TopoDS_Compound out of an arbitrary list of shapes (passed as
+-- varargs - see this file's top comment), via BRep_Builder/TopoDS_Builder's
+-- MakeCompound + Add.
+--
+-- IsNull() is checked before every Add - not optional defensiveness, found the
+-- hard way: TopoDS_Builder::Add's own OCCT implementation unconditionally
+-- dereferences the component's own TShape (aComponent.TShape()->Free(...), its
+-- very first statement) with no null check at all, so handing it a null/empty
+-- shape - e.g. a BRepAlgoAPI_Cut/Common whose own boolean operation happened to
+-- produce an empty result for the particular geometry involved, a legitimate,
+-- non-exceptional OCCT outcome, not a bug in the caller - segfaults the whole
+-- process instead of raising a catchable error. Confirmed via gdb against a real
+-- reproduction (an AD-enabled build's own BRepAlgoAPI_Common producing an empty
+-- result for one of tank_model.grr.yml's own dome side-wedge intersections,
+-- where the plain build's own boolean op happens not to) - not an AD-specific
+-- risk in general, just the first input that ever actually hit it.
+function compound(...)
+    local shapes = {...}
     local c = occt.TopoDS_Compound.new()
     local builder = occt.BRep_Builder.new()
     builder:MakeCompound(c)
     for i = 1, #shapes do
-        builder:Add(c, shapes[i]:value())
+        local shape = shapes[i]
+        if shape:IsNull() then
+            -- occt.error(...), not Lua's own error() - unreachable here, same
+            -- restriction as assert() (see src/math_extras.hpp's own comment).
+            occt.error("occt_helpers.compound: shape " .. i .. " of " .. #shapes .. " is null/empty - refusing to add it (TopoDS_Builder::Add does not handle this and segfaults instead of failing cleanly)")
+        end
+        builder:Add(c, shape)
     end
     return c
 end

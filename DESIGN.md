@@ -687,7 +687,7 @@ rather than stopping at the first.
 **Result, verified**: a full clean build of the whole project (plugin + all 37
 tests) now completes in under 2 minutes with default parallelism, peaking at ~5.2GB
 RSS *across every concurrent job combined* - down from one single process alone
-needing ~12-13GB. All 37 tests and both example recipes (`pixi run run_examples`)
+needing ~12-13GB. All 37 tests and both example recipes (`pixi run -e default run_examples`)
 still pass unchanged. `mode: unity` remains available and was verified to still
 produce the exact same manifest (`*`) and unity-build behavior as before, for anyone
 who wants the original one-invocation build back.
@@ -875,11 +875,12 @@ one for `:as()` (a `DynamicFeature`-only method) to be called on at all. `:as()`
 can only ever be used directly in a recipe's own `steps:`/`recipes:`, never inside
 a module or plugin.
 
-**A related, narrower gotcha in the same area**: a module/plugin parameter that is
-a *table* of features (e.g. `occt_helpers.polygon_face(points)`, `points` built as
-`{p0, p1, ...}` directly in a recipe's own `steps:`) only has its *top-level*
-unwrapping done automatically at the call boundary - the table itself arrives as a
-plain Lua table, but each individual element inside it is still the original
+**A related, narrower gotcha in the same area, and a real bug (not just an API
+quirk) found via it**: a module/plugin parameter that is a *table* of features
+(e.g. `occt_helpers.polygon_face(points)`, `points` built as `{p0, p1, ...}`
+directly in a recipe's own `steps:`) only has its *top-level* unwrapping done
+automatically at the call boundary - the table itself arrives as a plain Lua
+table, but each individual element inside it is still the original
 `DynamicFeature`:
 
 ```lua
@@ -887,13 +888,31 @@ plain Lua table, but each individual element inside it is still the original
 --         specified types" - points[i] is a DynamicFeature, not a raw gp_Pnt.
 mp:Add(points[i])
 
--- works: DynamicFeature::value() unwraps it to the raw grunk::object first.
+-- "works" in the sense that it doesn't error - but see below, it can silently
+-- read back the WRONG value:
 mp:Add(points[i]:value())
 ```
 
-`polygon_face`/`wire_face`/`compound` (`occt_helpers.lua`) all need this
-`:value()` call on each table element for exactly this reason; a plain top-level
-parameter (`shape`, `vec`, `axis`, ...) never needs it.
+Worse: this table-wrapping path doesn't just need an extra `:value()` call, it
+can silently produce the **wrong value** - a tracked value read back correctly
+when passed as a *direct* module argument reads back as a stale/default value
+when the exact same value is first wrapped in a Lua table and *that table* is
+what crosses the module-call boundary. Confirmed with a minimal repro
+independent of this project's own code (bare `grunk`, a trivial pure-Lua
+plugin, no OCCT involved) - filed upstream as
+[grunk-dev/grunk#289](https://github.com/grunk-dev/grunk/issues/289). This is
+exactly what was silently wrong in `examples/cavity_model.grr.yml`'s
+`cavity_sketch` sub-recipe: its caller's parameter overrides never took
+effect, because the 8 points it builds were passed to
+`occt_helpers.polygon_face` as a table.
+
+The fix used throughout `occt_helpers.lua` (`polygon_face`/`wire_face`/
+`compound`) is to avoid the table boundary entirely: each function takes its
+elements as trailing Lua varargs (`function polygon_face(...) ... end`,
+`select('#', ...)`/`select(i, ...)` to iterate) instead of a single table
+parameter. Each vararg element is a genuinely separate module argument, so it
+is unwrapped exactly like any other direct top-level parameter (`shape`,
+`vec`, `axis`, ...) - no `:value()` call needed, and no stale-value bug.
 
 **Relationship to grunk-dev/grunk#269/#270**: that PR added `DynamicFeature`'s
 type-hint storage in the first place - before it, `feature:method(...)` colon-call
@@ -1145,3 +1164,51 @@ What genuinely *was* verified, though, rather than only reasoned about:
 - **The plain (AD-off) build** - a full clean reconfigure/build/test/`run_examples` after this
   whole refactor, confirming zero regressions from consolidating `occt_adolc/` away (37/37 tests,
   both example recipes).
+
+### Reusing one shared `Standard_Real`/`adtl::adouble` registration, not two
+
+Superseding the "two distinct Lua types" section above: raised directly - the AD ecosystem's real
+long-term goal is AD-enabled workflows where a differentiated `geoml` plugin and this project's own
+AD-enabled `occt_plugin` pass `adouble` values to each other, which two independently-registered
+native sol2 usertypes for the "same" underlying value can never do (see the section this replaces
+for why they were ever two in the first place). The fix isn't a bridge between them - it's not
+having two: sol2 usertypes are keyed by C++ type identity, shared automatically across every plugin
+loaded into the same `lua_State`, so **one** native `register_type<adtl::adouble>()` call, done
+once by `grunk-adolc` (the "intermediate ADOL-C plugin"), is automatically visible to this project's
+own generated code once both plugins are loaded into the same `grunk::state` - no bridging code
+needed, provided `Standard_Adouble` (adOCCT's own redefinition of `Standard_Real`) and ADOL-C's own
+`adtl::adouble` are the same C++ type (confirm this once adOCCT is actually available - not verified
+here).
+
+This retires `register_standard_real_ad()` from `occt_ad_support.hpp` entirely (grunk-adolc's own
+registration replaces it) and replaces `grunk-adolc`'s previous SWIG-Lua (`swig-adol-c`/`adtl.so`)
+binding with a native one generated by this same generator, pointed at ADOL-C's own public
+`adtl.h` header instead of a `.i` file - see `grunk-adolc/DESIGN.md` for that side of the story
+(what changed there, and why the SWIG-based plugin was kept on its own `swig-adtl-plugin` branch
+rather than deleted).
+
+`register_occt()` (`src/occt_plugin.cpp`) does **not** check that grunk-adolc's plugin is loaded.
+An earlier version of this function did - a `state.plugins()` scan for `"adtl"`, thrown as a clear
+error if missing - but that check ran at `occt_plugin`'s own registration time, which is stricter
+than the real requirement: registering doesn't touch Lua, so the two plugins' *registration* calls
+can happen in either order; only *use* (any AD-enabled OCCT Lua call, via `to_real()`) actually
+needs `adtl` to already be loaded by then. The eager check rejected a perfectly valid load order
+(`occt_plugin` first, `adtl` second) as if it were broken. Rather than patch that in a second,
+ad-hoc way local to this repo (e.g. moving the check into `to_real()` itself, checked lazily and
+cached), this is being pushed upstream instead: `grunk-dev/grunk#287` proposes a
+general, load-order-independent mechanism for a plugin to declare "I need plugin X loaded (in any
+order), checked once all plugins are loaded rather than at each one's own load time" - the same
+shape as the recipe-level `uses:` mechanism grunk already has, but for plugin-to-plugin
+dependencies rather than recipe-to-plugin ones. Until that lands, this requirement is enforced by
+nothing but this comment and the one above it in `occt_ad_support.hpp` - get the order wrong and
+`to_real()` silently takes its plain-double branch instead of failing loudly (see the
+`Standard_Real` registration gap section above for exactly what that looks like).
+
+The **operator overload and friend-free-function generator support** this needed (`+ - * / == <
+<=`, plus ADOL-C's own `sin`/`cos`/...) lives in grunk-occt's generator (`codegen/generate.py`),
+not grunk-adolc's own copy of anything - see `codegen/README.md`'s "Operator overloads and friend
+free functions" for the mechanism, and its own note on the real bug this surfaced (an incorrect
+"reversed operand always exists" assumption, caught by regenerating this project's own OCCT config
+before it ever reached grunk-adolc). Generator centralization into a shared location (so
+grunk-adolc doesn't need its own full copy of `generate.py`) remains a separate, not-yet-done task -
+grunk-adolc's own `codegen/` is, for now, a deliberate, temporary duplicate of this one.

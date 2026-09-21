@@ -131,12 +131,14 @@ recipes:
       p6 = occt.gp_Pnt.new(dw, dh, 0.0)
       p7 = occt.gp_Pnt.new(0.0, dh, 0.0)
 
-      -- occt_helpers.polygon_face expects a plain Lua array (indexable 1..#points),
-      -- not a std::vector<gp_Pnt> (that's occt.gp_Pnt.as_vec's own, different job -
+      -- occt_helpers.polygon_face takes its points as separate trailing arguments,
+      -- not a Lua table (see occt_helpers.lua's own top comment: a tracked value
+      -- wrapped in a table and passed across a module-call boundary silently loses
+      -- dependency tracking - a grunk core bug, reported upstream) - and not a
+      -- std::vector<gp_Pnt> either (that's occt.gp_Pnt.as_vec's own, different job -
       -- feeding a C++ function that specifically wants std::vector<gp_Pnt>, e.g.
       -- Geom_BezierCurve.new).
-      outline = {p0, p1, p2, p3, p4, p5, p6, p7}
-      face = occt_helpers.polygon_face(outline)
+      face = occt_helpers.polygon_face(p0, p1, p2, p3, p4, p5, p6, p7)
     outputs:
       face: face
   cylinder:

@@ -52,6 +52,8 @@
 
 #include "../src/occt_ad_support.hpp"
 
+
+
 void register_gp(grunk::plugin_namespace& ns)
 {
     ns.register_type<gp_Ax1, sol::automagic_flags::none>("gp_Ax1")
@@ -906,9 +908,11 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("CrossCross", [](gp_Dir& self, const gp_Dir & theV1, const gp_Dir & theV2) { self.CrossCross(theV1, theV2); })
         .add_member_function("CrossCrossed", [](gp_Dir const& self, const gp_Dir & theV1, const gp_Dir & theV2) -> gp_Dir { return self.CrossCrossed(theV1, theV2); })
         .add_member_function("Dot", [](gp_Dir const& self, const gp_Dir & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function(sol::meta_function::multiplication, [](gp_Dir const& self, const gp_Dir & theOther) -> Standard_Real { return self * theOther; })
         .add_member_function("DotCross", [](gp_Dir const& self, const gp_Dir & theV1, const gp_Dir & theV2) -> Standard_Real { return self.DotCross(theV1, theV2); })
         .add_member_function("Reverse", [](gp_Dir& self) { self.Reverse(); })
         .add_member_function("Reversed", [](gp_Dir const& self) -> gp_Dir { return self.Reversed(); })
+        .add_member_function(sol::meta_function::unary_minus, [](gp_Dir const& self) -> gp_Dir { return -self; })
         .add_member_function("Mirror", sol::overload(
             [](gp_Dir& self, const gp_Dir & theV) { self.Mirror(theV); },
             [](gp_Dir& self, const gp_Ax1 & theA1) { self.Mirror(theA1); },
@@ -1014,8 +1018,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Angle", [](gp_Dir2d const& self, const gp_Dir2d & theOther) -> Standard_Real { return self.Angle(theOther); })
         .add_member_function("Crossed", [](gp_Dir2d const& self, const gp_Dir2d & theRight) -> Standard_Real { return self.Crossed(theRight); })
         .add_member_function("Dot", [](gp_Dir2d const& self, const gp_Dir2d & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function(sol::meta_function::multiplication, [](gp_Dir2d const& self, const gp_Dir2d & theOther) -> Standard_Real { return self * theOther; })
         .add_member_function("Reverse", [](gp_Dir2d& self) { self.Reverse(); })
         .add_member_function("Reversed", [](gp_Dir2d const& self) -> gp_Dir2d { return self.Reversed(); })
+        .add_member_function(sol::meta_function::unary_minus, [](gp_Dir2d const& self) -> gp_Dir2d { return -self; })
         .add_member_function("Mirror", sol::overload(
             [](gp_Dir2d& self, const gp_Dir2d & theV) { self.Mirror(theV); },
             [](gp_Dir2d& self, const gp_Ax2d & theA) { self.Mirror(theA); }
@@ -1307,6 +1313,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Invert", [](gp_GTrsf& self) { self.Invert(); })
         .add_member_function("Inverted", [](gp_GTrsf const& self) -> gp_GTrsf { return self.Inverted(); })
         .add_member_function("Multiplied", [](gp_GTrsf const& self, const gp_GTrsf & theT) -> gp_GTrsf { return self.Multiplied(theT); })
+        .add_member_function(sol::meta_function::multiplication, [](gp_GTrsf const& self, const gp_GTrsf & theT) -> gp_GTrsf { return self * theT; })
         .add_member_function("Multiply", [](gp_GTrsf& self, const gp_GTrsf & theT) { self.Multiply(theT); })
         .add_member_function("PreMultiply", [](gp_GTrsf& self, const gp_GTrsf & theT) { self.PreMultiply(theT); })
         .add_member_function("Power", [](gp_GTrsf& self, const Standard_Integer theN) { self.Power(theN); })
@@ -1345,6 +1352,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Invert", [](gp_GTrsf2d& self) { self.Invert(); })
         .add_member_function("Inverted", [](gp_GTrsf2d const& self) -> gp_GTrsf2d { return self.Inverted(); })
         .add_member_function("Multiplied", [](gp_GTrsf2d const& self, const gp_GTrsf2d & theT) -> gp_GTrsf2d { return self.Multiplied(theT); })
+        .add_member_function(sol::meta_function::multiplication, [](gp_GTrsf2d const& self, const gp_GTrsf2d & theT) -> gp_GTrsf2d { return self * theT; })
         .add_member_function("Multiply", [](gp_GTrsf2d& self, const gp_GTrsf2d & theT) { self.Multiply(theT); })
         .add_member_function("PreMultiply", [](gp_GTrsf2d& self, const gp_GTrsf2d & theT) { self.PreMultiply(theT); })
         .add_member_function("Power", [](gp_GTrsf2d& self, const Standard_Integer theN) { self.Power(theN); })
@@ -1775,6 +1783,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("IsSingular", [](gp_Mat const& self) -> Standard_Boolean { return self.IsSingular(); })
         .add_member_function("Add", [](gp_Mat& self, const gp_Mat & theOther) { self.Add(theOther); })
         .add_member_function("Added", [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self.Added(theOther); })
+        .add_member_function(sol::meta_function::addition, [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self + theOther; })
         .add_member_function("Divide", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Mat& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
@@ -1789,6 +1798,7 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Mat const& self, const Standard_Real theScalar) -> gp_Mat { return self.Divided(theScalar); }
 #endif
         )
+        .add_member_function(sol::meta_function::division, [](gp_Mat const& self, const Standard_Real theScalar) -> gp_Mat { return self / theScalar; })
         .add_member_function("Invert", [](gp_Mat& self) { self.Invert(); })
         .add_member_function("Inverted", [](gp_Mat const& self) -> gp_Mat { return self.Inverted(); })
         .add_member_function("Multiplied", sol::overload(
@@ -1800,6 +1810,10 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Mat const& self, const Standard_Real theScalar) -> gp_Mat { return self.Multiplied(theScalar); }
 #endif
         
+        ))
+        .add_member_function(sol::meta_function::multiplication, sol::overload(
+            [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self * theOther; },
+            [](gp_Mat const& self, const Standard_Real theScalar) -> gp_Mat { return self * theScalar; }
         ))
         .add_member_function("Multiply", sol::overload(
             [](gp_Mat& self, const gp_Mat & theOther) { self.Multiply(theOther); },
@@ -1816,6 +1830,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Powered", [](gp_Mat const& self, const Standard_Integer theN) -> gp_Mat { return self.Powered(theN); })
         .add_member_function("Subtract", [](gp_Mat& self, const gp_Mat & theOther) { self.Subtract(theOther); })
         .add_member_function("Subtracted", [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self.Subtracted(theOther); })
+        .add_member_function(sol::meta_function::subtraction, [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self - theOther; })
         .add_member_function("Transpose", [](gp_Mat& self) { self.Transpose(); })
         .add_member_function("Transposed", [](gp_Mat const& self) -> gp_Mat { return self.Transposed(); });
     ns.register_type<gp_Mat2d, sol::automagic_flags::none>("gp_Mat2d")
@@ -1864,6 +1879,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("IsSingular", [](gp_Mat2d const& self) -> Standard_Boolean { return self.IsSingular(); })
         .add_member_function("Add", [](gp_Mat2d& self, const gp_Mat2d & Other) { self.Add(Other); })
         .add_member_function("Added", [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self.Added(theOther); })
+        .add_member_function(sol::meta_function::addition, [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self + theOther; })
         .add_member_function("Divide", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Mat2d& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
@@ -1878,6 +1894,7 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Mat2d const& self, const Standard_Real theScalar) -> gp_Mat2d { return self.Divided(theScalar); }
 #endif
         )
+        .add_member_function(sol::meta_function::division, [](gp_Mat2d const& self, const Standard_Real theScalar) -> gp_Mat2d { return self / theScalar; })
         .add_member_function("Invert", [](gp_Mat2d& self) { self.Invert(); })
         .add_member_function("Inverted", [](gp_Mat2d const& self) -> gp_Mat2d { return self.Inverted(); })
         .add_member_function("Multiplied", sol::overload(
@@ -1889,6 +1906,10 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Mat2d const& self, const Standard_Real theScalar) -> gp_Mat2d { return self.Multiplied(theScalar); }
 #endif
         
+        ))
+        .add_member_function(sol::meta_function::multiplication, sol::overload(
+            [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self * theOther; },
+            [](gp_Mat2d const& self, const Standard_Real theScalar) -> gp_Mat2d { return self * theScalar; }
         ))
         .add_member_function("Multiply", sol::overload(
             [](gp_Mat2d& self, const gp_Mat2d & theOther) { self.Multiply(theOther); },
@@ -1905,6 +1926,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Powered", [](gp_Mat2d const& self, const Standard_Integer theN) -> gp_Mat2d { return self.Powered(theN); })
         .add_member_function("Subtract", [](gp_Mat2d& self, const gp_Mat2d & theOther) { self.Subtract(theOther); })
         .add_member_function("Subtracted", [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self.Subtracted(theOther); })
+        .add_member_function(sol::meta_function::subtraction, [](gp_Mat2d const& self, const gp_Mat2d & theOther) -> gp_Mat2d { return self - theOther; })
         .add_member_function("Transpose", [](gp_Mat2d& self) { self.Transpose(); })
         .add_member_function("Transposed", [](gp_Mat2d const& self) -> gp_Mat2d { return self.Transposed(); });
     ns.register_type<gp_Parab, sol::automagic_flags::none>("gp_Parab")
@@ -2476,12 +2498,20 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Quaternion const& self, const Standard_Real theScale) -> gp_Quaternion { return self.Scaled(theScale); }
 #endif
         )
+        .add_member_function(sol::meta_function::multiplication, sol::overload(
+            [](gp_Quaternion const& self, const Standard_Real theScale) -> gp_Quaternion { return self * theScale; },
+            [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self * theOther; },
+            [](gp_Quaternion const& self, const gp_Vec & theVec) -> gp_Vec { return self * theVec; }
+        ))
         .add_member_function("StabilizeLength", [](gp_Quaternion& self) { self.StabilizeLength(); })
         .add_member_function("Normalize", [](gp_Quaternion& self) { self.Normalize(); })
         .add_member_function("Normalized", [](gp_Quaternion const& self) -> gp_Quaternion { return self.Normalized(); })
         .add_member_function("Negated", [](gp_Quaternion const& self) -> gp_Quaternion { return self.Negated(); })
+        .add_member_function(sol::meta_function::unary_minus, [](gp_Quaternion const& self) -> gp_Quaternion { return -self; })
         .add_member_function("Added", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self.Added(theOther); })
+        .add_member_function(sol::meta_function::addition, [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self + theOther; })
         .add_member_function("Subtracted", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self.Subtracted(theOther); })
+        .add_member_function(sol::meta_function::subtraction, [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self - theOther; })
         .add_member_function("Multiplied", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self.Multiplied(theOther); })
         .add_member_function("Add", [](gp_Quaternion& self, const gp_Quaternion & theOther) { self.Add(theOther); })
         .add_member_function("Subtract", [](gp_Quaternion& self, const gp_Quaternion & theOther) { self.Subtract(theOther); })
@@ -2736,6 +2766,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Invert", [](gp_Trsf& self) { self.Invert(); })
         .add_member_function("Inverted", [](gp_Trsf const& self) -> gp_Trsf { return self.Inverted(); })
         .add_member_function("Multiplied", [](gp_Trsf const& self, const gp_Trsf & theT) -> gp_Trsf { return self.Multiplied(theT); })
+        .add_member_function(sol::meta_function::multiplication, [](gp_Trsf const& self, const gp_Trsf & theT) -> gp_Trsf { return self * theT; })
         .add_member_function("Multiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.Multiply(theT); })
         .add_member_function("PreMultiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.PreMultiply(theT); })
         .add_member_function("Power", [](gp_Trsf& self, const Standard_Integer theN) { self.Power(theN); })
@@ -2791,6 +2822,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Invert", [](gp_Trsf2d& self) { self.Invert(); })
         .add_member_function("Inverted", [](gp_Trsf2d const& self) -> gp_Trsf2d { return self.Inverted(); })
         .add_member_function("Multiplied", [](gp_Trsf2d const& self, const gp_Trsf2d & theT) -> gp_Trsf2d { return self.Multiplied(theT); })
+        .add_member_function(sol::meta_function::multiplication, [](gp_Trsf2d const& self, const gp_Trsf2d & theT) -> gp_Trsf2d { return self * theT; })
         .add_member_function("Multiply", [](gp_Trsf2d& self, const gp_Trsf2d & theT) { self.Multiply(theT); })
         .add_member_function("PreMultiply", [](gp_Trsf2d& self, const gp_Trsf2d & theT) { self.PreMultiply(theT); })
         .add_member_function("Power", [](gp_Trsf2d& self, const Standard_Integer theN) { self.Power(theN); })
@@ -2905,8 +2937,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("SquareMagnitude", [](gp_Vec const& self) -> Standard_Real { return self.SquareMagnitude(); })
         .add_member_function("Add", [](gp_Vec& self, const gp_Vec & theOther) { self.Add(theOther); })
         .add_member_function("Added", [](gp_Vec const& self, const gp_Vec & theOther) -> gp_Vec { return self.Added(theOther); })
+        .add_member_function(sol::meta_function::addition, [](gp_Vec const& self, const gp_Vec & theOther) -> gp_Vec { return self + theOther; })
         .add_member_function("Subtract", [](gp_Vec& self, const gp_Vec & theRight) { self.Subtract(theRight); })
         .add_member_function("Subtracted", [](gp_Vec const& self, const gp_Vec & theRight) -> gp_Vec { return self.Subtracted(theRight); })
+        .add_member_function(sol::meta_function::subtraction, [](gp_Vec const& self, const gp_Vec & theRight) -> gp_Vec { return self - theRight; })
         .add_member_function("Multiply", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Vec& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
@@ -2921,6 +2955,10 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Vec const& self, const Standard_Real theScalar) -> gp_Vec { return self.Multiplied(theScalar); }
 #endif
         )
+        .add_member_function(sol::meta_function::multiplication, sol::overload(
+            [](gp_Vec const& self, const Standard_Real theScalar) -> gp_Vec { return self * theScalar; },
+            [](gp_Vec const& self, const gp_Vec & theOther) -> Standard_Real { return self * theOther; }
+        ))
         .add_member_function("Divide", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Vec& self, sol::object theScalar) { self.Divide(occt_plugin::to_real(theScalar)); }
@@ -2935,6 +2973,7 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Vec const& self, const Standard_Real theScalar) -> gp_Vec { return self.Divided(theScalar); }
 #endif
         )
+        .add_member_function(sol::meta_function::division, [](gp_Vec const& self, const Standard_Real theScalar) -> gp_Vec { return self / theScalar; })
         .add_member_function("Cross", [](gp_Vec& self, const gp_Vec & theRight) { self.Cross(theRight); })
         .add_member_function("Crossed", [](gp_Vec const& self, const gp_Vec & theRight) -> gp_Vec { return self.Crossed(theRight); })
         .add_member_function("CrossMagnitude", [](gp_Vec const& self, const gp_Vec & theRight) -> Standard_Real { return self.CrossMagnitude(theRight); })
@@ -2947,6 +2986,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Normalized", [](gp_Vec const& self) -> gp_Vec { return self.Normalized(); })
         .add_member_function("Reverse", [](gp_Vec& self) { self.Reverse(); })
         .add_member_function("Reversed", [](gp_Vec const& self) -> gp_Vec { return self.Reversed(); })
+        .add_member_function(sol::meta_function::unary_minus, [](gp_Vec const& self) -> gp_Vec { return -self; })
         .add_member_function("SetLinearForm", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -3107,6 +3147,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("SquareMagnitude", [](gp_Vec2d const& self) -> Standard_Real { return self.SquareMagnitude(); })
         .add_member_function("Add", [](gp_Vec2d& self, const gp_Vec2d & theOther) { self.Add(theOther); })
         .add_member_function("Added", [](gp_Vec2d const& self, const gp_Vec2d & theOther) -> gp_Vec2d { return self.Added(theOther); })
+        .add_member_function(sol::meta_function::addition, [](gp_Vec2d const& self, const gp_Vec2d & theOther) -> gp_Vec2d { return self + theOther; })
         .add_member_function("Crossed", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> Standard_Real { return self.Crossed(theRight); })
         .add_member_function("CrossMagnitude", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> Standard_Real { return self.CrossMagnitude(theRight); })
         .add_member_function("CrossSquareMagnitude", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> Standard_Real { return self.CrossSquareMagnitude(theRight); })
@@ -3124,7 +3165,12 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Vec2d const& self, const Standard_Real theScalar) -> gp_Vec2d { return self.Divided(theScalar); }
 #endif
         )
+        .add_member_function(sol::meta_function::division, [](gp_Vec2d const& self, const Standard_Real theScalar) -> gp_Vec2d { return self / theScalar; })
         .add_member_function("Dot", [](gp_Vec2d const& self, const gp_Vec2d & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function(sol::meta_function::multiplication, sol::overload(
+            [](gp_Vec2d const& self, const gp_Vec2d & theOther) -> Standard_Real { return self * theOther; },
+            [](gp_Vec2d const& self, const Standard_Real theScalar) -> gp_Vec2d { return self * theScalar; }
+        ))
         .add_member_function("GetNormal", [](gp_Vec2d const& self) -> gp_Vec2d { return self.GetNormal(); })
         .add_member_function("Multiply", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -3144,8 +3190,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Normalized", [](gp_Vec2d const& self) -> gp_Vec2d { return self.Normalized(); })
         .add_member_function("Reverse", [](gp_Vec2d& self) { self.Reverse(); })
         .add_member_function("Reversed", [](gp_Vec2d const& self) -> gp_Vec2d { return self.Reversed(); })
+        .add_member_function(sol::meta_function::unary_minus, [](gp_Vec2d const& self) -> gp_Vec2d { return -self; })
         .add_member_function("Subtract", [](gp_Vec2d& self, const gp_Vec2d & theRight) { self.Subtract(theRight); })
         .add_member_function("Subtracted", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> gp_Vec2d { return self.Subtracted(theRight); })
+        .add_member_function(sol::meta_function::subtraction, [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> gp_Vec2d { return self - theRight; })
         .add_member_function("SetLinearForm", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -3263,6 +3311,7 @@ void register_gp(grunk::plugin_namespace& ns)
         )
         .add_member_function("Add", [](gp_XY& self, const gp_XY & theOther) { self.Add(theOther); })
         .add_member_function("Added", [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Added(theOther); })
+        .add_member_function(sol::meta_function::addition, [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self + theOther; })
         .add_member_function("Crossed", [](gp_XY const& self, const gp_XY & theOther) -> Standard_Real { return self.Crossed(theOther); })
         .add_member_function("CrossMagnitude", [](gp_XY const& self, const gp_XY & theRight) -> Standard_Real { return self.CrossMagnitude(theRight); })
         .add_member_function("CrossSquareMagnitude", [](gp_XY const& self, const gp_XY & theRight) -> Standard_Real { return self.CrossSquareMagnitude(theRight); })
@@ -3280,7 +3329,13 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self.Divided(theScalar); }
 #endif
         )
+        .add_member_function(sol::meta_function::division, [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self / theScalar; })
         .add_member_function("Dot", [](gp_XY const& self, const gp_XY & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function(sol::meta_function::multiplication, sol::overload(
+            [](gp_XY const& self, const gp_XY & theOther) -> Standard_Real { return self * theOther; },
+            [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self * theScalar; },
+            [](gp_XY const& self, const gp_Mat2d & theMatrix) -> gp_XY { return self * theMatrix; }
+        ))
         .add_member_function("Multiply", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -3307,6 +3362,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Normalized", [](gp_XY const& self) -> gp_XY { return self.Normalized(); })
         .add_member_function("Reverse", [](gp_XY& self) { self.Reverse(); })
         .add_member_function("Reversed", [](gp_XY const& self) -> gp_XY { return self.Reversed(); })
+        .add_member_function(sol::meta_function::unary_minus, [](gp_XY const& self) -> gp_XY { return -self; })
         .add_member_function("SetLinearForm", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -3332,7 +3388,8 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_XY& self, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(theXY1, theXY2); }
         ))
         .add_member_function("Subtract", [](gp_XY& self, const gp_XY & theOther) { self.Subtract(theOther); })
-        .add_member_function("Subtracted", [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Subtracted(theOther); });
+        .add_member_function("Subtracted", [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Subtracted(theOther); })
+        .add_member_function(sol::meta_function::subtraction, [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self - theOther; });
     ns.register_type<gp_XYZ, sol::automagic_flags::none>("gp_XYZ")
         .add_constructors(
             []() { return gp_XYZ(); },
@@ -3396,6 +3453,7 @@ void register_gp(grunk::plugin_namespace& ns)
         )
         .add_member_function("Add", [](gp_XYZ& self, const gp_XYZ & theOther) { self.Add(theOther); })
         .add_member_function("Added", [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Added(theOther); })
+        .add_member_function(sol::meta_function::addition, [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self + theOther; })
         .add_member_function("Cross", [](gp_XYZ& self, const gp_XYZ & theOther) { self.Cross(theOther); })
         .add_member_function("Crossed", [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Crossed(theOther); })
         .add_member_function("CrossMagnitude", [](gp_XYZ const& self, const gp_XYZ & theRight) -> Standard_Real { return self.CrossMagnitude(theRight); })
@@ -3416,7 +3474,13 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self.Divided(theScalar); }
 #endif
         )
+        .add_member_function(sol::meta_function::division, [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self / theScalar; })
         .add_member_function("Dot", [](gp_XYZ const& self, const gp_XYZ & theOther) -> Standard_Real { return self.Dot(theOther); })
+        .add_member_function(sol::meta_function::multiplication, sol::overload(
+            [](gp_XYZ const& self, const gp_XYZ & theOther) -> Standard_Real { return self * theOther; },
+            [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self * theScalar; },
+            [](gp_XYZ const& self, const gp_Mat & theMatrix) -> gp_XYZ { return self * theMatrix; }
+        ))
         .add_member_function("DotCross", [](gp_XYZ const& self, const gp_XYZ & theCoord1, const gp_XYZ & theCoord2) -> Standard_Real { return self.DotCross(theCoord1, theCoord2); })
         .add_member_function("Multiply", sol::overload(
             
@@ -3446,6 +3510,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Reversed", [](gp_XYZ const& self) -> gp_XYZ { return self.Reversed(); })
         .add_member_function("Subtract", [](gp_XYZ& self, const gp_XYZ & theOther) { self.Subtract(theOther); })
         .add_member_function("Subtracted", [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Subtracted(theOther); })
+        .add_member_function(sol::meta_function::subtraction, [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self - theOther; })
         .add_member_function("SetLinearForm", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)

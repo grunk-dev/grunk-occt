@@ -16,13 +16,13 @@ plan's Step 2).
 ## Running it
 
 ```
-pixi run generate_code   # requires -D GRUNK_OCCT_GENERATE_CODE=ON at configure time
+pixi run -e default generate_code   # requires -D GRUNK_OCCT_GENERATE_CODE=ON at configure time
 ```
 
 or directly:
 
 ```
-pixi run python codegen/generate.py --occt-include-dir .pixi/envs/default/include/opencascade --output-dir generated
+pixi run -e default python codegen/generate.py --occt-include-dir .pixi/envs/default/include/opencascade --output-dir generated
 ```
 
 Review the stderr summary (accepted/rejected/blacklisted counts, and every rejection's
@@ -32,7 +32,10 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
 ## What it does (Step 2 MVP scope, since expanded - see "Lifting the
 one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" below)
 
-- **Public constructors and instance methods only.**
+- **Public constructors, instance methods, and a specific set of operators/friend
+  functions** (see "Operator overloads and friend free functions" below - added
+  for grunk-adolc's own native ADOL-C binding, not needed by any OCCT module so
+  far, but generic, not adouble-specific).
 - A parameter/return type is accepted only if it is:
   - `Standard_Real` **by value or const-reference** (gets the
     `#ifdef GRUNK_OCCT_WITH_ADOLC`-gated dual-emission form - see `../DESIGN.md`'s
@@ -65,8 +68,8 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   "module" mechanism becomes relevant - see `../DESIGN.md`'s note.
 - Anything else is **rejected** (recorded with a reason, never silently dropped):
   unregistered class types (`gp_XYZ`, `gp_Ax2`, `gp_Quaternion`, `gp_Mat`,
-  `gp_TrsfForm`, ...), `Standard_OStream&`/`Standard_SStream`, and operators (skipped
-  by name prefix - see "Known gaps").
+  `gp_TrsfForm`, ...), `Standard_OStream&`/`Standard_SStream`, and any operator not
+  covered by "Operator overloads and friend free functions" below.
 - **Constructor emission mode is one of three, decided per class** (see
   `../DESIGN.md`): `"value"` (plain `return T(args...);` - the default, used for
   simple value types like `gp_Pnt`/`TopoDS_Shape`), `"handle"` (heap-allocate +
@@ -116,9 +119,20 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   `Geom_BezierCurve`'s own constructors (`(TColgp_Array1OfPnt const&)` and
   `(TColgp_Array1OfPnt const&, TColStd_Array1OfReal const&)`) auto-generate as
   ordinary `add_constructors(...)` overloads, with no hand-written escape hatch.
-  AD-portability's `#ifdef GRUNK_OCCT_WITH_ADOLC` dual-emission is **not** extended
-  to array elements (a "real" array element is always plain `double`, regardless of
-  build) - out of scope until Step 7 actually needs it.
+  A "real" array element's own *Lua-side* vector is always `std::vector<double>`
+  regardless of build (AD dual-emission is not extended to the array *element
+  type* itself, only to whether the array's own OCCT element type is
+  `Standard_Real`) - but a real-element `array1`/`array2` parameter is converted
+  via `../src/collections.hpp`'s `to_real_array1`/`to_real_array2`, not
+  `to_array1`/`to_array2`, specifically because the *target* OCCT array's element
+  type is `Standard_Real`, a distinct C++ type from `double` under
+  `GRUNK_OCCT_WITH_ADOLC` (`Standard_Adouble`, not a typedef - see `../src/
+  occt_ad_support.hpp`'s own comment) - `to_array1<double>` would build the wrong
+  array type there. Needed once `GeomAPI_PointsToBSpline`/`Geom_BSplineCurve` (a
+  real `TColStd_Array1OfReal`-taking constructor, not just a `TColgp_Array1OfPnt`
+  one) actually had to compile under AD - an earlier version of this generator
+  instead excluded any such overload from the AD build entirely, `#if
+  !defined(GRUNK_OCCT_WITH_ADOLC)`-gated, deferring this exact fix.
   - **Parameter-only, deliberately**: `Param.kind()` only recognizes an array
     canonical type when `self.name` is non-empty, which is true for every genuine
     parameter but never for the synthetic `Param` `Callable.rejection_reason` builds
@@ -317,6 +331,48 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   entry before then). Each entry in `config.yml` should carry an inline comment
   explaining why - re-derive the reason fresh per the migration plan's Step 6
   policy, don't copy a legacy grocc blacklist reason without checking it still applies.
+- **Operator overloads and friend free functions** (added for grunk-adolc's own
+  native ADOL-C binding - see its own `DESIGN.md` - generic, not adouble-specific;
+  no OCCT module needed this before, but several turned out to benefit once it
+  existed - see below): a *member* operator is accepted only if its C++ token has
+  a real Lua metamethod slot to occupy - `BINARY_OPERATOR_META`/
+  `UNARY_OPERATOR_META` in `generate.py` list exactly which (`+ - * / == < <=` and
+  unary `-`). Several common C++ operators are deliberately *never* emitted, not a
+  gap to eventually close: `!= > >=` (Lua derives these from `__eq`/`__lt`/`__le`
+  itself, registering them natively would be redundant), compound assignment and
+  increment/decrement (Lua has no metamethod for either - `x += y` isn't valid Lua
+  syntax at all), and conversion operators (`operator double()` etc. - a different
+  mechanism entirely, not attempted).
+
+  A **friend** function declared inside a class body (a real C++ idiom, not
+  something contrived for this - ADOL-C's own `adtl::adouble` uses it throughout,
+  for `sin`/`cos`/... and for the *reversed*-operand form of its arithmetic/
+  comparison operators, e.g. `friend adouble operator+(double, const adouble&)`
+  alongside the member `adouble::operator+(double) const`) has namespace scope for
+  the function itself despite its lexical nesting - `collect_friend_functions()`
+  finds non-operator friends this way (attributed to the class's *enclosing
+  namespace*, e.g. `adtl::sin`, not the class), while a **reversed-operand
+  operator sibling** (`5 + x` as well as `x + 5`) is synthesized separately in
+  `process_module()`, and only after **confirming** (via `find_friend_operator_
+  reversed()`, a real AST check) that the matching friend operator actually
+  exists - never assumed just because the member form does. Found the hard way,
+  regenerating this project's own existing OCCT config while building this: ADOL-C's
+  `adouble` defines all four reversed arithmetic forms uniformly, but OCCT's own
+  geometric types don't - `gp_XYZ::operator/(Standard_Real) const` (scale down) has
+  no reversed friend at all (dividing a scalar *by* a vector isn't a defined
+  operation), while `gp_Mat::operator*` does (scalar * matrix is standard linear
+  algebra). Assuming reversal always exists compiled cleanly for `adtl::adouble`
+  but broke on `gp_XYZ`'s own division - confirming it via the real AST instead of
+  guessing was the fix.
+
+  Concrete effect on existing OCCT modules, entirely as a side effect of adding
+  this for grunk-adolc's sake, not sought out deliberately: `gp_Vec`/`gp_Vec2d`/
+  `gp_XY`/`gp_XYZ`/`gp_Mat`/`gp_Mat2d`/`gp_Quaternion`/`gp_GTrsf`/`gp_GTrsf2d`/
+  `gp_Trsf`/`gp_Trsf2d`/`gp_Dir`/`gp_Dir2d` all gained real Lua operator overloading
+  (`+`/`-`/`*`/unary `-`, several with a working reversed-scalar form too) that was
+  previously silently skipped entirely; `TopLoc_Location` gained `*`/`/`/`==`;
+  `TopoDS_Shape` gained `==`. Verified: full regeneration, clean rebuild, all 37
+  tests plus both example recipes pass with zero regressions.
 - **Static-only "namespace classes"** (Step 4 spike, see `../DESIGN.md`): OCCT
   expresses this concept two different ways, both handled: a genuine C++ `namespace`
   with free functions (`TopoDS.hxx`'s `namespace TopoDS { const TopoDS_Face&

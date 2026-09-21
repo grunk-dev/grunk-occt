@@ -39,6 +39,28 @@ inline NCollection_Array1<T> to_array1(std::vector<T> const& v)
     return arr;
 }
 
+// For an array whose *OCCT* element type is Standard_Real specifically (e.g.
+// TColStd_Array1OfReal) - distinct from the plain to_array1<T> above because the
+// *Lua-side* vector's own element type is always plain double regardless of build
+// (see codegen/generate.py's array_element_supported() - AD dual-emission is
+// deliberately not extended to array elements themselves), while the *target*
+// OCCT array's element type is Standard_Real, which is a different C++ type from
+// double under GRUNK_OCCT_WITH_ADOLC (Standard_Adouble, not a typedef - see
+// src/occt_ad_support.hpp's own comment on that). Converting element-by-element
+// through Standard_Real's own converting constructor from double (a real value,
+// not an AD-tracked one - these are array elements like a B-spline's own knot
+// vector, structural data, never themselves a seeded design parameter) is
+// correct and compiles in both builds: in a plain one Standard_Real already is
+// double, so this is identical to to_array1<double> in every way but name.
+inline NCollection_Array1<Standard_Real> to_real_array1(std::vector<double> const& v)
+{
+    NCollection_Array1<Standard_Real> arr(1, static_cast<Standard_Integer>(v.size()));
+    for (std::size_t i = 0; i < v.size(); ++i) {
+        arr.SetValue(static_cast<Standard_Integer>(i + 1), Standard_Real(v[i]));
+    }
+    return arr;
+}
+
 template <typename T>
 inline std::vector<T> from_array1(NCollection_Array1<T> const& arr)
 {
@@ -70,6 +92,26 @@ inline NCollection_Array2<T> to_array2(std::vector<T> const& flat, Standard_Inte
     for (Standard_Integer r = 0; r < rows; ++r) {
         for (Standard_Integer c = 0; c < cols; ++c) {
             arr.SetValue(r + 1, c + 1, flat[static_cast<std::size_t>(r) * static_cast<std::size_t>(cols) + static_cast<std::size_t>(c)]);
+        }
+    }
+    return arr;
+}
+
+// Array2 counterpart to to_real_array1 above - see its own comment for why this
+// needs to be a separate function from to_array2<T>, not just a call with
+// T=Standard_Real (the source std::vector is always <double>, not <Standard_Real>).
+inline NCollection_Array2<Standard_Real> to_real_array2(std::vector<double> const& flat, Standard_Integer rows, Standard_Integer cols)
+{
+    if (rows <= 0 || cols <= 0) {
+        throw std::invalid_argument("to_real_array2: rows and cols must both be positive");
+    }
+    if (flat.size() != static_cast<std::size_t>(rows) * static_cast<std::size_t>(cols)) {
+        throw std::invalid_argument("to_real_array2: flat.size() must equal rows*cols");
+    }
+    NCollection_Array2<Standard_Real> arr(1, rows, 1, cols);
+    for (Standard_Integer r = 0; r < rows; ++r) {
+        for (Standard_Integer c = 0; c < cols; ++c) {
+            arr.SetValue(r + 1, c + 1, Standard_Real(flat[static_cast<std::size_t>(r) * static_cast<std::size_t>(cols) + static_cast<std::size_t>(c)]));
         }
     }
     return arr;

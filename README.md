@@ -26,15 +26,18 @@ introspect/expand).
 
 ## Build & test
 
-All workflows go through [pixi](https://pixi.sh/):
+All workflows go through [pixi](https://pixi.sh/). This repo has two pixi environments -
+`default` (stock OCCT) and `ad` (see "Building with AD support" below) - each with their own,
+otherwise identically-named tasks (`configure`/`build`/`test`/`all`), so every invocation needs an
+explicit `-e`/`--environment`:
 
 ```
-pixi run configure [Debug|Release]   # cmake configure into build/
-pixi run build                       # cmake --build build/
-pixi run test                        # ctest --test-dir build
-pixi run all                         # configure + build + test
-pixi run generate_code               # regenerate generated/ from codegen/config.yml (needs
-                                      # -D GRUNK_OCCT_GENERATE_CODE=ON at configure time)
+pixi run -e default configure [Debug|Release]   # cmake configure into build/
+pixi run -e default build                       # cmake --build build/
+pixi run -e default test                        # ctest --test-dir build
+pixi run -e default all                         # configure + build + test
+pixi run -e default generate_code               # regenerate generated/ from codegen/config.yml (needs
+                                                  # -D GRUNK_OCCT_GENERATE_CODE=ON at configure time)
 ```
 
 ## Building with AD support
@@ -51,14 +54,19 @@ It's a build **option** on this same project (`GRUNK_OCCT_ENABLE_AD`), not a sep
 tree - pick one variant per build directory:
 
 ```bash
-pixi run install_adolc     # download, build, install ADOL-C 2.7.2 into .deps/adolc (idempotent)
-pixi run install_adocct     # clone, build, install adOCCT into .deps/adocct (idempotent, involved)
-pixi run configure_ad       # cmake configure into build-ad/, with GRUNK_OCCT_ENABLE_AD=ON
-pixi run build_ad           # cmake --build build-ad/
-pixi run test_ad             # ctest --test-dir build-ad (tests/test_ad.cpp - a closed-form
-                              # derivative check on occt_plugin's own generated bindings)
-pixi run all_ad               # all of the above, in order
+pixi run -e ad install_adolc     # download, build, install ADOL-C 2.7.2 into .deps/adolc (idempotent)
+pixi run -e ad install_adocct     # clone, build, install adOCCT into .deps/adocct (idempotent, involved)
+pixi run -e ad configure          # cmake configure into build-ad/, with GRUNK_OCCT_ENABLE_AD=ON
+pixi run -e ad build              # cmake --build build-ad/
+pixi run -e ad test                # ctest --test-dir build-ad (tests/test_ad.cpp - a closed-form
+                                    # derivative check on occt_plugin's own generated bindings)
+pixi run -e ad all                  # all of the above, in order
 ```
+
+The `ad` environment (see `pixi.toml`'s `[environments]`) is entirely separate from `default`'s own
+- no `occt` package, its own `.pixi/envs/ad`, and its own `LD_LIBRARY_PATH`/`PKG_CONFIG_PATH`
+pointing at `.deps/adolc`/`.deps/adocct` - so installing it never affects a plain, non-AD
+`pixi run -e default ...` invocation (or vice versa).
 
 `install_adocct`'s own `cmake`/`ninja install` invocation was not run/verified in the environment
 these instructions were written in (no adOCCT/ADOL-C build access - see `DESIGN.md`'s "What could
@@ -70,15 +78,39 @@ itself) - see `scripts/install_adocct.sh`'s own comment for what adjusting `3RDP
 variables for your system might involve if adOCCT's own third-party dependency resolution needs it.
 
 **Runtime note**: the AD-enabled `occt_plugin` links against ADOL-C's own `libadolc.so` and
-adOCCT's own OCCT libraries at runtime, not just at link time - `pixi.toml`'s own `LD_LIBRARY_PATH`
-(via `$PIXI_PROJECT_ROOT`, covering `.deps/adolc`/`.deps/adocct`) already handles this for every
-`pixi run` task.
+adOCCT's own OCCT libraries at runtime, not just at link time - `pixi.toml`'s own `ad` environment
+sets `LD_LIBRARY_PATH` (via `$PIXI_PROJECT_ROOT`, covering `.deps/adolc`/`.deps/adocct`) to handle
+this already, for every `pixi run -e ad ...` task - deliberately *not* set for `-e default`, so a
+plain, non-AD build/test never risks resolving OCCT symbols against adOCCT's own, differently-built
+libraries instead of stock OCCT's.
 
 **dlopen/SONAME hazard, documented not solved**: `grunk::plugin::load_native` never `dlclose`s. A
 consuming application that loads *both* the stock `occt_plugin` (`build/`) and the AD-enabled one
 (`build-ad/`) into the same process risks the dynamic linker resolving the second's OCCT symbol
 references against the first's already-mapped ones if their SONAMEs collide - pick one variant per
 process.
+
+**Known issue, `tank_model.grr.yml` under AD**: one of the `dome` sub-recipe's own side-wedge
+boolean intersections (`BRepAlgoAPI_Common`/`BRepAlgoAPI_Cut`) comes back an empty shape under
+adOCCT specifically, where the plain build's own boolean op doesn't - a real numerical/algorithmic
+difference in the third-party adOCCT fork for this particular geometry, not a bug in grunk-occt's
+own binding code (root-caused via `gdb`: `TopoDS_Builder::Add` - called from
+`examples/plugins/occt_helpers.lua`'s own `compound()` - dereferences a component shape's `TShape`
+unconditionally, with no null check of its own, so handing it that empty shape used to segfault the
+whole process outright). `compound()` now checks `IsNull()` before every `Add` and raises a clean,
+catchable Lua error instead (via the new `occt.error(...)`, `src/math_extras.hpp` - plain Lua
+`error()`/`assert()` aren't reachable from a recipe's own decorated environment at all, the same
+restriction `tests/test_load.cpp` already documents), and `run_example.py` reports this specific,
+understood failure rather than aborting before reaching the AD derivative check, which is
+unaffected. `bspline_curve.grr.yml` itself (both its primal value and, under `-e ad`, its AD
+derivative - checked against a finite-difference approximation) was independently verified and
+isn't affected by this at all.
+(An earlier version of this note misdiagnosed this as a segfault in grunk's own Python bindings,
+found while debugging *this* issue through them - that symptom was real but was a **separate**,
+unrelated bug: `environment.get_feature(...).value()`'s own Python binding crashes on any value at
+all, in both environments identically, confirmed via a bare `grunk.state()` with no plugin loaded;
+`recipe.get_output(...).value()` doesn't have this problem and is what every recipe in this repo
+already uses, so it was never actually hit outside of ad hoc debugging scripts.)
 
 ## Project structure
 
@@ -89,7 +121,9 @@ src/                 # occt_plugin.cpp (plugin entry point) + hand-written escap
 scripts/             # ADOL-C/adOCCT bootstrap scripts (see "Building with AD support" above)
 tests/               # one gtest file (TEST_F suite) per module, one runUnitTests binary total;
                      # test_ad.cpp only builds/runs under GRUNK_OCCT_ENABLE_AD
-examples/            # ported legacy recipes, run via `pixi run run_examples` (Step 6.5)
+examples/            # ported legacy recipes (Step 6.5) plus bspline_curve.grr.yml (AD
+                     # validation, see "Building with AD support" above) - run via
+                     # `pixi run -e default run_examples` / `pixi run -e ad run_examples`
 reference/legacy-recipes/  # legacy grocc-only example recipes, ported in Step 6.5
 ```
 
@@ -102,7 +136,7 @@ reference/legacy-recipes/  # legacy grocc-only example recipes, ported in Step 6
 | lua, sol2, taskflow, yaml-cpp, libparametric | conda-forge (needed to build grunk itself from source) |
 | python, pyyaml, libclang (PyPI) | conda-forge/PyPI, needed only for `codegen/` (opt-in) |
 | gtest | conda-forge, the test framework (`runUnitTests`) |
-| ADOL-C, adOCCT | built from source via `pixi run install_adolc`/`install_adocct` - only needed for `GRUNK_OCCT_ENABLE_AD` (see "Building with AD support") |
+| ADOL-C, adOCCT | built from source via `pixi run -e ad install_adolc`/`install_adocct` - only needed for `GRUNK_OCCT_ENABLE_AD` (see "Building with AD support") |
 
 ## License
 

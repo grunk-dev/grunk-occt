@@ -11,6 +11,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../src/occt_ad_support.hpp"
+
 namespace {
 
 class GeomTest : public ::testing::Test {
@@ -18,6 +20,13 @@ protected:
     static void SetUpTestSuite()
     {
         state_ = new grunk::state();
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+        // Shared Standard_Real/adtl::adouble registration (see ../DESIGN.md's
+        // "Reusing one shared Standard_Real/adtl::adouble registration, not two") -
+        // grunk-adolc's own plugin has to be loaded into this same grunk::state
+        // before anything below can read/write occt.Standard_Real correctly.
+        grunk::plugin::load_native(*state_, ADTL_PLUGIN_SO_PATH);
+#endif
         grunk::plugin::load_native(*state_, OCCT_PLUGIN_SO_PATH);
     }
 
@@ -51,9 +60,9 @@ TEST_F(GeomTest, ValueViaInheritedGeomCurve)
         px = p:X(); py = p:Y(); pz = p:Z()
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("px"), 2.);
-    EXPECT_DOUBLE_EQ(env.get<double>("py"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("pz"), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("px")), 2.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("py")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("pz")), 0.);
 }
 
 // Negative path: a null Handle(Geom_Geometry) (src/geom/geom_extras.hpp's
@@ -108,9 +117,9 @@ TEST_F(GeomTest, OutParamMutatesInPlace)
         out_px = out_p:X(); out_py = out_p:Y(); out_pz = out_p:Z()
     )");
     ASSERT_TRUE(res.valid());
-    EXPECT_DOUBLE_EQ(env.get<double>("out_px"), 3.);
-    EXPECT_DOUBLE_EQ(env.get<double>("out_py"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("out_pz"), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("out_px")), 3.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("out_py")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("out_pz")), 0.);
 }
 
 // Step 5 validation case (collections, see DESIGN.md/migration plan):
@@ -152,11 +161,62 @@ TEST_F(GeomTest, BezierCurveFromVectorOfPoints)
     EXPECT_EQ(env.get<int>("n"), 3);
 
     // Value(0.0)/Value(1.0) return exactly the first/last pole for a Bezier curve.
-    EXPECT_DOUBLE_EQ(env.get<double>("sx"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("sy"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("sz"), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sx")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sy")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sz")), 0.);
 
-    EXPECT_DOUBLE_EQ(env.get<double>("fx"), 2.);
-    EXPECT_DOUBLE_EQ(env.get<double>("fy"), 0.);
-    EXPECT_DOUBLE_EQ(env.get<double>("fz"), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fx")), 2.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fy")), 0.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fz")), 0.);
+}
+
+// A genuine B-spline (explicit knots/multiplicities), not the interpolation
+// (geomapi's GeomAPI_PointsToBSpline) or Bezier (above) curves - same 5-pole,
+// degree-2 curve as examples/bspline_curve.grr.yml (itself fashioned after
+// adOCCT's own tests-ad/src/bspline_curve.cpp), added alongside it as permanent
+// regression coverage since this constructor is what first exercised
+// src/collections.hpp's to_real_array1 (a *second*, real-element array
+// parameter, Knots, alongside Multiplicities - see occt.real_vec/occt.int_vec's
+// own comment in src/vector_extras.hpp for a real, unrelated-to-AD sol2
+// limitation this also surfaced and worked around) and occt.real_vec/
+// occt.int_vec themselves.
+TEST_F(GeomTest, BSplineCurveFromExplicitKnotsAndMultiplicities)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        p1 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+        p2 = occt.gp_Pnt.new(0.0, 1.0, 2.0)
+        p3 = occt.gp_Pnt.new(0.0, 2.0, -1.0)
+        p4 = occt.gp_Pnt.new(0.0, 0.0, 3.0)
+        p5 = occt.gp_Pnt.new(0.0, 4.0, 0.0)
+
+        poles = occt.gp_Pnt.as_vec(p1, p2, p3, p4, p5)
+        knots = occt.real_vec(0.0, 1.0, 2.0, 3.0)
+        mults = occt.int_vec(3, 1, 1, 3)
+
+        curve = occt.Geom_BSplineCurve.new(poles, knots, mults, 2)
+        n = curve:NbPoles()
+        deg = curve:Degree()
+
+        start = curve:Value(0.0)
+        sx = start:X(); sy = start:Y(); sz = start:Z()
+
+        fin = curve:Value(3.0)
+        fx = fin:X(); fy = fin:Y(); fz = fin:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_EQ(env.get<int>("n"), 5);
+    EXPECT_EQ(env.get<int>("deg"), 2);
+
+    // Multiplicity 3 (= degree + 1) at both ends clamps the curve to interpolate
+    // the first/last pole exactly - a real, closed-form property of a clamped
+    // B-spline (not specific to these particular pole coordinates), so this
+    // doesn't need a hand-derived interior-point value to check against.
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sx")), 0.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sy")), 0.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("sz")), 0.0);
+
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fx")), 0.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fy")), 4.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fz")), 0.0);
 }

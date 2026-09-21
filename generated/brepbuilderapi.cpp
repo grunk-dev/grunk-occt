@@ -57,8 +57,10 @@
 
 #include <memory>
 
-#include "../src/occt_ad_support.hpp"
 #include "../src/occt_sol_traits.hpp"
+#include "../src/occt_ad_support.hpp"
+
+
 
 void register_brepbuilderapi(grunk::plugin_namespace& ns)
 {
