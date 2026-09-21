@@ -19,9 +19,16 @@
 // TopLoc_Location&/const& parameters in topods/brep that were rejected before it
 // existed. gc's own Value() methods return Handle(Geom_TrimmedCurve)/
 // Handle(Geom_Circle), registered in a *different* generated file (geom.cpp) -
-// this only works because occt_plugin is built as a single translation unit (see
-// CMakeLists.txt's unity-build note and DESIGN.md's "Handle(X) return type
-// requires being in the same translation unit as X").
+// this only works because occt_plugin is compiled with the translation-unit
+// grouping CMakeLists.txt reads from generated/translation_units.txt (see
+// codegen/config.yml's own translation_units: section and DESIGN.md's
+// "Translation-unit grouping"/"Handle(X) return type requires being in the same
+// translation unit as X"). Step 7 (AD validation milestone, see DESIGN.md)
+// compiles this *exact same* source - unmodified below this comment - against an
+// AD-enabled OCCT (adOCCT) instead of stock OCCT, with GRUNK_OCCT_WITH_ADOLC
+// defined, when configured with -DGRUNK_OCCT_ENABLE_AD=ON (see CMakeLists.txt and
+// README.md's "Building with AD support" - a build option on this one project, not
+// a separate CMake tree).
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>
@@ -48,12 +55,24 @@
 #include "shape_io.hpp"
 #include "topexp_extras.hpp"
 #include "math_extras.hpp"
+#include "occt_ad_support.hpp"
 
 namespace {
 
 void register_occt(grunk::state& state, grunk::PluginInfo const& info)
 {
     auto ns = state.begin_plugin(info);
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+    // Must run before anything else: occt_plugin::to_real's own `is<Standard_Real>()`
+    // check (used throughout every generated module's dual-emission overloads) can
+    // never be true for anything until Standard_Real itself is registered - see
+    // occt_ad_support.hpp's own doc comment on register_standard_real_ad. Order among
+    // the register_*(ns) calls below doesn't otherwise matter (registration all
+    // happens before any Lua code runs), but this one is placed first anyway so
+    // there's no need to reason about it again later if another AD-only registration
+    // is ever added.
+    register_standard_real_ad(ns);
+#endif
     register_gp(ns);
     register_gp_extras(ns);
     register_toploc(ns);

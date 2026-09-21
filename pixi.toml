@@ -21,6 +21,11 @@ libparametric = "*"
 python = ">=3.9"
 pyyaml = "*"
 gtest = "*"
+# Not used by the root CMakeLists.txt/occt_plugin itself - needed by occt_adolc/'s own
+# standalone CMake project (Step 7, see DESIGN.md), which has no pixi.toml of its own
+# and instead builds inside this same environment (see occt_adolc/README.md).
+# find_package(PkgConfig REQUIRED) there locates ADOL-C via its own adolc.pc.
+pkg-config = "*"
 
 [pypi-dependencies]
 # Self-contained (bundles libclang.so + the clang.cindex Python bindings) - conda-forge's
@@ -56,6 +61,16 @@ SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
 [target.linux-64.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
 SKBUILD_CMAKE_DEFINE = "GRUNK_WITH_TASKFLOW=OFF"
+# Only load-bearing for the AD-enabled build (GRUNK_OCCT_ENABLE_AD, see README.md's
+# "Building with AD support") - occt_plugin built that way links against ADOL-C's
+# own libadolc.so and adOCCT's own OCCT libraries at runtime, not just at link time.
+# Harmless for a plain build: a nonexistent path here is simply ignored by the
+# dynamic linker/pkg-config, and both lib/lib64 variants are listed since which one
+# each install uses is distro-dependent (see scripts/install_adolc.sh's own
+# comment). .deps/, not build/_deps/ - see that same script's comment for why
+# ADOL-C/adOCCT install outside the CMake build directory.
+LD_LIBRARY_PATH = "$PIXI_PROJECT_ROOT/.deps/adolc/lib64:$PIXI_PROJECT_ROOT/.deps/adolc/lib:$PIXI_PROJECT_ROOT/.deps/adocct/lib64:$PIXI_PROJECT_ROOT/.deps/adocct/lib:$LD_LIBRARY_PATH"
+PKG_CONFIG_PATH = "$PIXI_PROJECT_ROOT/.deps/adolc/lib64/pkgconfig:$PIXI_PROJECT_ROOT/.deps/adolc/lib/pkgconfig:$PKG_CONFIG_PATH"
 
 [target.osx-64.activation.env]
 CMAKE_PREFIX_PATH = "$CONDA_PREFIX"
@@ -100,6 +115,37 @@ description = "Configure, build, test, and run the examples."
 # occt_plugin.dll (Windows, no "lib" prefix by default).
 [target.linux-64.tasks]
 run_examples = { cmd = "python examples/run_example.py build/libocct_plugin.so", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }
+
+# AD-enabled build (Step 7, see DESIGN.md/README.md's "Building with AD support") -
+# Linux-only, the one accepted platform exception in the migration plan. Uses a
+# separate build directory (build-ad/) rather than build/, so the plain and
+# AD-enabled variants can coexist without reconfiguring/rebuilding one to get the
+# other - pick whichever `pixi run` task set matches what you need.
+install_adolc = { cmd = "bash scripts/install_adolc.sh", description = "Download, build, and install ADOL-C 2.7.2 into .deps/adolc (idempotent)." }
+
+install_adocct = { cmd = "bash scripts/install_adocct.sh", depends-on = ["install_adolc"], description = "Clone and build adOCCT against the ADOL-C install above, into .deps/adocct (idempotent, involved - see scripts/install_adocct.sh)." }
+
+configure_ad = { cmd = [
+    "cmake",
+    "-G", "Ninja",
+    "-S", ".",
+    "-B", "build-ad",
+    "-D", "CMAKE_INSTALL_PREFIX=build-ad/install",
+    "-D", "CMAKE_BUILD_TYPE={{ config }}",
+    "-D", "CMAKE_EXPORT_COMPILE_COMMANDS=ON",
+    "-D", "GRUNK_OCCT_ENABLE_AD=ON",
+    "-D", "ADOCCT_DIR=.deps/adocct",
+], args = [
+    { "arg" = "config", "default" = "Release" }
+], depends-on = ["install_adocct"], description = "Configure the AD-enabled build (build-ad/)." }
+
+build_ad = { cmd = "cmake --build build-ad --parallel", description = "Build the AD-enabled plugin and test harness." }
+
+test_ad = { cmd = "ctest --test-dir build-ad --output-on-failure", depends-on = ["build_ad"], description = "Run the AD-enabled test harness (tests/test_ad.cpp - a closed-form derivative check)." }
+
+[target.linux-64.tasks.all_ad]
+depends-on = ["configure_ad", "build_ad", "test_ad"]
+description = "Bootstrap ADOL-C/adOCCT if needed, then configure, build, and test the AD-enabled variant."
 
 [target.osx-64.tasks]
 run_examples = { cmd = "python examples/run_example.py build/libocct_plugin.dylib", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md)." }

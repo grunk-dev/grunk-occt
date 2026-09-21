@@ -1,4 +1,6 @@
 /build/
+/build-ad/
+/.deps/
 /.pixi/
 *.pyc
 __pycache__/

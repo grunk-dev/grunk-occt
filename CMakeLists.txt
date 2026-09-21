@@ -24,6 +24,31 @@ option(GRUNK_OCCT_TESTS "Build the test harness" ON)
 # flag is a placeholder until Step 2 adds the real `generate_code` custom target.
 option(GRUNK_OCCT_GENERATE_CODE "Regenerate OCCT bindings using the codegen tool (requires clang/libclang)" OFF)
 
+# --- AD build (Step 7, see DESIGN.md's "AD validation milestone" and "Single
+# project, AD as a build option"): recompiles this *exact same* plugin source
+# against an AD-enabled OCCT fork (adOCCT, https://github.com/dlr-sp/adOCCT)
+# instead of stock OCCT, activating every generated module's own #ifdef-gated
+# dual-emission overload (see src/occt_ad_support.hpp). Linux-only/best-effort -
+# the one accepted platform exception in the migration plan.
+#
+# A build *option* on this one project, not a separate CMake tree: an earlier
+# design used a standalone occt_adolc/ subdirectory project instead, justified by
+# "find_package(OpenCASCADE) only resolves once per configure" - true, but doesn't
+# actually apply here, since this option picks *one* OpenCASCADE per configure
+# (stock or adOCCT), never both from the same configure. Consolidating removed
+# real, growing duplication between two near-identical CMakeLists.txt files (the
+# grunk FetchContent pin below, the whole translation-unit-grouping block further
+# down) - see DESIGN.md for the full reasoning. Pick one variant per build
+# directory (e.g. `build/` for stock, `build-ad/` for AD) - see README.md's
+# "Building with AD support".
+option(GRUNK_OCCT_ENABLE_AD "Build against an AD-enabled OCCT fork (adOCCT) instead of stock OCCT - requires ADOCCT_DIR, see README.md's \"Building with AD support\"" OFF)
+if(GRUNK_OCCT_ENABLE_AD)
+    set(ADOCCT_DIR "" CACHE PATH "Install prefix of adOCCT (dlr-sp/adOCCT), built with -DUSE_ADOLC=ON")
+    if(NOT ADOCCT_DIR)
+        message(FATAL_ERROR "GRUNK_OCCT_ENABLE_AD is ON but ADOCCT_DIR is not set - see README.md's \"Building with AD support\".")
+    endif()
+endif()
+
 # --- grunk (FetchContent, pinned to a specific commit - see README.md/DESIGN.md for
 # why: grunk's plugin interface and 0.5.0 rewrite are only on `main`, not yet tagged).
 # Bump this pin deliberately, in its own PR, gated by the full grunk-occt test suite -
@@ -59,9 +84,24 @@ if(NOT grunk_POPULATED)
     add_subdirectory(${grunk_SOURCE_DIR} ${grunk_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
 
-# --- OCCT (conda-forge `occt` package; find_package name is `OpenCASCADE`, set by
-# OCCT's own upstream CMake config - independent of what the conda package is called).
-find_package(OpenCASCADE REQUIRED)
+# --- OCCT: stock (conda-forge `occt` package) by default, or adOCCT instead when
+# GRUNK_OCCT_ENABLE_AD is ON - find_package name is `OpenCASCADE` either way (set by
+# OCCT's own upstream CMake config, independent of which build/package provides it).
+# Only one of these two branches ever runs per configure.
+if(GRUNK_OCCT_ENABLE_AD)
+    # NO_DEFAULT_PATH + explicit PATHS: CMAKE_PREFIX_PATH (above) also has
+    # conda-forge's own stock occt==7.9.3 on it (needed for Lua/sol2/etc regardless
+    # of this option) - its own OpenCASCADEConfig.cmake would otherwise be found
+    # ahead of adOCCT's, silently linking against the wrong, non-AD OCCT.
+    find_package(OpenCASCADE CONFIG REQUIRED PATHS "${ADOCCT_DIR}" NO_DEFAULT_PATH)
+
+    # ADOL-C itself: found via pkg-config - needs ADOL-C's own lib{,64}/pkgconfig
+    # directory on PKG_CONFIG_PATH (see README.md's "Building with AD support").
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(ADOLC REQUIRED IMPORTED_TARGET GLOBAL adolc)
+else()
+    find_package(OpenCASCADE REQUIRED)
+endif()
 
 # --- code generator (Step 2, see codegen/README.md): opt-in, not wired as a
 # dependency of occt_plugin below - regenerated output needs review/diffing before
@@ -171,6 +211,15 @@ endif()
 add_library(occt_plugin SHARED ${OCCT_PLUGIN_SOURCES})
 target_link_libraries(occt_plugin PRIVATE grunk::plugin ${OpenCASCADE_LIBRARIES})
 target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
+if(GRUNK_OCCT_ENABLE_AD)
+    # Activates every generated module's own #ifdef GRUNK_OCCT_WITH_ADOLC dual-
+    # emission overload (see src/occt_ad_support.hpp) and register_standard_real_ad's
+    # own registration of Standard_Real/Standard_Adouble itself, called first thing
+    # inside register_occt() (src/occt_plugin.cpp) - without it, is<Standard_Real>()
+    # could never be true for anything and every derivative would silently read 0.
+    target_compile_definitions(occt_plugin PRIVATE GRUNK_OCCT_WITH_ADOLC)
+    target_link_libraries(occt_plugin PRIVATE PkgConfig::ADOLC)
+endif()
 # MSVC only: the unity file's own object now has more COFF sections than the
 # default format allows ("fatal error C1128: number of sections exceeded object
 # file format limit") - a well-known consequence of a single translation unit
@@ -193,7 +242,7 @@ if(GRUNK_OCCT_TESTS)
     find_package(GTest REQUIRED)
     include(GoogleTest)
 
-    add_executable(runUnitTests
+    set(OCCT_TEST_SOURCES
         tests/test_load.cpp
         tests/test_recipe.cpp
         tests/test_gp.cpp
@@ -210,6 +259,14 @@ if(GRUNK_OCCT_TESTS)
         tests/test_geomapi.cpp
         tests/test_brepfilletapi.cpp
     )
+    if(GRUNK_OCCT_ENABLE_AD)
+        # AD validation milestone (Step 7, see DESIGN.md) - a closed-form derivative
+        # check, only meaningful (and only compiles cleanly, since occt.Standard_Real
+        # only exists) when occt_plugin was actually built against adOCCT.
+        list(APPEND OCCT_TEST_SOURCES tests/test_ad.cpp)
+    endif()
+
+    add_executable(runUnitTests ${OCCT_TEST_SOURCES})
     target_link_libraries(runUnitTests PRIVATE grunk::plugin grunk::recipe GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE
         OCCT_PLUGIN_SO_PATH="$<TARGET_FILE:occt_plugin>"

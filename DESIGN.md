@@ -72,7 +72,10 @@ the plugin via `grunk::plugin::load_native` and drives it through **raw Lua via
 plugin-binding bugs isolated from the separately-young recipe layer. A `grunk::recipe`-based
 end-to-end test is added later (once several OCCT modules exist), to validate realistic recipe
 usage - see Step 6.5 of the migration plan (porting legacy plugin-using example recipes) for that
-milestone.
+milestone. **Added**: `tests/test_recipe.cpp`, once `cavity_model.grr.yml` existed - reads that
+same example recipe (the one `examples/run_example.py` already runs end-to-end via Python) through
+the plain C++ `grunk::recipe` API instead, so the recipe layer has a fast, always-run unit test of
+its own, not only an external Python example script.
 
 **Test framework: gtest** (matches both legacy grocc's own test suite and grunk's own
 `tests/cpp/`). One `runUnitTests` binary (`CMakeLists.txt`, via `find_package(GTest REQUIRED)` +
@@ -154,9 +157,26 @@ raw/undecorated context (so it can freely construct a placeholder, mutate it thr
 as many out-param calls as needed, and build up the result imperatively), while the
 module function *as a whole*, called from outside, is treated as a single pure/
 parametric unit - only its final return value is tracked. This project hasn't needed
-that bridge yet (Step 0 deliberately deferred `grunk::recipe`-based testing), but it's
-the mechanism to reach for once out-param-heavy OCCT calls need to appear inside an
-actual recipe, not just this project's own `create_env()`-based tests.
+that bridge yet in its own recipes (none of the ported example recipes call an
+out-param method directly from `steps:`), but it's the mechanism to reach for once
+out-param-heavy OCCT calls need to appear inside an actual recipe, not just this
+project's own `create_env()`-based tests.
+
+**Confirmed, not just theoretical**: the sibling `grunk-adolc` repo hit exactly this
+hazard directly, for a different mutating method (`adtl.adouble::setADValue`, not an
+OCCT out-param, but the identical shape of problem) - a qualified call to a mutating
+method placed directly in `steps:` compiles and runs with no error, but its effect is
+silently lost, because a `steps:` statement becomes a lazily-evaluated
+`grunk::ActionDynamic` node whose `eval()` only ever writes back its own *return*
+value; a call whose result nothing downstream reads may simply never be triggered by
+grunk's lazy pull-based evaluation at all. See `grunk-adolc/DESIGN.md`'s "Mutating
+calls inside `steps:` may silently never run under lazy evaluation" section and
+`grunk-adolc/tests/test_recipe.cpp` for the confirmed repro - this project's own
+`tests/test_recipe.cpp` (added alongside that discovery) exercises `cavity_model.grr.
+yml` end-to-end through the recipe layer for the first time, but does not itself
+exercise an out-param call from `steps:` - that specific case remains unexercised
+here, now with a confirmed-elsewhere reason to be careful about it whenever it comes
+up.
 
 ## Null Handle arguments segfault (found in Step 3, filed as grunk-dev/grunk#281)
 
@@ -962,3 +982,166 @@ effect across the whole config, one regeneration, zero other changes: `gp`
 `brepalgoapi` 55→76, `bnd` 52→55, `brep` 49→50, `breptools` 22→31, `geomapi`
 40→74, `brepfilletapi` 106→110 accepted. Verified: full regeneration, clean
 rebuild, all 35 tests plus both example recipes still pass with zero regressions.
+
+## Step 7: AD validation milestone
+
+Recompiles this repo's existing registration code (unmodified: `src/occt_plugin.cpp` and
+`generated/*.cpp`, compiled exactly as they are for a plain build) against
+[adOCCT](https://github.com/dlr-sp/adOCCT), a fork of OCCT redefining `Standard_Real` to be
+`Standard_Adouble` (a thin wrapper around ADOL-C's `adtl::adouble`), with `GRUNK_OCCT_WITH_ADOLC`
+defined so every `#ifdef`-gated dual-emission overload (see "`Standard_Real` / AD-portability rule"
+above, and Step 6.5's "Default-argument expansion" for how it's actually emitted) switches to its
+AD branch. This is the milestone the AD-portability rule was designed for from Step 1 onward - the
+whole point was for this to be a recompile, not a source rewrite, and that held.
+
+### Single project, AD as a build option
+
+`GRUNK_OCCT_ENABLE_AD` (`CMakeLists.txt`) - not a separate CMake tree. An earlier design used a
+standalone `occt_adolc/` subdirectory project instead, justified by "`find_package(OpenCASCADE
+...)` only resolves once per CMake configure run" (mirroring `cad_autodiff`'s own
+`plugins/geoml_adolc/CMakeLists.txt` precedent). That's true, but doesn't actually apply here:
+it's a real constraint on producing *both* stock and AD-enabled outputs from *one* configure, which
+this project never needed to do - `GRUNK_OCCT_ENABLE_AD` picks *one* `find_package(OpenCASCADE
+...)` branch per configure (see `CMakeLists.txt`'s own `if(GRUNK_OCCT_ENABLE_AD) ... else() ...
+endif()`), never both, so the "resolves once" limitation never triggers. Reconsidered directly
+because of this: a standalone project bought nothing this option doesn't, at the cost of real,
+growing duplication between two near-identical `CMakeLists.txt` files (the grunk `FetchContent`
+pin, the whole translation-unit-grouping block) that would only have kept drifting apart the more
+either project changed. Consolidating removed that duplication outright - `occt_plugin` is one
+target either way, `GRUNK_OCCT_ENABLE_AD` only changes what it links against and which extra
+compile definition it gets, not its name. Pick one variant per build directory (`build/` for
+stock, `build-ad/` for AD - see README.md's "Building with AD support" and `pixi.toml`'s
+`configure_ad`/`build_ad`/`test_ad` tasks); a single configure never needs both.
+
+### Bootstrap automation (`scripts/install_adolc.sh`, `scripts/install_adocct.sh`)
+
+Two idempotent shell scripts, wired into `pixi.toml` as `install_adolc`/`install_adocct` (plus
+`configure_ad`/`build_ad`/`test_ad`/`all_ad` for the rest) - mirrors the same pattern
+`grunk-adolc`'s own `scripts/install_adolc.sh` already established for that repo, so building the
+AD variant here needs no more manual copy-paste shell than building the plain one does.
+
+One deliberate difference from `grunk-adolc`'s own script, found the hard way while verifying this
+one: both scripts install to **`.deps/`** (`.deps/adolc`, `.deps/adocct`), not `build/_deps/` -
+outside the CMake build directory entirely. A routine `rm -rf build` (reconfiguring, switching
+build types, or just the regression check run while writing this) would otherwise silently destroy
+an already-built ADOL-C/adOCCT install too, forcing a full rebuild of all of OCCT the next time -
+discovered directly, not anticipated in advance, when exactly that happened during this milestone's
+own verification. Only the throwaway clone+build directories (safe to lose) still live under
+`build/_deps/`, matching CMake's own `FetchContent` naming convention for what they actually are.
+`grunk-adolc`'s own script has this same latent fragility (`build/_deps/ADOL-C`) - worth the same
+fix there as a follow-up, not done as part of this milestone.
+
+### `occt.Standard_Real` and `grunk-adolc`'s `adtl.adouble` are two distinct Lua types
+
+Raised directly, worth recording even though not fixed here: this AD build registers
+`Standard_Real`/`Standard_Adouble` as its own native sol2 usertype (`register_standard_real_ad`,
+below) - a completely separate Lua-visible type from `adtl.adouble`, the sibling `grunk-adolc`
+repo's own binding for the *same* underlying ADOL-C concept. Not just a naming difference: the two
+are registered through fundamentally different mechanisms, for a real reason neither side can drop.
+`grunk-adolc`'s `adtl_plugin.cpp` deliberately never links ADOL-C's own C++ headers directly (its
+whole design point is staying a thin, general-purpose bridge around a *precompiled* SWIG-Lua
+module, `adtl.so`) - so it can only expose `adtl::adouble` via `register_external_type`'s runtime
+SWIG-Lua proxy mechanism, which has no compile-time C++ type information at all. `occt_ad_support.
+hpp` needs the opposite: real, compile-time `Standard_Adouble` type information, because every one
+of the hundreds of generated OCCT overloads needs sol2's *native* `register_type<T>()` marshalling
+to work at all. A native sol2 usertype and a SWIG-Lua proxy userdata are different C-level
+representations - there is no way to "just depend on grunk-adolc and reuse its binding" here; there
+is no C++ implementation to share between them in the first place, only matching *method names*
+(`getValue`/`getADValue`/`setADValue`) because both expose the same real ADOL-C API. This is also
+the same split `cad_autodiff` (the reference material both `register_standard_real_ad` and
+`adtl_plugin.cpp` were ported from) already made, for what's presumably this same reason.
+
+The real, currently-unsolved consequence: a value can't cross between the two today. Seeding an AD
+direction via `adtl.adouble.new(...)` (grunk-adolc) and passing the result into `occt.gp_Pnt.new
+(...)` (this build) would not work - `to_real()`'s own `o.is<Standard_Real>()` check would not
+recognize a foreign SWIG-Lua userdata, so it would either throw or silently fall back to treating
+it as a fresh, non-differentiated value. This is exactly the interop the future `grunk-geoml`
+(combining `grunk-adolc` with a differentiated CAD plugin) will need solved - a custom sol2 stack
+getter/pusher bridging the two representations, most likely - deliberately **not** attempted
+speculatively here: building that bridge only makes sense once `grunk-geoml` is real and it's
+clear exactly what needs to cross the boundary, not before.
+
+### The `Standard_Real` registration gap
+
+The single genuinely load-bearing piece of new code this milestone needed (as opposed to
+"recompile and it works"): `src/occt_ad_support.hpp`'s existing `to_real(sol::object o)` -
+`o.is<Standard_Real>() ? o.as<Standard_Real>() : Standard_Real(o.as<double>())` - already existed
+from Step 1 (the AD-portability rule), but `o.is<Standard_Real>()` can never be `true` for anything
+unless `Standard_Real` itself (== `Standard_Adouble` under this build) has its own registered sol2
+usertype somewhere. Nothing in Steps 1-6 ever registered it - there was no need to until an
+AD-enabled build actually existed to exercise that branch. Without this registration, the AD
+milestone would not fail to compile or to run - it would silently take the "else" branch on every
+single dual-emission overload throughout every generated module, discarding whatever AD tape/
+derivative an argument already carried and treating it as a brand-new value. The only symptom would
+be "every derivative is 0", found (if at all) much later and far from its actual cause.
+
+Fixed by `register_standard_real_ad()` (`src/occt_ad_support.hpp`, called first thing inside
+`register_occt()` in `src/occt_plugin.cpp`, gated the same `#if defined(GRUNK_OCCT_WITH_ADOLC)` as
+everything else here) - registers `occt.Standard_Real` as a real Lua usertype with a
+`double`-taking constructor and ADOL-C's own `getValue`/`getADValue`/`setADValue` introspection,
+ported directly from `cad_autodiff`'s `geoml_registration.hpp` (the identical block, verified
+byte-for-byte equivalent in intent - not OCCT-plugin-specific in any way, it only ever touches
+`Standard_Adouble`'s own API). Registration order among the other `register_*(ns)` calls in
+`register_occt()` doesn't actually matter (all registration completes before any Lua runs) - placed
+first anyway so nothing needs to reason about ordering again if a second AD-only registration is
+ever added.
+
+Everything else - every generated constructor/method's own dual-emission `to_real()` call, every
+plain `Standard_Real`-returning accessor (`gp_Pnt::X()` etc., automatically wrapped as an
+`occt.Standard_Real` return value once the type is registered, no dual emission needed on returns,
+only on parameters) - already existed unchanged from Step 1 onward and needed no new code at all.
+
+### Validation methodology
+
+`tests/test_ad.cpp` (only built when `GRUNK_OCCT_ENABLE_AD` is ON - see `CMakeLists.txt`) mirrors
+`cad_autodiff`'s own README ("Verifying the
+derivative", the cubic-Bezier-weight closed-form check) but exercises this repo's own *generated*
+`Geom_BezierCurve`/`gp_Pnt` bindings directly, not `geoml_registration.hpp`'s hand-written ones, and
+uses its own round control-point numbers (only the methodology carries over, not the specific
+figures): pole 0's X coordinate is seeded as an AD variable (`occt.Standard_Real.new(1.0)`,
+`:setADValue(0, 1.0)`), every other pole coordinate a plain Lua number; the curve is evaluated at
+`u=0.5`, where the four cubic Bernstein weights are `(0.125, 0.375, 0.375, 0.125)`. `dx(0.5)/dX0`
+must equal pole 0's own weight, `0.125` (the curve is affine in each pole coordinate, so this holds
+for any seeded value); `dy(0.5)/dX0` must be exactly `0`, since the seeded variable never appears in
+any pole's Y coordinate - a real check (unlike a same-value, single-coordinate check alone) that a
+derivative direction hasn't leaked across coordinates, e.g. via a constructor overload binding the
+wrong parameter or an AD tape variable getting reused by mistake.
+
+### The dlopen/SONAME collision hazard
+
+Documented here, not solved (matches `cad_autodiff`'s own README, which raises this and defers it
+the same way): `grunk::plugin::load_native` never `dlclose`s. A consuming application that loads
+*both* the stock `occt_plugin` (`build/libocct_plugin.so`) and the AD-enabled one
+(`build-ad/libocct_plugin.so` - same target name, different build directory, see "Single project,
+AD as a build option" above) into the same process risks the dynamic linker silently resolving the
+second's OCCT symbol references against the first's already-mapped ones if their SONAMEs collide -
+which they very well might, since adOCCT is a fork of the same OCCT sharing its library naming.
+This is not exercised or guarded against anywhere in this repo's own tests (each test binary loads
+exactly one variant, never both) - a consuming application is expected to pick one variant per
+process until symbol-versioning/`RTLD_LOCAL` isolation is investigated as its own, separate task,
+exactly as `cad_autodiff`'s README leaves it.
+
+### What could and could not be verified in this environment
+
+No adOCCT/ADOL-C build access in this sandbox, the same limitation already documented for
+`grunk-adolc`'s own extraction - `scripts/install_adocct.sh`'s own `cmake`/`ninja install`
+invocation (building adOCCT itself, `-DUSE_ADOLC=ON -DADOLC_REVERSE_MODE=OFF`) was not run/verified
+here, and is written and reasoned through against `cad_autodiff`'s own confirmed-working precedent
+(`geoml_adolc/CMakeLists.txt`, its README's "Stage 3" section) instead.
+
+What genuinely *was* verified, though, rather than only reasoned about:
+
+- **`scripts/install_adolc.sh`** - run for real, end to end, producing a working ADOL-C 2.7.2
+  install (ADOL-C has no adOCCT-scale third-party dependency closure, so this was actually
+  feasible here, unlike adOCCT itself).
+- **`GRUNK_OCCT_ENABLE_AD`'s own CMake wiring** - configured for real against that real ADOL-C
+  install (via `pkg_check_modules(ADOLC ...)`, which found it correctly) and a stand-in
+  `ADOCCT_DIR` (stock OCCT's own install, just to exercise the `find_package(OpenCASCADE CONFIG
+  ... PATHS ... NO_DEFAULT_PATH)` branch structurally). The build then failed exactly where
+  expected - `Standard_Adouble` genuinely not existing outside real adOCCT - and nowhere else,
+  confirming the option/`pkg_check_modules`/compile-definition/linking wiring itself is correct.
+  Also verified: `GRUNK_OCCT_ENABLE_AD=ON` with `ADOCCT_DIR` unset fails loudly with the intended
+  message rather than some other CMake error.
+- **The plain (AD-off) build** - a full clean reconfigure/build/test/`run_examples` after this
+  whole refactor, confirming zero regressions from consolidating `occt_adolc/` away (37/37 tests,
+  both example recipes).
