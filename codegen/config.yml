@@ -13,6 +13,35 @@
 # repointed at the new register_type/add_constructors/add_member_function API - see
 # grocc/config.yml.in for the legacy version this is modeled on.
 
+# Translation-unit grouping for the build (see generate.py's compute_translation_units
+# and CMakeLists.txt's own comment on generated/translation_units.txt).
+#
+# mode: separate (this project's default) compiles each module as its own
+# translation unit - keeps any single compiler invocation's own memory/time bounded
+# regardless of how large the whole plugin's generated code grows (found the hard
+# way: a single all-modules-in-one-TU build peaked at ~12-13GB RAM and ~4 minutes for
+# just this one file, reliably OOM-killing GitHub Actions' ubuntu-latest CI runners -
+# see DESIGN.md's "Translation-unit grouping" section). mode: unity instead compiles
+# every module *and* src/occt_plugin.cpp into exactly one translation unit - this
+# project's original, simplest design, kept available as an opt-out for anyone who
+# wants it (e.g. a from-scratch build on a machine with plenty of RAM might compile
+# faster overall in unity mode, having to invoke the compiler only once).
+#
+# groups (consulted under either mode) lists sets of modules that must compile
+# together regardless: gc's own GC_MakeSegment::Value()/GC_MakeCircle::Value()
+# return Handle(Geom_TrimmedCurve)/Handle(Geom_Circle), and geomapi's own
+# GeomAPI_IntCS::Segment/GeomAPI_IntSS::Line return Handle(Geom_Curve) - all types
+# registered in geom, not gc/geomapi themselves - and Handle(X)-returning code only
+# compiles correctly in the same translation unit as X's own
+# register_type<X, ...>() call (confirmed empirically, see DESIGN.md). Add a module
+# here immediately if a similar no-match-for-operator</operator== compile error
+# ever appears after adding a new module - it means that module returns some other
+# module's Handle(X) type too.
+translation_units:
+  mode: separate
+  groups:
+    - [gc, geom, geomapi]
+
 modules:
   - name: gp
     # gp_*.hxx (all ~40 headers, not the original hand-picked 5) - matches legacy
@@ -160,6 +189,11 @@ modules:
       - BRepBuilderAPI_VertexInspector.hxx
       - BRepBuilderAPI_FastSewing.hxx
       - BRepBuilderAPI_BndBoxTreeSelector.hxx
+    # extra_includes: the TopoDS_* entries are original (Step 4b); the gp_* ones
+    # were added once a standalone-per-module build (not the old always-unity
+    # build) actually compiled this module on its own and found each one only
+    # forward-declared by whichever BRepBuilderAPI_*.hxx header takes it by
+    # reference - see DESIGN.md's "Translation-unit grouping".
     extra_includes:
       - TopoDS_Shape.hxx
       - TopoDS_Vertex.hxx
@@ -169,6 +203,22 @@ modules:
       - TopoDS_Shell.hxx
       - TopoDS_Solid.hxx
       - TopoDS_Compound.hxx
+      - TopoDS_CompSolid.hxx
+      - gp_Circ.hxx
+      - gp_Circ2d.hxx
+      - gp_Cone.hxx
+      - gp_Cylinder.hxx
+      - gp_Elips.hxx
+      - gp_Elips2d.hxx
+      - gp_Hypr.hxx
+      - gp_Hypr2d.hxx
+      - gp_Lin.hxx
+      - gp_Lin2d.hxx
+      - gp_Parab.hxx
+      - gp_Parab2d.hxx
+      - gp_Pln.hxx
+      - gp_Sphere.hxx
+      - gp_Torus.hxx
 
   - name: brepprimapi
     # Step 4b validation module: reproduces legacy grocc's test_simple_boolean_op.cpp
@@ -181,8 +231,15 @@ modules:
   - name: brepalgoapi
     # Widened to the whole module (Step 6.5, see DESIGN.md) - matches legacy grocc's
     # own wildcard, needed to unlock Fuse/Common for the ported example recipes.
+    # extra_includes: some BRepAlgoAPI_*.hxx header only forward-declares gp_Pln (a
+    # reference parameter needs no more from its own point of view) - same class of
+    # gap as bnd/brepbuilderapi's own extra_includes, found the same way (a
+    # standalone-per-module build, not the old always-unity build, actually compiling
+    # this module on its own - see DESIGN.md's "Translation-unit grouping").
     headers:
       - BRepAlgoAPI_*.hxx
+    extra_includes:
+      - gp_Pln.hxx
 
   - name: bnd
     # Step 6 module expansion sweep (see DESIGN.md/migration plan) - the first new
@@ -190,9 +247,12 @@ modules:
     #   - Bnd_Box is a plain value type (no Standard_Transient/Handle, no explicit
     #     destructor -> "value" ctor mode) bounded by gp_Pnt/gp_Dir/gp_Trsf (gp
     #     module) and itself (Add(Bnd_Box const&)); IsOut(gp_Lin const&)/
-    #     IsOut(gp_Pln const&) are rejected (gp_Lin/gp_Pln aren't registered yet) -
-    #     not needed for this module's own validation, left as a real, recorded
-    #     rejection rather than pulled in speculatively.
+    #     IsOut(gp_Pln const&) are accepted now that gp's own wildcard (Step 6.5)
+    #     registers gp_Lin/gp_Pln too - see this module's own extra_includes below,
+    #     needed once these two overloads started being generated: Bnd_Box.hxx only
+    #     forward-declares gp_Lin/gp_Pln (a reference parameter needs no more from
+    #     its own point of view), same class of gap as BRepBndLib.hxx's own
+    #     TopoDS_Shape below.
     #   - BRepBndLib is a static-only "namespace class" (see codegen/README.md's
     #     "Static-only 'namespace classes'") whose Add(shape, box&, ...) mutates the
     #     existing Bnd_Box userdata passed in - the same already-supported
@@ -216,6 +276,8 @@ modules:
       - BRepBndLib.hxx
     extra_includes:
       - TopoDS_Shape.hxx
+      - gp_Lin.hxx
+      - gp_Pln.hxx
 
   - name: brep
     # Step 6 module expansion sweep, second module. BRep_Builder constructs
@@ -354,10 +416,17 @@ modules:
     #     only compiles safely *because* of the unity build (CMakeLists.txt) -
     #     GC_MakeSegment/GC_MakeCircle live in their own generated file, separate
     #     from Geom_TrimmedCurve/Geom_Circle's own registration in geom.cpp; without
-    #     the unity build, this is a real, confirmed compile error (see DESIGN.md).
-    # No extra_includes needed: every GC_*.hxx header fully #includes the gp_* types
-    # it uses (unlike bnd/brep/breptools/toploc's TopoDS_*/TopLoc_Location
-    # forward-decl-only situations) - confirmed by building, not assumed.
+    #     the unity build, this is a real, confirmed compile error (see DESIGN.md) -
+    #     see translation_units.groups above, listing gc/geom together for exactly
+    #     this reason.
+    # extra_includes: several GC_Make*.hxx headers (GC_MakeCylindricalSurface,
+    # GC_MakeConicalSurface, ...) take a gp_* parameter that header only
+    # forward-declares (via a transitive Geom_*Surface.hxx include) - every type
+    # listed below is one of those, confirmed one at a time via a standalone build
+    # of this module. This was NOT caught by "confirmed by building" under the old
+    # always-unity build (see DESIGN.md's "Translation-unit grouping"): that only
+    # ever proved gc.cpp compiles *concatenated with everything else*, including
+    # gp.cpp's own #include <gp_Cylinder.hxx> etc. - not that it compiles standalone.
     #
     # Step 6.5 (see DESIGN.md/migration plan): widened from the two hand-picked
     # classes above to the whole module (GC_*.hxx) - matches legacy grocc's own
@@ -366,6 +435,15 @@ modules:
     # No blacklist entries.
     headers:
       - GC_*.hxx
+    extra_includes:
+      - gp_Circ.hxx
+      - gp_Cone.hxx
+      - gp_Cylinder.hxx
+      - gp_Elips.hxx
+      - gp_Hypr.hxx
+      - gp_Lin.hxx
+      - gp_Parab.hxx
+      - gp_Pln.hxx
 
   - name: brepoffsetapi
     # Step 6 module expansion sweep, sixth module. Legacy grocc's own config.yml.in

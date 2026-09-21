@@ -1,0 +1,13 @@
+gp
+gc geom geomapi
+message_progress
+topods
+brepbuilderapi
+brepprimapi
+brepalgoapi
+bnd
+brep
+breptools
+toploc
+brepoffsetapi
+brepfilletapi

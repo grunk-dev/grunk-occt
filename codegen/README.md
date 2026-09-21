@@ -289,6 +289,21 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   `TopoDS_Shape`) - omitting it fails with a real "invalid use of incomplete type"
   compile error (found on `bnd`, the first module needing it - see
   `codegen/config.yml`'s own comment there).
+- **`translation_units`** (top-level config, optional - Step 6.5's "Translation-unit
+  grouping"): controls how `CMakeLists.txt` groups `generated/*.cpp` files into
+  compiler invocations, written by `generate.py` as `generated/translation_units.txt`
+  (one line per translation unit, a space-separated list of module names, or a single
+  line `*` for "everything in one"). `mode: separate` (the default) gives every
+  module its own translation unit; `mode: unity` reproduces this project's original
+  one-translation-unit-for-everything design. `groups` (a list of lists of module
+  names, consulted under either mode) names sets of modules that must share a
+  translation unit regardless - required whenever one module returns another
+  module's `Handle(X)` by value (see `../DESIGN.md`'s "Handle(X) return type requires
+  being in the same translation unit as X"); `codegen/config.yml`'s own comment
+  tracks the confirmed cases. See `compute_translation_units()` in `generate.py` for
+  the exact algorithm and `../DESIGN.md`'s "Translation-unit grouping" for why this
+  exists at all (a single all-modules TU measured at ~12-13GB RAM, reliably
+  OOM-killing CI).
 - **`automagic_flags::none`** is applied to every registered type unconditionally (see
   `../DESIGN.md`'s policy) - the generator does not (yet) have a mechanism for opting
   a specific type into fuller automagic.

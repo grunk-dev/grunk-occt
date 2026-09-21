@@ -930,6 +930,62 @@ void register_{result.name}(grunk::plugin_namespace& ns)
     return header_source, cpp_source
 
 
+def compute_translation_units(config: dict, module_names: list[str]) -> list[str]:
+    """Computes CMakeLists.txt's translation-unit grouping from the optional
+    top-level `translation_units:` config key, returning the manifest lines to write
+    to generated/translation_units.txt (see that file's own header comment and
+    DESIGN.md's "Handle(X) return type requires being in the same translation unit
+    as X" for why this exists at all: a Handle(X)-returning module's generated code
+    only compiles correctly when X's own register_type<X, ...>() call is compiled
+    in the *same* translation unit).
+
+    `translation_units.mode` ("separate", the default, or "unity") controls what
+    happens to a module that isn't explicitly listed in any `translation_units.groups`
+    entry: "separate" gives it its own singleton translation unit (finest granularity -
+    keeps a single compiler invocation's memory/time bounded, recommended default);
+    "unity" merges every module (and CMakeLists.txt's own hand-written entry point,
+    src/occt_plugin.cpp) into exactly one translation unit, matching this project's
+    original, simplest-possible design - a single line "*" is returned in that case,
+    which CMakeLists.txt recognizes as "ignore everything below and do the old
+    unity-everything build."
+
+    `translation_units.groups` (a list of lists of module names) is consulted
+    regardless of `mode`: each inner list names a set of modules that must compile
+    together, in one translation unit - use this for a confirmed cross-module
+    Handle(X) dependency (see the `gc`/`geom` entry in config.yml). A module named in
+    a group is never also treated as its own singleton, even under `mode: separate`.
+    """
+    tu_config = config.get("translation_units", {})
+    mode = tu_config.get("mode", "separate")
+    groups: list[list[str]] = tu_config.get("groups", [])
+
+    if mode not in ("separate", "unity"):
+        raise ValueError(f'translation_units.mode must be "separate" or "unity", got {mode!r}')
+
+    module_name_set = set(module_names)
+    seen: set[str] = set()
+    for group in groups:
+        for name in group:
+            if name not in module_name_set:
+                raise ValueError(f'translation_units.groups references unknown module "{name}"')
+            if name in seen:
+                raise ValueError(f'translation_units.groups lists module "{name}" in more than one group')
+            seen.add(name)
+
+    if mode == "unity":
+        return ["*"]
+
+    lines: list[str] = []
+    emitted: set[str] = set()
+    for name in module_names:
+        if name in emitted:
+            continue
+        group = next((g for g in groups if name in g), [name])
+        lines.append(" ".join(group))
+        emitted.update(group)
+    return lines
+
+
 def build_clang_args(occt_include_dir: Path) -> list[str]:
     args = ["-x", "c++", "-std=c++17", f"-I{occt_include_dir}"]
     args += [f"-isystem{d}" for d in system_cxx_include_dirs()]
@@ -978,6 +1034,15 @@ def main() -> int:
             print(f"  rejected {c.class_name}::{c.cpp_name}: {reason}", file=sys.stderr)
         for c in result.blacklisted:
             print(f"  blacklisted {c.class_name}::{c.cpp_name}", file=sys.stderr)
+
+    # See CMakeLists.txt's own comment on reading this file: one line per translation
+    # unit, each a space-separated list of module names (generated/<name>.cpp) to
+    # compile together, or a single line "*" meaning "one translation unit for
+    # everything, including src/occt_plugin.cpp" (mode: unity - see
+    # compute_translation_units's own docstring).
+    module_names = [module["name"] for module in config["modules"]]
+    tu_lines = compute_translation_units(config, module_names)
+    (args.output_dir / "translation_units.txt").write_text("\n".join(tu_lines) + "\n")
 
     return 0
 

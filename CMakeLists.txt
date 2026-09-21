@@ -86,44 +86,89 @@ endif()
 # codegen/README.md) and compiled unconditionally, regardless of
 # GRUNK_OCCT_GENERATE_CODE above.
 #
-# Built as a single translation unit ("unity build" - mirrors legacy grocc's own
-# `concatenate` config option, applied here unconditionally rather than as an
-# opt-in toggle) via a generated file that #includes src/occt_plugin.cpp and every
-# generated/*.cpp, rather than compiling each as its own separate object. This is
-# not just a build-time optimization: a real sol2/grunk compile error appears
-# whenever a function/method returns a Handle(X) (opencascade::handle<X>) by value
-# in a *different* translation unit than the one that calls X's own
-# register_type<X, ...>() (X ends up needing operator</operator== it doesn't
-# have) - see DESIGN.md's "Handle(X) return type requires being in the same
-# translation unit as X" for the confirmed repro. Concatenating every generated
-# file into one TU eliminates this whole class of bug outright, so config.yml's
-# modules can be split along whatever logical lines make sense (e.g. "gc"
-# returning Handle(Geom_TrimmedCurve)/Handle(Geom_Circle), registered in "geom")
-# without having to route around this on a case-by-case basis.
+# Translation-unit grouping is read from generated/translation_units.txt, written by
+# codegen/generate.py from config.yml's own translation_units: section (see its
+# comment there) - not decided here. One line per translation unit, each a
+# space-separated list of module names (generated/<name>.cpp), except a single line
+# "*" meaning "one translation unit for everything, including src/occt_plugin.cpp"
+# (config.yml's mode: unity).
 #
-# The unity file itself is a generated build artifact (not checked in, unlike
-# generated/*.cpp themselves) - written under CMAKE_BINARY_DIR, same as any other
-# build output. Regenerated at configure time; like the GLOB above, reconfigure
-# (not just rebuild) after adding a *new* generated/*.cpp file so it picks up the
-# new #include line.
-file(GLOB GENERATED_SOURCES ${CMAKE_SOURCE_DIR}/generated/*.cpp)
+# This grouping exists at all because of a real sol2/grunk compile error: a
+# function/method returning a Handle(X) (opencascade::handle<X>) by value only
+# compiles correctly in the *same* translation unit as the one that calls X's own
+# register_type<X, ...>() (X ends up needing operator</operator== it doesn't have
+# otherwise) - see DESIGN.md's "Handle(X) return type requires being in the same
+# translation unit as X" for the confirmed repro, and its own gc/geom entry in
+# config.yml's translation_units.groups. This project's own generated code grew
+# large enough that compiling *everything* as one translation unit (mode: unity,
+# this project's original design) made a single compiler invocation need ~12-13GB
+# of RAM and ~4 minutes for that one file alone - reliably OOM-killing GitHub
+# Actions' ubuntu-latest CI runners (see DESIGN.md's "Translation-unit grouping").
+# mode: separate (config.yml's default) instead compiles each module as its own
+# translation unit except the pairs groups: names, keeping every single compiler
+# invocation's own resource usage bounded regardless of how large the whole
+# plugin's generated code grows - while a single-module line needs no synthesized
+# wrapper at all (generated/<name>.cpp is already its own translation unit; CMake's
+# normal dependency scanning already covers it), a multi-module line still gets one,
+# the same #include-based mechanism mode: unity uses for everything, just scoped to
+# that one group.
+file(STRINGS "${CMAKE_SOURCE_DIR}/generated/translation_units.txt" OCCT_TU_LINES)
 
-set(OCCT_PLUGIN_UNITY_CPP "${CMAKE_BINARY_DIR}/occt_plugin_unity.cpp")
-set(_unity_lines "// AUTO-GENERATED unity build file - see CMakeLists.txt. Do not edit or commit.\n")
-string(APPEND _unity_lines "#include \"${CMAKE_SOURCE_DIR}/src/occt_plugin.cpp\"\n")
-foreach(_generated_src ${GENERATED_SOURCES})
-    string(APPEND _unity_lines "#include \"${_generated_src}\"\n")
-endforeach()
-file(WRITE "${OCCT_PLUGIN_UNITY_CPP}" "${_unity_lines}")
+set(OCCT_PLUGIN_SOURCES "")
 
-add_library(occt_plugin SHARED "${OCCT_PLUGIN_UNITY_CPP}")
-# The unity file's own #includes aren't visible to CMake's dependency scanner from
-# its own path alone - list src/occt_plugin.cpp and every generated/*.cpp as
-# OBJECT_DEPENDS so editing any of them still triggers a rebuild without a
-# reconfigure.
-set_source_files_properties("${OCCT_PLUGIN_UNITY_CPP}" PROPERTIES
-    OBJECT_DEPENDS "${CMAKE_SOURCE_DIR}/src/occt_plugin.cpp;${GENERATED_SOURCES}"
-)
+list(LENGTH OCCT_TU_LINES OCCT_TU_LINE_COUNT)
+if(OCCT_TU_LINE_COUNT EQUAL 1 AND OCCT_TU_LINES STREQUAL "*")
+    file(GLOB GENERATED_SOURCES ${CMAKE_SOURCE_DIR}/generated/*.cpp)
+
+    set(OCCT_PLUGIN_UNITY_CPP "${CMAKE_BINARY_DIR}/occt_plugin_unity.cpp")
+    set(_unity_lines "// AUTO-GENERATED unity build file - see CMakeLists.txt. Do not edit or commit.\n")
+    string(APPEND _unity_lines "#include \"${CMAKE_SOURCE_DIR}/src/occt_plugin.cpp\"\n")
+    foreach(_generated_src ${GENERATED_SOURCES})
+        string(APPEND _unity_lines "#include \"${_generated_src}\"\n")
+    endforeach()
+    file(WRITE "${OCCT_PLUGIN_UNITY_CPP}" "${_unity_lines}")
+
+    # The unity file's own #includes aren't visible to CMake's dependency scanner
+    # from its own path alone - list src/occt_plugin.cpp and every generated/*.cpp
+    # as OBJECT_DEPENDS so editing any of them still triggers a rebuild without a
+    # reconfigure.
+    set_source_files_properties("${OCCT_PLUGIN_UNITY_CPP}" PROPERTIES
+        OBJECT_DEPENDS "${CMAKE_SOURCE_DIR}/src/occt_plugin.cpp;${GENERATED_SOURCES}"
+    )
+    list(APPEND OCCT_PLUGIN_SOURCES "${OCCT_PLUGIN_UNITY_CPP}")
+else()
+    # src/occt_plugin.cpp is always its own translation unit here - it never
+    # returns a Handle(X) itself, only calls each module's own
+    # register_<module>(ns) function (see its own top comment), so it never needs
+    # to share a TU with anything.
+    list(APPEND OCCT_PLUGIN_SOURCES "${CMAKE_SOURCE_DIR}/src/occt_plugin.cpp")
+
+    set(_tu_index 0)
+    foreach(_tu_line ${OCCT_TU_LINES})
+        separate_arguments(_tu_modules UNIX_COMMAND "${_tu_line}")
+        list(LENGTH _tu_modules _tu_module_count)
+
+        if(_tu_module_count EQUAL 1)
+            list(APPEND OCCT_PLUGIN_SOURCES "${CMAKE_SOURCE_DIR}/generated/${_tu_line}.cpp")
+        else()
+            set(_tu_cpp "${CMAKE_BINARY_DIR}/occt_plugin_tu_${_tu_index}.cpp")
+            set(_tu_content "// AUTO-GENERATED translation-unit file - see CMakeLists.txt. Do not edit or commit.\n")
+            set(_tu_depends "")
+            foreach(_tu_module ${_tu_modules})
+                set(_tu_module_src "${CMAKE_SOURCE_DIR}/generated/${_tu_module}.cpp")
+                string(APPEND _tu_content "#include \"${_tu_module_src}\"\n")
+                list(APPEND _tu_depends "${_tu_module_src}")
+            endforeach()
+            file(WRITE "${_tu_cpp}" "${_tu_content}")
+            set_source_files_properties("${_tu_cpp}" PROPERTIES OBJECT_DEPENDS "${_tu_depends}")
+            list(APPEND OCCT_PLUGIN_SOURCES "${_tu_cpp}")
+        endif()
+
+        math(EXPR _tu_index "${_tu_index} + 1")
+    endforeach()
+endif()
+
+add_library(occt_plugin SHARED ${OCCT_PLUGIN_SOURCES})
 target_link_libraries(occt_plugin PRIVATE grunk::plugin ${OpenCASCADE_LIBRARIES})
 target_include_directories(occt_plugin PRIVATE ${OpenCASCADE_INCLUDE_DIR})
 # MSVC only: the unity file's own object now has more COFF sections than the
@@ -150,6 +195,7 @@ if(GRUNK_OCCT_TESTS)
 
     add_executable(runUnitTests
         tests/test_load.cpp
+        tests/test_recipe.cpp
         tests/test_gp.cpp
         tests/test_geom.cpp
         tests/test_shapes.cpp
@@ -164,9 +210,10 @@ if(GRUNK_OCCT_TESTS)
         tests/test_geomapi.cpp
         tests/test_brepfilletapi.cpp
     )
-    target_link_libraries(runUnitTests PRIVATE grunk::plugin GTest::gtest_main)
+    target_link_libraries(runUnitTests PRIVATE grunk::plugin grunk::recipe GTest::gtest_main)
     target_compile_definitions(runUnitTests PRIVATE
         OCCT_PLUGIN_SO_PATH="$<TARGET_FILE:occt_plugin>"
+        EXAMPLES_DIR="${CMAKE_SOURCE_DIR}/examples"
     )
     # tests/test_collections.cpp includes src/collections.hpp (and gp_Pnt.hxx)
     # directly, and calls into real OCCT code (NCollection_Array1's own bounds

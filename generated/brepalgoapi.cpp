@@ -14,6 +14,7 @@
 #include <BRepAlgoAPI_Fuse.hxx>
 #include <BRepAlgoAPI_Section.hxx>
 #include <BRepAlgoAPI_Splitter.hxx>
+#include <gp_Pln.hxx>
 
 #include <memory>
 

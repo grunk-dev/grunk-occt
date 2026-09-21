@@ -23,6 +23,14 @@
 #include <GC_MakeTrimmedCone.hxx>
 #include <GC_MakeTrimmedCylinder.hxx>
 #include <GC_Root.hxx>
+#include <gp_Circ.hxx>
+#include <gp_Cone.hxx>
+#include <gp_Cylinder.hxx>
+#include <gp_Elips.hxx>
+#include <gp_Hypr.hxx>
+#include <gp_Lin.hxx>
+#include <gp_Parab.hxx>
+#include <gp_Pln.hxx>
 
 #include <memory>
 

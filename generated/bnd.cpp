@@ -7,6 +7,8 @@
 #include <Bnd_Box.hxx>
 #include <BRepBndLib.hxx>
 #include <TopoDS_Shape.hxx>
+#include <gp_Lin.hxx>
+#include <gp_Pln.hxx>
 
 #include <memory>
 

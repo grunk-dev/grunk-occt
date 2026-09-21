@@ -587,12 +587,90 @@ added in later Step 6 sweeps. The generated unity file is a build artifact (like
 `.o`), not checked in - written under `CMAKE_BINARY_DIR`, already covered by
 `.gitignore`'s `/build/` entry.
 
-Trade-off, accepted deliberately: incremental rebuild cost goes up slightly (editing
-any one `generated/*.cpp` now recompiles the whole plugin as one translation unit
-instead of just that file's own object) - acceptable since `generated/` is normally
-regenerated wholesale via the codegen tool, not hand-edited file-by-file, and this is
-a plugin loaded once per process, not something rebuilt every few seconds during
-day-to-day development.
+**Superseded by "Translation-unit grouping" below**: applying this fix
+*unconditionally* to the whole plugin (rather than only to the specific modules that
+actually need it) is what eventually grew `occt_plugin_unity.cpp` large enough to
+OOM-kill CI - the trade-off paragraph that used to be here accepted a real cost
+(incremental rebuild time) without anticipating the actual failure mode that trade-off
+would eventually cause. The underlying compile error and its fix (same-TU placement)
+are still exactly as described above; only the *scope* of what gets merged changed -
+see below for the current, config-driven mechanism (`config.yml`'s
+`translation_units.groups`), which still relies on this same fix, just no longer
+applies it to every module unconditionally.
+
+## Translation-unit grouping
+
+Found in CI, not locally: `ubuntu-latest` GitHub Actions runs started dying partway
+through the "Build" step with `ninja: build stopped: interrupted by user` and exit
+code 143 - misleading wording (Ninja's own generic message for *any* termination
+signal, not literally a person cancelling) that obscured the real cause for several
+runs (some over 4 minutes, `[22/25] ... test_brepfilletapi.cpp.o` was the last output
+before the runner just fell silent for 8 minutes and died).
+
+Measured directly (not guessed at): compiling `occt_plugin_unity.cpp` (the previous
+section's unconditional single translation unit for the *entire* plugin) alone, on a
+machine with abundant RAM/cores, needs **~12-13GB of peak RSS and ~4 minutes**,
+regardless of optimization level (`-O3`/`-O1`/`-O0` all land within ~10% of each
+other in both time and memory - the cost is dominated by the front end parsing and
+instantiating thousands of `sol::overload(...)` templates concatenated into one file,
+not the optimizer backend, so no compiler-flag tweak was going to fix this).
+GitHub's hosted `ubuntu-latest` runners have 4 vCPUs / 16GB total system memory - a
+single process needing 12+GB, running alongside the OS and anything else `ninja
+--parallel` has going concurrently, reliably exhausts that.
+
+**Fix**: `config.yml`'s new top-level `translation_units` key (see
+`codegen/README.md`'s own entry and `generate.py`'s `compute_translation_units()`)
+makes the "one giant TU" choice a config knob instead of a hardcoded default.
+`mode: separate` (the new default) compiles each module as its own translation
+unit; `groups` names sets of modules that must still share one, for the same
+Handle(X) reason as before. `generate.py` writes the resolved grouping to
+`generated/translation_units.txt` (one manifest line per translation unit, or a
+single line `*` for `mode: unity`); `CMakeLists.txt` reads it at configure time and
+builds accordingly - a single-module line compiles that module's own
+`generated/<name>.cpp` directly (no synthesized wrapper needed, real incremental
+rebuilds, real parallelism), a multi-module line gets a small synthesized
+`#include`-based wrapper file, same mechanism `mode: unity` uses for everything.
+
+**Real risk this surfaced, not just a hypothetical**: splitting a translation unit
+that used to be "everything" risks losing more than the one already-known gc/geom
+Handle(X) pairing - any module whose generated code references another type only
+*coincidentally* completed by some unrelated module's own `#include` (rather than by
+its own headers or `extra_includes`) would silently compile in the old unity build
+and break once split. This happened for real, found only by actually attempting the
+split and building each module standalone, not by static analysis:
+
+- `geomapi`'s `GeomAPI_IntCS::Segment`/`GeomAPI_IntSS::Line` return `Handle(Geom_Curve)`
+  by value - a second, previously-undiscovered instance of the exact same gc/geom
+  problem. Added to the same group: `groups: [[gc, geom, geomapi]]`.
+- `gc`, `bnd`, `brepalgoapi`, and `brepbuilderapi` each referenced one or more
+  `gp_*`/`TopoDS_*` types (`gp_Cylinder`, `gp_Cone`, `gp_Circ`, `gp_Elips`, `gp_Hypr`,
+  `gp_Lin`, `gp_Parab`, `gp_Pln`, plus 2D variants and `TopoDS_CompSolid`) that were
+  only ever forward-declared by the headers those modules actually wrap (e.g.
+  `GC_MakeCylindricalSurface.hxx`'s own `class gp_Cylinder;`, via a transitive
+  `Geom_CylindricalSurface.hxx` include) - complete only because `gp.cpp`/`topods.cpp`
+  happened to also be in the same old unity TU. Fixed via `extra_includes` (the
+  pre-existing escape hatch for exactly this shape of problem, previously used only
+  for `TopoDS_*`/`TopLoc_Location` forward-decl gaps discovered under the always-unity
+  build) - see each module's own `config.yml` comment for the specific list. A stale
+  comment on `gc`'s own entry ("No extra_includes needed... confirmed by building")
+  is exactly the trap this describes: "confirmed by building" under the old unity
+  build only ever proved *concatenated-with-everything-else* compiled, not standalone.
+
+Found systematically, not one build-fail-and-patch cycle at a time (each full build
+took ~2 minutes): a `g++ -fsyntax-only` probe compiling each `generated/<module>.cpp`
+directly (or the `gc`/`geom`/`geomapi` group together) with the real project's own
+include flags, extracted once via `ninja -t commands`, surfaces every incomplete-type
+error across the whole plugin in one pass, since `-fsyntax-only` skips code
+generation entirely and GCC reports every independent error in a single invocation
+rather than stopping at the first.
+
+**Result, verified**: a full clean build of the whole project (plugin + all 37
+tests) now completes in under 2 minutes with default parallelism, peaking at ~5.2GB
+RSS *across every concurrent job combined* - down from one single process alone
+needing ~12-13GB. All 37 tests and both example recipes (`pixi run run_examples`)
+still pass unchanged. `mode: unity` remains available and was verified to still
+produce the exact same manifest (`*`) and unity-build behavior as before, for anyone
+who wants the original one-invocation build back.
 
 ## Generator redesign: enums, multi-class-per-header, wildcard headers (Step 6)
 
