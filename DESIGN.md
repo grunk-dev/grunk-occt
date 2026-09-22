@@ -13,9 +13,12 @@ step-by-step rationale; this file only records the *outcomes*.
 ## Scope
 
 - **Platforms**: Linux, macOS, and Windows from the start (`pixi.toml`'s
-  `["linux-64", "osx-64", "win-64"]`). The one accepted exception is AD-enabled builds
-  (a later, deferred milestone), which may stay Linux-only given `adOCCT`/ADOL-C's own
-  build complexity.
+  `["linux-64", "osx-64", "win-64"]`). The one accepted exception is AD-enabled builds,
+  which stay Linux-only given `adOCCT`/ADOL-C's own build complexity - but they are not
+  CI-exempt: `.github/workflows/ci.yml`'s `build-and-test-ad` job installs ADOL-C/adOCCT,
+  then configures/builds/tests/runs the examples for the `ad` environment, on every PR
+  (Linux-only, with `.deps/adolc`/`.deps/adocct` cached across runs so it isn't rebuilding
+  both from source every time).
 - **Namespace**: the plugin registers as `PluginInfo{"occt", version}` → Lua namespace `occt`
   (`occt.gp_Pnt`, `occt.BRepBuilderAPI_MakeEdge`, ...).
 - **grunk pin**: `CMakeLists.txt`'s `FetchContent_Declare(grunk ...)` pins a specific commit
@@ -1142,17 +1145,21 @@ exactly as `cad_autodiff`'s README leaves it.
 
 ### What could and could not be verified in this environment
 
-No adOCCT/ADOL-C build access in this sandbox, the same limitation already documented for
-`grunk-adolc`'s own extraction - `scripts/install_adocct.sh`'s own `cmake`/`ninja install`
-invocation (building adOCCT itself, `-DUSE_ADOLC=ON -DADOLC_REVERSE_MODE=OFF`) was not run/verified
-here, and is written and reasoned through against `cad_autodiff`'s own confirmed-working precedent
-(`geoml_adolc/CMakeLists.txt`, its README's "Stage 3" section) instead.
+Superseded by later work in this same environment: `scripts/install_adocct.sh`'s own `cmake`/
+`ninja install` invocation (building adOCCT itself, `-DUSE_ADOLC=ON -DADOLC_REVERSE_MODE=OFF`) *has*
+since been run for real, end to end, in this sandbox - see "AD validation milestone" above, whose
+39/39-then-40/40 `pixi run -e ad test` results (closed-form Bezier derivative check plus, once
+`bspline_curve.grr.yml` existed, an AD-vs-finite-difference check on a real recipe) are the actual
+evidence, not the reasoning-from-precedent this section originally described. `.github/workflows/
+ci.yml`'s own `build-and-test-ad` job now runs this on every PR (Linux-only, matching `pixi.toml`'s
+`ad` feature), caching `.deps/adolc`/`.deps/adocct` so it doesn't rebuild ADOL-C/adOCCT from source
+on every run.
 
-What genuinely *was* verified, though, rather than only reasoned about:
+What was verified earlier, before adOCCT/ADOL-C build access was available, kept here for history:
 
 - **`scripts/install_adolc.sh`** - run for real, end to end, producing a working ADOL-C 2.7.2
   install (ADOL-C has no adOCCT-scale third-party dependency closure, so this was actually
-  feasible here, unlike adOCCT itself).
+  feasible before adOCCT itself was).
 - **`GRUNK_OCCT_ENABLE_AD`'s own CMake wiring** - configured for real against that real ADOL-C
   install (via `pkg_check_modules(ADOLC ...)`, which found it correctly) and a stand-in
   `ADOCCT_DIR` (stock OCCT's own install, just to exercise the `find_package(OpenCASCADE CONFIG

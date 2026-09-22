@@ -46,9 +46,11 @@ pixi run -e default generate_code               # regenerate generated/ from cod
 that redefines `Standard_Real` to carry an [ADOL-C](https://github.com/coin-or/ADOL-C) algorithmic
 derivative alongside its value, activating an AD-aware variant of every generated binding with no
 source changes (see `DESIGN.md`'s "AD validation milestone"/"`Standard_Real` / AD-portability
-rule"). This is the one accepted platform exception in the migration plan - **Linux-only,
-best-effort, no CI** (adOCCT/ADOL-C's own build is involved enough that this was never attempted to
-be made CI-friendly).
+rule"). This is the one accepted platform exception in the migration plan - **Linux-only**, matching
+`pixi.toml`'s own `ad` feature (`platforms = ["linux-64"]`) - but it does run in CI:
+`.github/workflows/ci.yml`'s `build-and-test-ad` job runs the same sequence below on every PR, with
+`.deps/adolc`/`.deps/adocct` cached across runs so it isn't rebuilding ADOL-C/adOCCT from source
+every time.
 
 It's a build **option** on this same project (`GRUNK_OCCT_ENABLE_AD`), not a separate repo/CMake
 tree - pick one variant per build directory:
@@ -68,14 +70,11 @@ The `ad` environment (see `pixi.toml`'s `[environments]`) is entirely separate f
 pointing at `.deps/adolc`/`.deps/adocct` - so installing it never affects a plain, non-AD
 `pixi run -e default ...` invocation (or vice versa).
 
-`install_adocct`'s own `cmake`/`ninja install` invocation was not run/verified in the environment
-these instructions were written in (no adOCCT/ADOL-C build access - see `DESIGN.md`'s "What could
-not be verified in this environment") - the CMake-side wiring (`GRUNK_OCCT_ENABLE_AD`'s
-`find_package(OpenCASCADE)`/`pkg_check_modules(ADOLC)` branch, `occt_plugin`'s AD-gated compile
-definitions/linking) *was* verified end-to-end against a real ADOL-C install and a stand-in OCCT,
-confirming it fails only where expected (`Standard_Adouble` genuinely not existing outside adOCCT
-itself) - see `scripts/install_adocct.sh`'s own comment for what adjusting `3RDPARTY_*_DIR`
-variables for your system might involve if adOCCT's own third-party dependency resolution needs it.
+`install_adocct`'s own `cmake`/`ninja install` invocation has been run and verified end-to-end in
+this environment (see `DESIGN.md`'s "What could and could not be verified in this environment") and
+now runs on every PR via `build-and-test-ad` - see `scripts/install_adocct.sh`'s own comment for
+what adjusting `3RDPARTY_*_DIR` variables for your system might involve if adOCCT's own third-party
+dependency resolution needs it on a machine unlike the CI runner's.
 
 **Runtime note**: the AD-enabled `occt_plugin` links against ADOL-C's own `libadolc.so` and
 adOCCT's own OCCT libraries at runtime, not just at link time - `pixi.toml`'s own `ad` environment

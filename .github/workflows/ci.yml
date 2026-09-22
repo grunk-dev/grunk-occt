@@ -3,9 +3,11 @@
 # SPDX-License-Identifier: MPL-2.0
 
 # 3-platform CI matrix (see DESIGN.md's "Scope" section): every step of the migration
-# plan targets Linux, macOS, and Windows, with AD-enabled builds as the sole,
-# deliberately deferred exception. This is what makes future grunk-pin bumps and
-# generator changes safe on all three platforms, not just Linux.
+# plan targets Linux, macOS, and Windows. AD-enabled builds (see build-and-test-ad
+# below) are the one platform exception that's real, not just deferred - Linux-only,
+# matching pixi.toml's own `ad` feature (`platforms = ["linux-64"]`), since building
+# ADOL-C/adOCCT from source on macOS/Windows was never attempted (see README.md's
+# "Building with AD support").
 name: CI
 
 on:
@@ -49,3 +51,55 @@ jobs:
 
       - name: Run examples
         run: pixi run -e default run_examples
+
+  # AD-enabled build (see README.md's "Building with AD support" and DESIGN.md's "AD
+  # validation milestone") - Linux-only, matching pixi.toml's `ad` feature. ADOL-C/
+  # adOCCT are real from-source builds (autotools + a full OCCT build respectively),
+  # so .deps/adolc and .deps/adocct are cached across runs, keyed on the two install
+  # scripts (scripts/install_adolc.sh pins ADOL-C's own version; both scripts'
+  # own idempotency check - see their top comments - is what makes a cache hit skip
+  # straight past the actual build) rather than rebuilding both from scratch on every
+  # PR. A cache miss (first run, or either script changes) still takes a while - that
+  # cost is inherent to building a full OCCT fork from source, not something this
+  # workflow can avoid.
+  build-and-test-ad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # autoreconf/automake/libtool for ADOL-C's own ./configure step (see
+      # scripts/install_adolc.sh's own top comment) - present on GitHub's ubuntu-
+      # latest runner image already, installed explicitly anyway so this job doesn't
+      # depend on that undocumented, changeable image content.
+      - name: Install autotools
+        run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool
+
+      - uses: prefix-dev/setup-pixi@v0.8.1
+        with:
+          cache: true
+
+      - name: Cache ADOL-C/adOCCT
+        uses: actions/cache@v4
+        with:
+          path: |
+            .deps/adolc
+            .deps/adocct
+          key: ${{ runner.os }}-adolc-adocct-${{ hashFiles('scripts/install_adolc.sh', 'scripts/install_adocct.sh') }}
+
+      - name: Install ADOL-C
+        run: pixi run -e ad install_adolc
+
+      - name: Install adOCCT
+        run: pixi run -e ad install_adocct
+
+      - name: Configure
+        run: pixi run -e ad configure Release
+
+      - name: Build
+        run: pixi run -e ad build
+
+      - name: Test
+        run: pixi run -e ad test
+
+      - name: Run examples
+        run: pixi run -e ad run_examples

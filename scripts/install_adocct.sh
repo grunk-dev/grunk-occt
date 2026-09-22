@@ -23,12 +23,13 @@
 # taken directly from grunk's own cad_autodiff example, which built adOCCT
 # successfully this way.
 #
-# NOT run/verified in the environment this script was written in (no adOCCT/ADOL-C
-# build access - see DESIGN.md's "What could not be verified in this environment").
-# OCCT's own third-party dependency resolution is large and version-sensitive
-# enough that you may need to adjust individual 3RDPARTY_*_DIR variables for your
-# system - consult adOCCT's own README and OCCT's own INSTALL.md if the cmake
-# invocation below can't resolve a dependency CMAKE_PREFIX_PATH doesn't cover.
+# Run and verified end-to-end (see DESIGN.md's "What could and could not be verified
+# in this environment") and now runs on every PR via .github/workflows/ci.yml's
+# build-and-test-ad job. OCCT's own third-party dependency resolution is large and
+# version-sensitive enough that you may still need to adjust individual
+# 3RDPARTY_*_DIR variables on a machine unlike the CI runner - consult adOCCT's own
+# README and OCCT's own INSTALL.md if the cmake invocation below can't resolve a
+# dependency CMAKE_PREFIX_PATH doesn't cover.
 set -euo pipefail
 
 ROOT="${PIXI_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
