@@ -23,7 +23,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Windows runners have a MinGW toolchain on PATH by default, which CMake picks
       # up ahead of MSVC's cl.exe (not on PATH without this) - build against MSVC
@@ -68,7 +68,7 @@ jobs:
   build-and-test-ad:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # autoreconf/automake/libtool for ADOL-C's own ./configure step (see
       # scripts/install_adolc.sh's own top comment) - present on GitHub's ubuntu-
