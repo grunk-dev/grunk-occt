@@ -35,6 +35,7 @@ explicit `-e`/`--environment`:
 pixi run -e default configure [Debug|Release]   # cmake configure into build/
 pixi run -e default build                       # cmake --build build/
 pixi run -e default test                        # ctest --test-dir build
+pixi run -e default install                     # cmake --install build (see "Packaging / installing" below)
 pixi run -e default all                         # configure + build + test
 pixi run -e default generate_code               # regenerate generated/ from codegen/config.yml (needs
                                                   # -D GRUNK_OCCT_GENERATE_CODE=ON at configure time)
@@ -110,6 +111,30 @@ unrelated bug: `environment.get_feature(...).value()`'s own Python binding crash
 all, in both environments identically, confirmed via a bare `grunk.state()` with no plugin loaded;
 `recipe.get_output(...).value()` doesn't have this problem and is what every recipe in this repo
 already uses, so it was never actually hit outside of ad hoc debugging scripts.)
+
+## Packaging / installing
+
+`occt_plugin` is a runtime-loaded grunk plugin - a consuming application never links against it,
+it dlopens it by path via `grunk::plugin::load_native` (see `src/occt_plugin.cpp`'s own top
+comment). So there's no CMake package config to `find_package()` here, just the built shared
+library itself:
+
+```
+pixi run -e default install   # -> build/install/lib/libocct_plugin.so (.dylib on macOS, bin/occt_plugin.dll on Windows)
+pixi run -e ad install        # -> build-ad/install/lib/{libocct_plugin.so,libadtl_plugin.so}
+```
+
+Point `grunk::plugin::load_native` (or its Python equivalent) at the installed path instead of a
+path under `build/`/`build-ad/` directly once you're consuming this outside the build tree -
+everything under `examples/`/`tests/` in this repo itself still references the build tree
+directly, since they're meant to run right after `build`, not `install`. `CMAKE_INSTALL_PREFIX`
+(set by the `configure` task, `build/install`/`build-ad/install`) can be overridden - either edit
+`pixi.toml`'s own `configure` task, or run `cmake --install build --prefix <path>` yourself. The
+`ad` environment's own `install` installs both `occt_plugin` and grunk-adolc's own `adtl_plugin`
+(FetchContent'd alongside it - see `CMakeLists.txt`'s own comment on why this needed an explicit
+`add_dependencies(occt_plugin adtl_plugin)`, not just relying on it happening to already be built
+for the test harness) - both are needed together for an AD-enabled consumer, same as
+`run_example.py`'s own two-argument invocation under `-e ad`.
 
 ## Project structure
 

@@ -1309,3 +1309,67 @@ free functions" for the mechanism, and its own note on the real bug this surface
 before it ever reached grunk-adolc). Generator centralization into a shared location (so
 grunk-adolc doesn't need its own full copy of `generate.py`) remains a separate, not-yet-done task -
 grunk-adolc's own `codegen/` is, for now, a deliberate, temporary duplicate of this one.
+
+## Step 8: packaging
+
+`occt_plugin` (and, under `GRUNK_OCCT_ENABLE_AD`, grunk-adolc's own `adtl_plugin`) is a
+runtime-loaded grunk plugin - `grunk::plugin::load_native` dlopens it by path, no consuming
+application ever `target_link_libraries()`s against it. This shapes what "packaging" means here,
+deliberately narrower than grunk's own `install()` (`grunk/CMakeLists.txt`):
+
+- **No CMake package config** (`occt_pluginConfig.cmake`/exported targets, the way grunk's own
+  `install()` produces `grunkConfig.cmake` for `find_package(grunk)`) - there's no linkable target
+  to export in the first place, so a package config here would be pure ceremony: nothing a
+  consumer could meaningfully `find_package()` and `target_link_libraries()` against. The one
+  thing a downstream consumer actually needs - where the built `.so`/`.dylib`/`.dll` ended up -
+  is exactly what a plain `install(TARGETS occt_plugin LIBRARY/RUNTIME/ARCHIVE DESTINATION ...)`
+  already provides, via `GNUInstallDirs`'s own per-platform convention
+  (`${CMAKE_INSTALL_LIBDIR}`/`${CMAKE_INSTALL_BINDIR}`).
+- **`add_dependencies(occt_plugin adtl_plugin)`** under `GRUNK_OCCT_ENABLE_AD` - found while
+  verifying `install` actually works end-to-end, not assumed: `adtl_plugin` (grunk-adolc's own
+  target, FetchContent'd in `EXCLUDE_FROM_ALL`) previously only got built because
+  `runUnitTests`' own `add_dependencies(runUnitTests adtl_plugin)` happened to pull it in whenever
+  `GRUNK_OCCT_TESTS` was left at its default (`ON`). `cmake --install` only installs what was
+  actually built - with `GRUNK_OCCT_TESTS=OFF` and `GRUNK_OCCT_ENABLE_AD=ON` together (a real,
+  supported combination, just untested until this check), nothing would have forced `adtl_plugin`
+  to build, and `install` would have installed `occt_plugin` alone with no error, silently missing
+  half of what an AD-enabled consumer needs. Fixed by making `occt_plugin` itself (always part of
+  the default `all` target, never excluded) depend on `adtl_plugin`'s build, independent of
+  whether tests are enabled.
+- **Verified for real**, not just written and assumed correct: `pixi run -e default install`/
+  `pixi run -e ad install` both run end-to-end, `pixi run -e default install` installing to
+  `build/install/lib/libocct_plugin.so` (Linux path - `RUNTIME`/`ARCHIVE` destinations for
+  macOS/Windows are structurally correct per `GNUInstallDirs`'s own documented convention but not
+  independently verified on those platforms in this environment), and the full test suite still
+  passes afterward in both environments.
+- **grunk-adolc gets the identical treatment** (`GNUInstallDirs` + `install(TARGETS adtl_plugin
+  ...)`, its own `pixi run install` task) so it's independently installable when built standalone
+  too - verified there directly (`libadtl_plugin.so` installs correctly on its own), not only as a
+  side effect of grunk-occt's own `GRUNK_OCCT_ENABLE_AD` FetchContent - see its own `DESIGN.md` for
+  the mirrored entry.
+- **`grunk-adolc` pin bumped from `dd7dac1` to `233516a`** once grunk-adolc's own `install()`
+  addition was committed and pushed, to pick it up - matches this same file's own pin-bump policy
+  elsewhere ("Bump this pin deliberately, in its own PR, gated by the full test suite - never as a
+  side effect of an unrelated change", `CMakeLists.txt`'s own comment on the `grunk` pin). The pin
+  bump alone turned out **not to be sufficient** - see the next point, found immediately while
+  verifying it.
+- **The real remaining bug: `EXCLUDE_FROM_ALL` silently drops a subdirectory's `install()` rules
+  too, not just its default-build membership.** After the pin bump, `pixi run -e ad install` was
+  still installing `occt_plugin` alone - `adtl_plugin` built correctly (confirmed present under
+  `build-ad/_deps/grunk-adolc-build/`) but `build-ad/cmake_install.cmake` had no `include(...)` of
+  `_deps/grunk-adolc-build/cmake_install.cmake` at all, even though that file itself had a
+  perfectly correct `install(TARGETS adtl_plugin ...)` rule. Root cause: the `grunk-adolc`
+  `add_subdirectory(... EXCLUDE_FROM_ALL)` call (originally added only to keep it out of the
+  default `all` target) - `EXCLUDE_FROM_ALL` turns out to *also* exclude that subdirectory's own
+  install rules from ever being reached by the parent's `cmake --install`, a CMake behavior that's
+  easy to miss since it's not really about the `all` target at all. Fixed by dropping
+  `EXCLUDE_FROM_ALL` entirely from that one `add_subdirectory` call - safe here specifically
+  because `GRUNK_ADOLC_TESTS`/`GRUNK_ADOLC_GENERATE_CODE` are already forced `OFF` just above it,
+  so `adtl_plugin` is the *only* target grunk-adolc's own `CMakeLists.txt` defines in this
+  configuration; nothing extra ends up in `all` as a result. This also made the earlier
+  `add_dependencies(occt_plugin adtl_plugin)` fix (the first, insufficient attempt at this same
+  underlying problem) genuinely redundant - removed, since `adtl_plugin` is now unconditionally
+  part of `all` under `GRUNK_OCCT_ENABLE_AD` regardless. Verified for real, not just reasoned
+  through: a full reconfigure + build + `install` (showing *both* `libocct_plugin.so` and
+  `libadtl_plugin.so` in the installer's own output) + the full test suite (43/43) + `run_examples`,
+  all green.

@@ -8,6 +8,11 @@ project(grunk-occt VERSION 0.1.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Step 8 (packaging polish, see DESIGN.md's "Packaging") - standard CMake
+# per-platform install subdirectory names (lib/, bin/, ...) for the install()
+# call further down.
+include(GNUInstallDirs)
+
 # occt_plugin (below) links the static grunk libraries into a shared object, which
 # requires their objects to be position-independent - set this before grunk's own
 # add_subdirectory call so it applies there too.
@@ -112,9 +117,16 @@ if(GRUNK_OCCT_ENABLE_AD)
     # adtl_plugin needs the exact same ADOL-C install occt_plugin was just pointed
     # at above (both must resolve to the same compiled adtl::adouble/Standard_Real
     # type), and has no reason to exist in a plain, non-AD build at all.
+    #
+    # Bumped from dd7dac1 to 233516a (Step 8: packaging, see DESIGN.md) to pick up
+    # grunk-adolc's own install(TARGETS adtl_plugin ...) - this is what makes
+    # `pixi run -e ad install` below finally install adtl_plugin alongside
+    # occt_plugin, not just build it (see this file's own add_dependencies
+    # (occt_plugin adtl_plugin) further down, and DESIGN.md's "Step 8: packaging"
+    # for the full story of why that install used to be silently incomplete).
     FetchContent_Declare(grunk-adolc
         GIT_REPOSITORY https://github.com/grunk-dev/grunk-adolc.git
-        GIT_TAG dd7dac1ad9bcbb761439fddc55f771c92bee0e5b
+        GIT_TAG 233516a71e40cf55926f949f7b3a79432d710f9b
     )
 
     FetchContent_GetProperties(grunk-adolc)
@@ -140,7 +152,24 @@ if(GRUNK_OCCT_ENABLE_AD)
         set(GRUNK_ADOLC_TESTS OFF CACHE BOOL "" FORCE)
         set(GRUNK_ADOLC_GENERATE_CODE OFF CACHE BOOL "" FORCE)
 
-        add_subdirectory(${grunk-adolc_SOURCE_DIR} ${grunk-adolc_BINARY_DIR} EXCLUDE_FROM_ALL)
+        # No EXCLUDE_FROM_ALL here (unlike the `grunk` add_subdirectory above) -
+        # found while verifying Step 8's own install() actually works end-to-end,
+        # not assumed: EXCLUDE_FROM_ALL doesn't just drop a subdirectory's targets
+        # from the default `all` build target, it also drops that subdirectory's
+        # own cmake_install.cmake from ever being `include()`d by the parent's own
+        # install script - confirmed empirically (grep for "grunk-adolc" in
+        # build-ad/cmake_install.cmake found nothing with EXCLUDE_FROM_ALL, despite
+        # adtl_plugin's own cmake_install.cmake, one directory down, correctly
+        # having its own install(TARGETS adtl_plugin ...) rule). An explicit
+        # add_dependencies(occt_plugin adtl_plugin) further down was the first,
+        # insufficient fix attempt - it made adtl_plugin *build* correctly but not
+        # *install*, since that's a wholly separate mechanism from EXCLUDE_FROM_ALL.
+        # Safe to drop EXCLUDE_FROM_ALL entirely here (unlike `grunk`'s own
+        # add_subdirectory, which pulls in far more than this project needs):
+        # GRUNK_ADOLC_TESTS is already forced OFF just above, so grunk-adolc's own
+        # CMakeLists.txt defines no other target besides adtl_plugin itself in this
+        # configuration - nothing extra ends up in `all` as a result.
+        add_subdirectory(${grunk-adolc_SOURCE_DIR} ${grunk-adolc_BINARY_DIR})
     endif()
 else()
     find_package(OpenCASCADE REQUIRED)
@@ -265,6 +294,14 @@ if(GRUNK_OCCT_ENABLE_AD)
     # anything and every derivative would silently read 0.
     target_compile_definitions(occt_plugin PRIVATE GRUNK_OCCT_WITH_ADOLC)
     target_link_libraries(occt_plugin PRIVATE PkgConfig::ADOLC)
+
+    # adtl_plugin is *not* a link dependency of occt_plugin (the two .so's are
+    # independent - a consuming application loads both separately at runtime, see
+    # e.g. tests/test_gp.cpp's own SetUpTestSuite) - no add_dependencies needed
+    # here for it to get built by a plain `cmake --build .`/`install`: the
+    # FetchContent block above no longer adds it with EXCLUDE_FROM_ALL, so
+    # adtl_plugin is already an unconditional part of the default `all` target
+    # under this option, same as occt_plugin itself.
 endif()
 # MSVC only: the unity file's own object now has more COFF sections than the
 # default format allows ("fatal error C1128: number of sections exceeded object
@@ -275,6 +312,25 @@ endif()
 # limitation; MSVC's own /bigobj sacrifices nothing to be enabled unconditionally
 # whether truly needed or not.
 target_compile_options(occt_plugin PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
+
+# Step 8 (packaging polish, see DESIGN.md's "Packaging"): occt_plugin is a
+# runtime-loaded grunk plugin, never linked against by a consuming application
+# (grunk::plugin::load_native dlopens it by path - see src/occt_plugin.cpp's own
+# top comment) - so, unlike grunk's own install() (grunk/CMakeLists.txt), there is
+# no CMake target/package-config to export here, just the built shared library
+# itself. LIBRARY/RUNTIME/ARCHIVE cover every platform's own convention for a
+# SHARED target - Linux/macOS put the loadable library under LIBRARY, Windows
+# under RUNTIME (the .dll) with its import .lib under ARCHIVE (generated
+# alongside a SHARED target even though nothing links against it here).
+# Under GRUNK_OCCT_ENABLE_AD, `cmake --install` also installs adtl_plugin - not
+# declared here, grunk-adolc's own CMakeLists.txt (FetchContent'd above) already
+# has its own install(TARGETS adtl_plugin ...), inherited automatically once its
+# add_subdirectory runs above.
+install(TARGETS occt_plugin
+    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
 # --- test harness: loads occt_plugin via grunk::plugin::load_native and drives it
 # through raw Lua via the sol2 state directly (see DESIGN.md - deliberately not routed

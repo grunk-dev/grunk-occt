@@ -171,6 +171,8 @@ generate_code = { cmd = "cmake --build build --target generate_code", descriptio
 
 test = { cmd = "ctest --test-dir build --output-on-failure", depends-on = ["build"], description = "Run the test harness." }
 
+install = { cmd = "cmake --install build", depends-on = ["build"], description = "Install occt_plugin into build/install (CMAKE_INSTALL_PREFIX, set by the configure task) - run `cmake --install build --prefix <path>` directly for a different location." }
+
 [tasks.all]
 depends-on = ["configure", "build", "test", "run_examples"]
 description = "Configure, build, test, and run the examples."
@@ -219,6 +221,11 @@ configure = { cmd = [
 build = { cmd = "cmake --build build-ad --parallel", description = "Build the AD-enabled plugin and test harness." }
 
 test = { cmd = "ctest --test-dir build-ad --output-on-failure", depends-on = ["build"], description = "Run the AD-enabled test harness (tests/test_ad.cpp - a closed-form derivative check)." }
+
+# Installs *both* occt_plugin and adtl_plugin (grunk-adolc's own install(TARGETS
+# adtl_plugin ...), inherited via its FetchContent add_subdirectory - see
+# CMakeLists.txt's own comment on the GRUNK_OCCT_ENABLE_AD branch's install()).
+install = { cmd = "cmake --install build-ad", depends-on = ["build"], description = "Install occt_plugin and adtl_plugin into build-ad/install (CMAKE_INSTALL_PREFIX, set by the configure task) - run `cmake --install build-ad --prefix <path>` directly for a different location." }
 
 # Same examples/run_example.py the default environment's own run_examples task
 # uses (see [target.linux-64.tasks] above) - the *second* argument (grunk-adolc's

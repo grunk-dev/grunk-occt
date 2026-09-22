@@ -52,6 +52,9 @@ jobs:
       - name: Run examples
         run: pixi run -e default run_examples
 
+      - name: Install
+        run: pixi run -e default install
+
   # AD-enabled build (see README.md's "Building with AD support" and DESIGN.md's "AD
   # validation milestone") - Linux-only, matching pixi.toml's `ad` feature. ADOL-C/
   # adOCCT are real from-source builds (autotools + a full OCCT build respectively),
@@ -103,3 +106,6 @@ jobs:
 
       - name: Run examples
         run: pixi run -e ad run_examples
+
+      - name: Install
+        run: pixi run -e ad install
