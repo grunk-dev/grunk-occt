@@ -62,7 +62,7 @@ include(FetchContent)
 
 FetchContent_Declare(grunk
     GIT_REPOSITORY https://github.com/grunk-dev/grunk.git
-    GIT_TAG c16f519888eae62564145b1ba4c025c1e6dcc6c2
+    GIT_TAG a372159c47d3722e138634ad9997c8037c6fd422
 )
 
 FetchContent_GetProperties(grunk)

@@ -59,7 +59,7 @@ recipes:
       half_box_width = box_ratio * radius
       half_box_width_neg = -half_box_width
       box_translation = occt.gp_Vec.new(half_box_width_neg, half_box_width_neg, 0.0)
-      box = occt.BRepPrimAPI_MakeBox.new(box_width, box_width, half_box_width):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      box = occt.BRepPrimAPI_MakeBox.new(box_width, box_width, half_box_width):Shape()
       dome_core = occt_helpers.translate(box, box_translation)
 
       ninetydeg = occt.pi() / 2.0
@@ -81,7 +81,7 @@ recipes:
       y_axis = occt.gp_Dir.new(0.0, 1.0, 0.0)
       ax1_y = occt.gp_Ax1.new(origin, y_axis)
       dome_wedge_top_uncut = occt_helpers.rotate(dome_wedge_top_segment, ax1_y, ninetydeg_neg)
-      dome_wedge_top = occt.BRepAlgoAPI_Cut.new(dome_wedge_top_uncut, dome_core):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      dome_wedge_top = occt.BRepAlgoAPI_Cut.new(dome_wedge_top_uncut, dome_core):Shape()
 
       -- The dome's four side wedges: one spherical wedge, trimmed against the
       -- core, then rotated 90 degrees three more times around the default
@@ -99,7 +99,7 @@ recipes:
       side_segment_builder.angle2_end = angle2_end_side
       dome_wedge_side_segment = side_segment_builder.segment
 
-      dome_wedge_side0 = occt.BRepAlgoAPI_Cut.new(dome_wedge_side_segment, dome_core):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      dome_wedge_side0 = occt.BRepAlgoAPI_Cut.new(dome_wedge_side_segment, dome_core):Shape()
 
       default_axis = occt.gp_Ax1.new()
       dome_wedge_side1 = occt_helpers.rotate(dome_wedge_side0, default_axis, ninetydeg)
@@ -130,16 +130,16 @@ recipes:
           dir11 = occt.gp_Dir.new(0.0, 0.0, 1.0)
           dir12 = occt.gp_Dir.new(cr1, sr1, 0.0)
           ax_1 = occt.gp_Ax2.new(origin, dir11, dir12)
-          wedge_1 = occt.BRepPrimAPI_MakeSphere.new(ax_1, radius, angle1):as(occt.BRepBuilderAPI_MakeShape):Shape()
+          wedge_1 = occt.BRepPrimAPI_MakeSphere.new(ax_1, radius, angle1):Shape()
 
           cr2 = occt.cos(angle2_start) * radius
           sr2 = -occt.sin(angle2_start) * radius
           dir21 = occt.gp_Dir.new(0.0, 1.0, 0.0)
           dir22 = occt.gp_Dir.new(cr2, 0.0, sr2)
           ax_2 = occt.gp_Ax2.new(origin, dir21, dir22)
-          wedge_2 = occt.BRepPrimAPI_MakeSphere.new(ax_2, radius, angle2):as(occt.BRepBuilderAPI_MakeShape):Shape()
+          wedge_2 = occt.BRepPrimAPI_MakeSphere.new(ax_2, radius, angle2):Shape()
 
-          segment = occt.BRepAlgoAPI_Common.new(wedge_1, wedge_2):as(occt.BRepBuilderAPI_MakeShape):Shape()
+          segment = occt.BRepAlgoAPI_Common.new(wedge_1, wedge_2):Shape()
         outputs:
           segment: segment
   cylinder:
@@ -168,13 +168,13 @@ recipes:
       -- Standard_True) are omitted below - see DESIGN.md's "Default-argument
       -- expansion".
       zdir = occt.gp_Vec.new(0.0, 0.0, cylinder_height)
-      cylinder_segment0 = occt.BRepPrimAPI_MakePrism.new(cylinder_face0, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
-      cylinder_segment1 = occt.BRepPrimAPI_MakePrism.new(cylinder_face1, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
-      cylinder_segment2 = occt.BRepPrimAPI_MakePrism.new(cylinder_face2, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
-      cylinder_segment3 = occt.BRepPrimAPI_MakePrism.new(cylinder_face3, zdir):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      cylinder_segment0 = occt.BRepPrimAPI_MakePrism.new(cylinder_face0, zdir):Shape()
+      cylinder_segment1 = occt.BRepPrimAPI_MakePrism.new(cylinder_face1, zdir):Shape()
+      cylinder_segment2 = occt.BRepPrimAPI_MakePrism.new(cylinder_face2, zdir):Shape()
+      cylinder_segment3 = occt.BRepPrimAPI_MakePrism.new(cylinder_face3, zdir):Shape()
 
       box_width = 2.0 * box_ratio * radius
-      cylinder_core_untranslated = occt.BRepPrimAPI_MakeBox.new(box_width, box_width, cylinder_height):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      cylinder_core_untranslated = occt.BRepPrimAPI_MakeBox.new(box_width, box_width, cylinder_height):Shape()
       half_box_width_neg = -box_ratio * radius
       box_translation = occt.gp_Vec.new(half_box_width_neg, half_box_width_neg, 0.0)
       cylinder_core = occt_helpers.translate(cylinder_core_untranslated, box_translation)

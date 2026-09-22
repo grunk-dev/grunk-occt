@@ -87,22 +87,7 @@ steps: |
 
   curve = occt.Geom_BSplineCurve.new(poles, knots, mults, degree)
 
-  -- The qualified "Type.method(instance, args...)" form, not curve:Value(0.5) -
-  -- unlike the plain create_env()-based tests (see ../tests/test_geom.cpp's own
-  -- ValueViaInheritedGeomCurve), the recipe/DAG layer's own DynamicFeature
-  -- type-hint dispatch doesn't walk add_bases<...>() inheritance chains the way
-  -- create_env()'s own colon-call dispatch does (grunk-dev/grunk#285, filed, not
-  -- yet fixed upstream) - Value() is registered on Geom_Curve, not
-  -- Geom_BSplineCurve itself, so an unqualified curve:Value(0.5) fails outright
-  -- ("has no member Value") here specifically. curve:as(occt.Geom_Curve):Value
-  -- (0.5) - the workaround this project's own cavity_model.grr.yml/
-  -- tank_model.grr.yml use for the exact same gap on BRepBuilderAPI_MakeShape -
-  -- doesn't error here, but silently reads back the wrong (all-zero) value
-  -- instead - confirmed empirically, not yet understood why, so the qualified
-  -- form is used instead: it isn't affected by #285 at all (a different dispatch
-  -- path, per grunk-adolc's own tests/test_recipe.cpp - see its own
-  -- QualifiedCallWorksInsideRecipeAndReactsToParameterChanges).
-  mid = occt.Geom_Curve.Value(curve, 0.5)
+  mid = curve:Value(0.5)
 
   mid_x_value = me.primal_value(mid:X())
   mid_y_value = me.primal_value(mid:Y())

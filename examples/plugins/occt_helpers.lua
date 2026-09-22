@@ -26,28 +26,14 @@
 -- compute node from the recipe's point of view, so whatever it does internally -
 -- including these ordinary imperative builder-pattern sequences - is fine.
 
--- grunk's own "decorated"/parametric Lua environment (what a recipe's steps:/
--- recipes: run under) resolves a colon-call by looking the method up directly in
--- the *exact* type the value was constructed as - it does not walk a C++
--- add_bases<...>() chain the way plain sol2 dispatch does (see grunk/dynamic/
--- state.hpp's Feature.__index doc comment: "Feature: type X has no member Y - use
--- :as(Type) explicitly"). Every BRepPrimAPI_Make*/BRepBuilderAPI_Transform/
--- BRepAlgoAPI_* class here only gets Shape() via add_bases<BRepBuilderAPI_
--- MakeShape, ...>(), so calling :Shape() on one of them directly in a recipe's own
--- steps:/recipes: needs an explicit `:as(occt.BRepBuilderAPI_MakeShape):Shape()`
--- (see both .grr.yml files) - this can NOT be centralized into a module function
--- here: every value crossing INTO a module call is unwrapped to a plain, already-
--- decided-type object first (confirmed empirically - :as() itself, a Feature-only
--- method, is gone by the time such a value reaches a module function's body), so
--- there's no Feature left inside a module to call :as() on in the first place.
---
--- Every occt.* call made directly INSIDE this module's own functions, by
--- contrast, does NOT need this - confirmed empirically: a module's own body runs
--- its occt.* calls as plain, undecorated values (module calls are one opaque,
--- non-parametric compute node - see this file's own top comment - so nothing
--- inside needs to be individually tracked), and plain sol2 dispatch does walk
--- add_bases<...>() correctly there, same as every tests/test_*.cpp file's own raw
--- Lua strings - see translate/rotate/mirror_point's own plain ":Shape()" calls
+-- grunk-dev/grunk#285 (DynamicFeature::__index didn't walk add_bases<...>()
+-- chains the way plain sol2 dispatch does) used to mean every BRepPrimAPI_Make*/
+-- BRepBuilderAPI_Transform/BRepAlgoAPI_* class here needed an explicit
+-- `:as(occt.BRepBuilderAPI_MakeShape):Shape()` cast to call :Shape() (inherited
+-- via add_bases<BRepBuilderAPI_MakeShape, ...>()) directly in a recipe's own
+-- steps:/recipes: - #285 is now fixed upstream (grunk main, fix commit 63aad18)
+-- and this project's own grunk pin has been bumped past it, so both .grr.yml
+-- files now call plain ":Shape()" directly, same as everywhere else.
 -- below. Only genuinely *incoming* values - a module's own parameters, populated
 -- from the calling recipe's tracked features - need unwrapping.
 --

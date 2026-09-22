@@ -833,14 +833,25 @@ the module-level work above - just two small additions:
   this file's own established style of small, explicit, near-duplicate helpers
   (`translate`/`rotate`/`mirror_point` already are) over a shared abstraction.
 
-### Recipe-level dynamic dispatch does not walk `add_bases<...>()` - module-level dispatch does
+### Recipe-level dynamic dispatch did not walk `add_bases<...>()` - module-level dispatch did (fixed upstream, `grunk-dev/grunk#285`)
+
+**Resolved**: fixed upstream in `grunk` (`grunk-dev/grunk#285`, fix commit `63aad18`) and adopted
+here once this repo's own `grunk` pin was bumped past it. The `:as(occt.BRepBuilderAPI_MakeShape):
+Shape()`-style casts this section originally documented as a required workaround have been removed
+from `examples/cavity_model.grr.yml`/`cavity_model_v2.grr.yml`/`tank_model.grr.yml` and
+`examples/bspline_curve.grr.yml`'s own qualified-call workaround (`occt.Geom_Curve.Value(curve,
+0.5)`) has been replaced with the plain `curve:Value(0.5)` form - verified to return the identical
+value to the qualified form it replaced, and the full test suite (42/42) still passes. The rest of
+this section is kept for its still-accurate explanation of *why* the gap existed and how it was
+found.
 
 The single most surprising discovery of this milestone, found the hard way writing
 `cavity_model.grr.yml`'s `cylinder` sub-recipe:
 
 ```lua
--- fails: "Feature: type "occt.BRepPrimAPI_MakeCylinder" has no member "Shape" -
---         use :as(Type) explicitly if this is intentional."
+-- used to fail: "Feature: type "occt.BRepPrimAPI_MakeCylinder" has no member
+--                "Shape" - use :as(Type) explicitly if this is intentional."
+-- (now works directly, see the "Resolved" note above)
 cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, radius, height):Shape()
 ```
 
@@ -864,10 +875,12 @@ cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, radius, height)
     :as(occt.BRepBuilderAPI_MakeShape):Shape()
 ```
 
-Every `BRepPrimAPI_Make*`/`BRepAlgoAPI_*`/`BRepBuilderAPI_Transform` call in both
-ported recipes needs this `:as(occt.BRepBuilderAPI_MakeShape):Shape()` form
-whenever it appears directly in a recipe's own `steps:`/`recipes:` (never inside a
-module - see below).
+Before #285 was fixed, every `BRepPrimAPI_Make*`/`BRepAlgoAPI_*`/
+`BRepBuilderAPI_Transform` call in both ported recipes needed this `:as(occt.
+BRepBuilderAPI_MakeShape):Shape()` form whenever it appeared directly in a
+recipe's own `steps:`/`recipes:` (never inside a module - see below). Now that
+`DynamicFeature::__index` walks `add_bases<...>()` too, the plain `:Shape()` form
+works the same way everywhere, recipe-level or module-level.
 
 **Module/plugin bodies do not have this problem** - confirmed empirically, not
 assumed: `examples/plugins/occt_helpers.lua`'s own `translate`/`rotate`/
@@ -951,15 +964,12 @@ OCCT/`Handle(T)` sol2 issue above, this one is entirely about grunk's own
 dynamic-dispatch design, not anything OCCT-specific, so it belongs in `grunk`
 itself, not here.
 
-**grunk-occt follow-up reminder, once #285 lands**: revisit
-`examples/cavity_model.grr.yml`/`examples/cavity_model_v2.grr.yml`/
-`examples/tank_model.grr.yml`/`examples/plugins/occt_helpers.lua` and drop the
-now-unnecessary `:as(occt.BRepBuilderAPI_MakeShape):Shape()`-style casts sprinkled
-through all three recipes - they'll still work (an explicit `:as()` never becomes
-*wrong*, just redundant once `add_bases<...>()` is walked automatically), but the
-plain `:Shape()` form will be simpler and match every other colon-call in these
-recipes. Not urgent, not
-blocking anything - purely a cleanup once the upstream fix is available.
+**Done**: `#285` landed upstream and this repo's own `grunk` pin has been bumped
+past it. `examples/cavity_model.grr.yml`/`examples/cavity_model_v2.grr.yml`/
+`examples/tank_model.grr.yml`/`examples/plugins/occt_helpers.lua` no longer use
+the `:as(occt.BRepBuilderAPI_MakeShape):Shape()`-style casts - every call site
+uses the plain `:Shape()` form now, verified against the full test suite
+(42/42).
 
 Not filed as a grunk issue - both behaviors are grunk's own documented, deliberate
 design (see `state.hpp`'s own doc comments on `Feature.__index`/`DynamicFeature::
@@ -1211,6 +1221,33 @@ This is not exercised or guarded against anywhere in this repo's own tests (each
 exactly one variant, never both) - a consuming application is expected to pick one variant per
 process until symbol-versioning/`RTLD_LOCAL` isolation is investigated as its own, separate task,
 exactly as `cad_autodiff`'s README leaves it.
+
+### A related hazard, found outside the AD case: Python bindings + native plugin duplicate grunk's own dispatch state
+
+Found while re-verifying `examples/run_example.py` after the grunk pin bump that retired the
+`#285` workaround (see "Recipe-level dynamic dispatch" above): `run_example.py` crashes (`free():
+invalid pointer`, or - with the `:as()` casts still in place - an even earlier, silent abort with
+no Python-level exception at all) even though the exact same recipe files, read through the exact
+same `occt_plugin.so`, pass cleanly through this repo's own C++ test suite (`pixi run -e default
+test`, 42/42). Root cause (plausible, not chased to full certainty - out of scope for Step 10 to
+fix, just to document accurately): `grunk`'s Python bindings (`grunk/python/_bindings.cpp`) link
+their own, separately-compiled copy of `grunk::core`/`grunk::dynamic`/`grunk::recipe` (all
+header-only or statically linked), and `occt_plugin.so` - built here via `grunk-occt`'s own
+`FetchContent`-pulled copy of the same `grunk` source - links a *second*, independently compiled
+copy. Both copies define the same header-only dispatch machinery
+(`DynamicFeature::__index`/`add_bases<...>()` registries, `grunk/dynamic/state.hpp`), and whatever
+plugin registration does (`occt_plugin.so`'s own `register_occt()`, called via
+`grunk::plugin::load_native`) writes into *its own* copy's static registry state - invisible to
+the *other* copy's dispatch code that Python's `grunk.state`/`grunk.Recipe` objects actually run
+through. This is the same family of hazard as the dlopen/SONAME collision above (multiple
+independently compiled copies of the same code loaded into one process), but triggers even in a
+plain, non-AD build, for anything relying on cross-copy shared dispatch state - not something this
+repo's own C++ test suite can ever catch (it links exactly one copy of everything, so this never
+manifests there). Confirmed pre-existing, not a Step 10 regression: reproduces identically with
+the *original* (`:as(...)`-workaround) recipe files against the same freshly-built plugin, and
+`examples/README.md` already discloses `run_example.py` has "no bundled CI coverage ... unlike the
+C++ test suite" - this finding is exactly why. Worth its own tracked upstream issue if/when
+`run_example.py` gets real CI coverage; not investigated further here.
 
 ### What could and could not be verified in this environment
 

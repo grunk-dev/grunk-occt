@@ -77,8 +77,8 @@ steps: |
   cyl2_builder.direction = cyl2_dir
   cylinder2 = cyl2_builder.cylinder
 
-  cylinder2_cut1 = occt.BRepAlgoAPI_Cut.new(cylinder2, halfspace1):as(occt.BRepBuilderAPI_MakeShape):Shape()
-  cylinder2_cut2 = occt.BRepAlgoAPI_Cut.new(cylinder2_cut1, halfspace2):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  cylinder2_cut1 = occt.BRepAlgoAPI_Cut.new(cylinder2, halfspace1):Shape()
+  cylinder2_cut2 = occt.BRepAlgoAPI_Cut.new(cylinder2_cut1, halfspace2):Shape()
 
   l_R_add = l_R + 0.25 * (s_stator + s_rotor)
   cyl1_pos_x = 0.75 * (s_stator + s_rotor)
@@ -101,7 +101,7 @@ steps: |
 
   translated_face_rotor = occt_helpers.translate(cavity_face_rotor, translation_rotor)
   rotated_face_rotor = occt_helpers.rotate(translated_face_rotor, ax, angle_sector_rotor_rad)
-  revol_rotor = occt.BRepPrimAPI_MakeRevol.new(rotated_face_rotor, ax, angle_rad_rotor):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  revol_rotor = occt.BRepPrimAPI_MakeRevol.new(rotated_face_rotor, ax, angle_rad_rotor):Shape()
 
   -- Stator sector: same shape, its own translation/rotation - the rotation offset
   -- additionally corrects for the tilted second cylinder's own footprint
@@ -117,15 +117,15 @@ steps: |
 
   translated_face_stator = occt_helpers.translate(cavity_face_stator, translation_stator)
   rotated_face_stator = occt_helpers.rotate(translated_face_stator, ax, angle_sector_stator_rad)
-  revol_stator = occt.BRepPrimAPI_MakeRevol.new(rotated_face_stator, ax, angle_rad_stator):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  revol_stator = occt.BRepPrimAPI_MakeRevol.new(rotated_face_stator, ax, angle_rad_stator):Shape()
 
   -- The two revolved sectors, grouped into one CompSolid (not a plain Compound -
   -- they're meant to be fused with the cylinders as one connected solid body next,
   -- not kept as an unstructured group of shapes).
   assembly = occt_helpers.comp_solid(revol_stator, revol_rotor)
 
-  cavity_cyl1 = occt.BRepAlgoAPI_Fuse.new(assembly, cylinder1):as(occt.BRepBuilderAPI_MakeShape):Shape()
-  cavity = occt.BRepAlgoAPI_Fuse.new(cavity_cyl1, cylinder2_cut2):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  cavity_cyl1 = occt.BRepAlgoAPI_Fuse.new(assembly, cylinder1):Shape()
+  cavity = occt.BRepAlgoAPI_Fuse.new(cavity_cyl1, cylinder2_cut2):Shape()
 
   ok = occt.export_brep(cavity, "cavity_model_v2.brep")
 outputs:
@@ -165,6 +165,6 @@ recipes:
     steps: |
       cyl_radius = d / 2.0
       ax2 = occt.gp_Ax2.new(origin, direction, direction2)
-      cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, cyl_radius, l):as(occt.BRepBuilderAPI_MakeShape):Shape()
+      cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, cyl_radius, l):Shape()
     outputs:
       cylinder: cylinder
