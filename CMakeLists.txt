@@ -22,7 +22,7 @@ list(APPEND CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
 
 # occt_plugin (and, in the GRUNK_OCCT_ENABLE_AD branch below, adtl_plugin) links
 # grunk's own SHARED libraries (grunk_recipe/grunk_plugin) dynamically, rather than
-# each statically embedding its own private copy - see scripts/install_grunk.sh's
+# each statically embedding its own private copy - see scripts/install_grunk.cmake's
 # own comment for why this matters (one physical set of grunk libraries shared by
 # every consumer loaded into the same process, not one duplicated per plugin, and
 # no possibility of a build-configuration mismatch between independently vendored
@@ -77,7 +77,7 @@ if(GRUNK_OCCT_ENABLE_AD)
     endif()
 endif()
 
-# --- grunk: a pre-built, pre-installed dependency (see scripts/install_grunk.sh,
+# --- grunk: a pre-built, pre-installed dependency (see scripts/install_grunk.cmake,
 # wired into pixi.toml's own `install_grunk` task, `configure`'s own depends-on) -
 # not vendored via FetchContent anymore. FetchContent+add_subdirectory built grunk
 # from source fresh *inside this project's own build*, meaning every consumer of
@@ -89,11 +89,12 @@ endif()
 # or CMAKE_PREFIX_PATH - see .deps/grunk, this repo's own default via pixi.toml's
 # activation.env) that every consumer pointed at it can share. Bump the pinned
 # commit deliberately, in its own PR, gated by the full grunk-occt test suite -
-# never as a side effect of an unrelated change (see scripts/install_grunk.sh's own
+# never as a side effect of an unrelated change (see scripts/install_grunk.cmake's own
 # GRUNK_REV, which must move together with this comment whenever the pin changes -
-# there is no single source of truth for it the way a CMake variable would be,
-# since the actual clone+checkout happens in a plain shell script, not CMake, so it
-# can run *before* CMake needs grunk to already exist).
+# there is no single source of truth for it the way one CMake variable shared
+# between the two files would be, since install_grunk.cmake runs as its own
+# `cmake -P` script, in its own separate process, before this configure even starts
+# - see pixi.toml's own `configure` task, whose `depends-on` runs it first).
 find_package(grunk REQUIRED)
 
 # --- OCCT: stock (conda-forge `occt` package) by default, or adOCCT instead when
@@ -325,6 +326,23 @@ endif()
 # whether truly needed or not.
 target_compile_options(occt_plugin PRIVATE $<$<CXX_COMPILER_ID:MSVC>:/bigobj>)
 
+# Windows only - grunk's own libraries are SHARED now (see find_package(grunk)'s
+# own comment above), and Windows has no RPATH/RUNPATH mechanism: a DLL loaded via
+# an absolute path (grunk::plugin::load_native dlopens occt_plugin this way) has
+# its *own* directory searched first for its own dependencies, so grunk_plugin.dll
+# etc. (living in .deps/grunk/bin, a completely different directory) need to be
+# copied next to occt_plugin.dll itself, not just found via PATH the way a
+# conda-installed dependency (Lua's own DLL, already on PATH via pixi's own
+# activation) already is.
+if (WIN32)
+    add_custom_command(TARGET occt_plugin POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            $<TARGET_RUNTIME_DLLS:occt_plugin>
+            $<TARGET_FILE_DIR:occt_plugin>
+        COMMAND_EXPAND_LISTS
+    )
+endif()
+
 # Step 8 (packaging polish, see DESIGN.md's "Packaging"): occt_plugin is a
 # runtime-loaded grunk plugin, never linked against by a consuming application
 # (grunk::plugin::load_native dlopens it by path - see src/occt_plugin.cpp's own
@@ -426,5 +444,19 @@ if(GRUNK_OCCT_TESTS)
         add_dependencies(runUnitTests adtl_plugin)
     endif()
     add_dependencies(runUnitTests occt_plugin)
+
+    # Windows only - see occt_plugin's own, more detailed comment above. `pixi run
+    # test` runs `ctest --test-dir build` directly against the build tree, before
+    # any install step, so runUnitTests.exe needs grunk's DLLs (and any other
+    # runtime DLL dependency) copied next to itself the same way.
+    if (WIN32)
+        add_custom_command(TARGET runUnitTests POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                $<TARGET_RUNTIME_DLLS:runUnitTests>
+                $<TARGET_FILE_DIR:runUnitTests>
+            COMMAND_EXPAND_LISTS
+        )
+    endif()
+
     gtest_discover_tests(runUnitTests)
 endif()

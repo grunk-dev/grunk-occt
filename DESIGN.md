@@ -20,12 +20,14 @@ obvious from reading the code alone, so they don't need re-discovering later.
   both from source every time).
 - **Namespace**: the plugin registers as `PluginInfo{"occt", version}` → Lua namespace `occt`
   (`occt.gp_Pnt`, `occt.BRepBuilderAPI_MakeEdge`, ...).
-- **grunk pin**: `CMakeLists.txt`'s `FetchContent_Declare(grunk ...)` pins a specific commit
-  (currently `c16f519888eae62564145b1ba4c025c1e6dcc6c2`), not a tag — grunk's plugin interface and
-  0.5.0 rewrite are only on `main`, untagged as of this writing. Bump the pin deliberately, in its
-  own PR, gated by the full grunk-occt test suite - never as a side effect of an unrelated change.
-  Latest bump (from `1ad286bfdc937ff75735c20db4358eb282f48c02`) picks up
-  [grunk-dev/grunk#284](https://github.com/grunk-dev/grunk/pull/284) (`GRUNK_PLUGIN_INFO`, an
+- **grunk pin**: grunk is a pre-built, pre-installed dependency now, found via `find_package(grunk
+  REQUIRED)` in `CMakeLists.txt` - not vendored via `FetchContent` anymore (see "grunk: pre-built
+  dependency, not vendored" below for the full story of why). `scripts/install_grunk.cmake`'s own
+  `GRUNK_REV` pins a specific commit (currently `a372159c47d3722e138634ad9997c8037c6fd422`), not a
+  tag — grunk's plugin interface and 0.5.0 rewrite are only on `main`, untagged as of this writing.
+  Bump the pin deliberately, in its own PR, gated by the full grunk-occt test suite - never as a
+  side effect of an unrelated change. A recent bump (from `1ad286bfdc937ff75735c20db4358eb282f48c02`)
+  picked up [grunk-dev/grunk#284](https://github.com/grunk-dev/grunk/pull/284) (`GRUNK_PLUGIN_INFO`, an
   MSVC C4190 fix for `grunk_plugin_info`'s `extern "C"` return of a non-POD `PluginInfo`) -
   `src/occt_plugin.cpp` now uses the macro instead of the hand-written form.
 
@@ -1105,8 +1107,9 @@ this project never needed to do - `GRUNK_OCCT_ENABLE_AD` picks *one* `find_packa
 ...)` branch per configure (see `CMakeLists.txt`'s own `if(GRUNK_OCCT_ENABLE_AD) ... else() ...
 endif()`), never both, so the "resolves once" limitation never triggers. Reconsidered directly
 because of this: a standalone project bought nothing this option doesn't, at the cost of real,
-growing duplication between two near-identical `CMakeLists.txt` files (the grunk `FetchContent`
-pin, the whole translation-unit-grouping block) that would only have kept drifting apart the more
+growing duplication between two near-identical `CMakeLists.txt` files (the grunk dependency pin -
+`FetchContent` at the time this decision was made, since replaced by `find_package` - and the whole
+translation-unit-grouping block) that would only have kept drifting apart the more
 either project changed. Consolidating removed that duplication outright - `occt_plugin` is one
 target either way, `GRUNK_OCCT_ENABLE_AD` only changes what it links against and which extra
 compile definition it gets, not its name. Pick one variant per build directory (`build/` for
@@ -1222,32 +1225,38 @@ exactly one variant, never both) - a consuming application is expected to pick o
 process until symbol-versioning/`RTLD_LOCAL` isolation is investigated as its own, separate task,
 exactly as `cad_autodiff`'s README leaves it.
 
-### A related hazard, found outside the AD case: Python bindings + native plugin duplicate grunk's own dispatch state
+### A related hazard, found outside the AD case: Python bindings + native plugin duplicating grunk's own dispatch state (resolved)
 
-Found while re-verifying `examples/run_example.py` after the grunk pin bump that retired the
-`#285` workaround (see "Recipe-level dynamic dispatch" above): `run_example.py` crashes (`free():
-invalid pointer`, or - with the `:as()` casts still in place - an even earlier, silent abort with
-no Python-level exception at all) even though the exact same recipe files, read through the exact
-same `occt_plugin.so`, pass cleanly through this repo's own C++ test suite (`pixi run -e default
-test`, 42/42). Root cause (plausible, not chased to full certainty - out of scope for Step 10 to
-fix, just to document accurately): `grunk`'s Python bindings (`grunk/python/_bindings.cpp`) link
-their own, separately-compiled copy of `grunk::core`/`grunk::dynamic`/`grunk::recipe` (all
-header-only or statically linked), and `occt_plugin.so` - built here via `grunk-occt`'s own
-`FetchContent`-pulled copy of the same `grunk` source - links a *second*, independently compiled
-copy. Both copies define the same header-only dispatch machinery
-(`DynamicFeature::__index`/`add_bases<...>()` registries, `grunk/dynamic/state.hpp`), and whatever
-plugin registration does (`occt_plugin.so`'s own `register_occt()`, called via
-`grunk::plugin::load_native`) writes into *its own* copy's static registry state - invisible to
-the *other* copy's dispatch code that Python's `grunk.state`/`grunk.Recipe` objects actually run
-through. This is the same family of hazard as the dlopen/SONAME collision above (multiple
-independently compiled copies of the same code loaded into one process), but triggers even in a
-plain, non-AD build, for anything relying on cross-copy shared dispatch state - not something this
-repo's own C++ test suite can ever catch (it links exactly one copy of everything, so this never
-manifests there). Confirmed pre-existing, not a Step 10 regression: reproduces identically with
-the *original* (`:as(...)`-workaround) recipe files against the same freshly-built plugin, and
-`examples/README.md` already discloses `run_example.py` has "no bundled CI coverage ... unlike the
-C++ test suite" - this finding is exactly why. Worth its own tracked upstream issue if/when
-`run_example.py` gets real CI coverage; not investigated further here.
+**Resolved**, not just documented: `grunk` no longer vendors itself via `FetchContent` into every
+consumer's own build. `grunk`'s own `grunk_recipe`/`grunk_plugin`/`grunk` targets are built as
+**SHARED** libraries (previously static-by-default), with proper install-time RPATH handling
+(`CMAKE_INSTALL_RPATH_USE_LINK_PATH` plus `$ORIGIN`/`@loader_path`/an explicit conda-environment
+path), and `grunk-occt` now depends on a single pre-built, pre-installed grunk via `find_package
+(grunk REQUIRED)` (see `scripts/install_grunk.cmake`, `.deps/grunk`) instead of vendoring grunk's
+source and compiling a private copy into `occt_plugin.so`. `grunk`'s own Python bindings
+(`grunk/python/_bindings.cpp`) now dynamically link that same shared `grunk` build too (bundled
+into the wheel's own `grunk/` package directory) rather than statically embedding it.
+
+This was originally found while re-verifying `examples/run_example.py` after the grunk pin bump
+that retired the `#285` workaround (see "Recipe-level dynamic dispatch" above): `run_example.py`
+crashed (`free(): invalid pointer`, or - with the `:as()` casts still in place - an even earlier,
+silent abort with no Python-level exception at all) even though the exact same recipe files, read
+through the exact same `occt_plugin.so`, passed cleanly through this repo's own C++ test suite. The
+original hypothesis here was that two independently compiled copies of grunk's *header-only*
+dispatch machinery (`DynamicFeature::__index`/`add_bases<...>()`, `grunk/dynamic/state.hpp`) were
+somehow keeping separate registry state - further investigation (verifying the fix, below) showed
+this specific mechanism was not quite right: that dispatch state lives as ordinary *member data* on
+the `grunk::state` C++ object itself, not in any static/global storage, so it is not literally
+duplicated by having two compiled copies of the code around - two independently vendored,
+independently compiled copies of grunk (different commits, different compiler flags, different
+`GRUNK_WITH_*` option combinations between `grunk-occt`'s own FetchContent-forced settings and
+whatever built the Python wheel) are a much more direct explanation for a real ABI/behavioral
+mismatch between the two. Either way, the fix is the same: use one shared, identically-built grunk
+everywhere. Confirmed working, not just plausible: `grunk`'s own `test_native_plugin_load` (Python
+test) loads a plugin `.so` built from a *separate* CMake configure into a Python-created
+`grunk.state()` - exactly this repo's own cross-build-tree scenario, reduced to its essentials -
+and passes cleanly once grunk's libraries are SHARED, with both sides pointed at the same install.
+`grunk-occt`'s own suite (`pixi run -e default test`, `-e ad test`) continues to pass unchanged.
 
 ### What could and could not be verified in this environment
 
@@ -1389,3 +1398,56 @@ deliberately narrower than grunk's own `install()` (`grunk/CMakeLists.txt`):
   through: a full reconfigure + build + `install` (showing *both* `libocct_plugin.so` and
   `libadtl_plugin.so` in the installer's own output) + the full test suite (43/43) + `run_examples`,
   all green.
+
+## grunk: pre-built dependency, not vendored
+
+This repo used to pull grunk's own *source* in via `FetchContent_Declare(grunk ...)` +
+`add_subdirectory`, compiling a private copy of `grunk::core`/`grunk::dynamic`/`grunk::recipe`/
+`grunk::plugin` directly into `occt_plugin.so`'s own build. That's gone: `CMakeLists.txt` now does
+a plain `find_package(grunk REQUIRED)` against a pre-built, pre-installed grunk (`scripts/
+install_grunk.cmake`, run automatically via `pixi run configure`'s own `depends-on`, installing
+into `.deps/grunk` - or `.deps/grunk-ad` for the `ad` environment, see below). Directly caused by
+tracking down "A related hazard, found outside the AD case" above - see that section for the full
+story of what broke and why this fixes it, not repeated here.
+
+**Why a `cmake -P` script, not a shell script**: every other bootstrap in this repo (`scripts/
+install_adolc.sh`, `scripts/install_adocct.sh`) is bash - fine for them, since they only ever run
+in the `ad` environment, which is Linux-only by design (`pixi.toml`'s own `[feature.ad]`,
+`platforms = ["linux-64"]`). `install_grunk` runs in the `default` environment too, which targets
+Windows as well (`pixi.toml`'s own top-level `platforms`), and Windows has no bash by default.
+`cmake -P scripts/install_grunk.cmake` is a plain CMake script - cmake is already a hard dependency
+on every platform this repo targets, so it works identically everywhere without a second,
+batch/PowerShell-flavored copy of the same bootstrap logic to keep in sync.
+
+**Two separate installs, one per pixi environment** (`.deps/grunk` for `default`, `.deps/grunk-ad`
+for `ad`, via `scripts/install_grunk.cmake`'s own optional `GRUNK_INSTALL_NAME` variable): found
+the hard way, not designed in from the start - the first version shared one `.deps/grunk` between
+both environments, and CMake's own "cannot generate a safe runtime search path... cycle in the
+constraint graph" warning (while configuring the `ad` environment, RPATH entries pointing partly
+at `.pixi/envs/default/lib`) was the tell. `default` and `ad` are two independent conda
+environments (`.pixi/envs/default`, `.pixi/envs/ad`), each with its own build of Lua/yaml-cpp;
+whichever environment's own `install_grunk` task ran *first* would "win", and the other would
+silently link against a grunk built against a different environment's own Lua/yaml-cpp than the
+one it's actually running in. Giving each environment its own install prefix (and its own
+`build/_deps/<name>` scratch checkout, so the two don't collide there either) fixes this at the
+root, not just papers over the symptom.
+
+**RPATH** (`CMakeLists.txt`'s own `CMAKE_INSTALL_RPATH_USE_LINK_PATH` + `$ORIGIN`/`@loader_path`/an
+explicit `$ENV{CONDA_PREFIX}/lib` entry, mirroring grunk's own identical treatment of itself) is
+what lets `occt_plugin.so`/`adtl_plugin.so` find grunk's shared libraries at runtime without
+`LD_LIBRARY_PATH` - verified directly via `ldd`/`readelf` with `LD_LIBRARY_PATH` explicitly unset,
+on both the build-tree and `cmake --install`ed artifacts, in both the `default` and `ad`
+environments. Windows gets the equivalent treatment a different way, since RPATH doesn't exist
+there at all: `occt_plugin`'s own `POST_BUILD` step copies `$<TARGET_RUNTIME_DLLS:occt_plugin>`
+(everything it transitively depends on as a DLL, grunk's own libraries included) next to itself,
+and `runUnitTests` gets the identical treatment for the same reason (`pixi run test` runs
+`ctest --test-dir build` straight out of the build tree, before any install step ever runs) - not
+independently verified on an actual Windows machine in this environment, but directly modeled on
+the same fix grunk found necessary for its own `runUnitTests.exe`/plugin-fixture `.dll`s (see
+grunk's own `tests/cpp/CMakeLists.txt`).
+
+**CI**: `.github/workflows/ci.yml`'s `build-and-test` job now has its own "Cache grunk"/"Install
+grunk" steps (mirroring the pre-existing ADOL-C/adOCCT pattern in `build-and-test-ad`, keyed on
+`scripts/install_grunk.cmake` so a cache hit skips straight past rebuilding grunk from source), and
+`build-and-test-ad`'s existing cache step now covers `.deps/grunk-ad` alongside `.deps/adolc`/
+`.deps/adocct`.

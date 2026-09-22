@@ -40,6 +40,22 @@ jobs:
         with:
           cache: true
 
+      # grunk is a real from-source build now (find_package(grunk REQUIRED) against
+      # scripts/install_grunk.cmake's own .deps/grunk - see CMakeLists.txt's own
+      # comment for why this replaced FetchContent-vendoring grunk's source), so
+      # .deps/grunk is cached across runs the same way .deps/adolc/.deps/adocct
+      # already are below, keyed on the install script (its own idempotency check -
+      # see its top comment - is what makes a cache hit skip straight past the
+      # actual build).
+      - name: Cache grunk
+        uses: actions/cache@v4
+        with:
+          path: .deps/grunk
+          key: ${{ runner.os }}-grunk-${{ hashFiles('scripts/install_grunk.cmake') }}
+
+      - name: Install grunk
+        run: pixi run -e default install_grunk
+
       - name: Configure
         run: pixi run -e default configure Release
 
@@ -57,14 +73,16 @@ jobs:
 
   # AD-enabled build (see README.md's "Building with AD support" and DESIGN.md's "AD
   # validation milestone") - Linux-only, matching pixi.toml's `ad` feature. ADOL-C/
-  # adOCCT are real from-source builds (autotools + a full OCCT build respectively),
-  # so .deps/adolc and .deps/adocct are cached across runs, keyed on the two install
-  # scripts (scripts/install_adolc.sh pins ADOL-C's own version; both scripts'
-  # own idempotency check - see their top comments - is what makes a cache hit skip
-  # straight past the actual build) rather than rebuilding both from scratch on every
-  # PR. A cache miss (first run, or either script changes) still takes a while - that
-  # cost is inherent to building a full OCCT fork from source, not something this
-  # workflow can avoid.
+  # adOCCT and grunk are all real from-source builds (autotools + a full OCCT build,
+  # and find_package(grunk REQUIRED) against scripts/install_grunk.cmake's own
+  # .deps/grunk-ad respectively - see CMakeLists.txt's own comment for why grunk is
+  # no longer FetchContent-vendored), so .deps/adolc, .deps/adocct, and .deps/
+  # grunk-ad are all cached across runs, keyed on their own install scripts (each
+  # script's own idempotency check - see its top comment - is what makes a cache
+  # hit skip straight past the actual build) rather than rebuilding from scratch on
+  # every PR. A cache miss (first run, or any of the three scripts changes) still
+  # takes a while - that cost is inherent to building a full OCCT fork (and grunk
+  # itself) from source, not something this workflow can avoid.
   build-and-test-ad:
     runs-on: ubuntu-latest
     steps:
@@ -81,13 +99,17 @@ jobs:
         with:
           cache: true
 
-      - name: Cache ADOL-C/adOCCT
+      - name: Cache ADOL-C/adOCCT/grunk
         uses: actions/cache@v4
         with:
           path: |
             .deps/adolc
             .deps/adocct
-          key: ${{ runner.os }}-adolc-adocct-${{ hashFiles('scripts/install_adolc.sh', 'scripts/install_adocct.sh') }}
+            .deps/grunk-ad
+          key: ${{ runner.os }}-adolc-adocct-grunk-ad-${{ hashFiles('scripts/install_adolc.sh', 'scripts/install_adocct.sh', 'scripts/install_grunk.cmake') }}
+
+      - name: Install grunk
+        run: pixi run -e ad install_grunk
 
       - name: Install ADOL-C
         run: pixi run -e ad install_adolc
