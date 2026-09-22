@@ -127,7 +127,7 @@ steps: |
   cavity_cyl1 = occt.BRepAlgoAPI_Fuse.new(assembly, cylinder1):as(occt.BRepBuilderAPI_MakeShape):Shape()
   cavity = occt.BRepAlgoAPI_Fuse.new(cavity_cyl1, cylinder2_cut2):as(occt.BRepBuilderAPI_MakeShape):Shape()
 
-  ok = occt.export_brep(cavity, "20241017.brep")
+  ok = occt.export_brep(cavity, "cavity_model_v2.brep")
 outputs:
   cavity: cavity
   ok: ok
