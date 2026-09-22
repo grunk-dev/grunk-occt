@@ -13,12 +13,35 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # call further down.
 include(GNUInstallDirs)
 
-# occt_plugin (below) links the static grunk libraries into a shared object, which
-# requires their objects to be position-independent - set this before grunk's own
-# add_subdirectory call so it applies there too.
+# occt_plugin is itself a shared object, so its own sources need to be
+# position-independent - grunk's own libraries are SHARED now too (found via
+# find_package below) and no longer need this set on their behalf.
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 list(APPEND CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
+
+# occt_plugin (and, in the GRUNK_OCCT_ENABLE_AD branch below, adtl_plugin) links
+# grunk's own SHARED libraries (grunk_recipe/grunk_plugin) dynamically, rather than
+# each statically embedding its own private copy - see scripts/install_grunk.sh's
+# own comment for why this matters (one physical set of grunk libraries shared by
+# every consumer loaded into the same process, not one duplicated per plugin, and
+# no possibility of a build-configuration mismatch between independently vendored
+# copies). CMAKE_INSTALL_RPATH_USE_LINK_PATH bakes in the absolute install location
+# of every library actually linked - including wherever find_package(grunk) below
+# resolves to (.deps/grunk by default, see pixi.toml's install_grunk task) - into
+# occt_plugin's/adtl_plugin's own installed RPATH, so they find grunk's shared
+# libraries at runtime without needing LD_LIBRARY_PATH. No effect on Windows -
+# RPATH doesn't exist there; see grunk's own CMakeLists.txt for the platform-DLL-
+# co-location alternative used there instead.
+set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+if (DEFINED ENV{CONDA_PREFIX})
+    list(APPEND CMAKE_INSTALL_RPATH "$ENV{CONDA_PREFIX}/${CMAKE_INSTALL_LIBDIR}")
+endif()
+if (APPLE)
+    list(APPEND CMAKE_INSTALL_RPATH "@loader_path" "@loader_path/../${CMAKE_INSTALL_LIBDIR}")
+elseif (NOT WIN32)
+    list(APPEND CMAKE_INSTALL_RPATH "$ORIGIN" "$ORIGIN/../${CMAKE_INSTALL_LIBDIR}")
+endif()
 
 option(GRUNK_OCCT_TESTS "Build the test harness" ON)
 
@@ -54,40 +77,24 @@ if(GRUNK_OCCT_ENABLE_AD)
     endif()
 endif()
 
-# --- grunk (FetchContent, pinned to a specific commit - see README.md/DESIGN.md for
-# why: grunk's plugin interface and 0.5.0 rewrite are only on `main`, not yet tagged).
-# Bump this pin deliberately, in its own PR, gated by the full grunk-occt test suite -
-# never as a side effect of an unrelated change.
-include(FetchContent)
-
-FetchContent_Declare(grunk
-    GIT_REPOSITORY https://github.com/grunk-dev/grunk.git
-    GIT_TAG a372159c47d3722e138634ad9997c8037c6fd422
-)
-
-FetchContent_GetProperties(grunk)
-if(NOT grunk_POPULATED)
-    if(POLICY CMP0169)
-        cmake_policy(SET CMP0169 OLD)
-    endif()
-    FetchContent_Populate(grunk)
-
-    if(EXISTS "${grunk_SOURCE_DIR}/cmake/grunkConfig.cmake.in")
-        file(MAKE_DIRECTORY "${CMAKE_SOURCE_DIR}/cmake")
-        file(COPY "${grunk_SOURCE_DIR}/cmake/grunkConfig.cmake.in"
-             DESTINATION "${CMAKE_SOURCE_DIR}/cmake"
-             NO_SOURCE_PERMISSIONS)
-    endif()
-
-    set(GRUNK_WITH_TASKFLOW OFF CACHE BOOL "" FORCE)
-    set(GRUNK_WITH_DYNAMIC ON CACHE BOOL "" FORCE)
-    set(GRUNK_WITH_RECIPE ON CACHE BOOL "" FORCE)
-    set(GRUNK_TESTS OFF CACHE BOOL "" FORCE)
-    set(GRUNK_PYTHON OFF CACHE BOOL "" FORCE)
-
-    include_directories(${grunk_BINARY_DIR})
-    add_subdirectory(${grunk_SOURCE_DIR} ${grunk_BINARY_DIR} EXCLUDE_FROM_ALL)
-endif()
+# --- grunk: a pre-built, pre-installed dependency (see scripts/install_grunk.sh,
+# wired into pixi.toml's own `install_grunk` task, `configure`'s own depends-on) -
+# not vendored via FetchContent anymore. FetchContent+add_subdirectory built grunk
+# from source fresh *inside this project's own build*, meaning every consumer of
+# grunk (this plugin, grunk-adolc's own plugin below, grunk's own Python bindings)
+# ended up with its own independently compiled copy - each internally consistent,
+# but not the *same* copy as any other consumer loaded into the same process (see
+# DESIGN.md's "A related hazard, found outside the AD case" for what that caused in
+# practice). find_package instead resolves against one shared install (grunk_DIR,
+# or CMAKE_PREFIX_PATH - see .deps/grunk, this repo's own default via pixi.toml's
+# activation.env) that every consumer pointed at it can share. Bump the pinned
+# commit deliberately, in its own PR, gated by the full grunk-occt test suite -
+# never as a side effect of an unrelated change (see scripts/install_grunk.sh's own
+# GRUNK_REV, which must move together with this comment whenever the pin changes -
+# there is no single source of truth for it the way a CMake variable would be,
+# since the actual clone+checkout happens in a plain shell script, not CMake, so it
+# can run *before* CMake needs grunk to already exist).
+find_package(grunk REQUIRED)
 
 # --- OCCT: stock (conda-forge `occt` package) by default, or adOCCT instead when
 # GRUNK_OCCT_ENABLE_AD is ON - find_package name is `OpenCASCADE` either way (set by
@@ -107,8 +114,11 @@ if(GRUNK_OCCT_ENABLE_AD)
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(ADOLC REQUIRED IMPORTED_TARGET GLOBAL adolc)
 
-    # --- grunk-adolc (FetchContent, pinned to a specific commit, same policy as
-    # grunk's own pin above): the sibling repo whose own plugin registers
+    # --- grunk-adolc (FetchContent - still vendors grunk-adolc's own *source*,
+    # unlike grunk itself above, which is now a pre-built find_package dependency;
+    # grunk-adolc's own CMakeLists.txt does its own find_package(grunk REQUIRED) -
+    # see this project's own find_package(grunk) comment above): the sibling repo
+    # whose own plugin registers
     # adtl::adouble (== Standard_Adouble, under adOCCT) as a native sol2 usertype -
     # see DESIGN.md's "Reusing one shared Standard_Real/adtl::adouble registration,
     # not two" for why occt_plugin itself never registers this type. Builds
@@ -124,6 +134,8 @@ if(GRUNK_OCCT_ENABLE_AD)
     # occt_plugin, not just build it (see this file's own add_dependencies
     # (occt_plugin adtl_plugin) further down, and DESIGN.md's "Step 8: packaging"
     # for the full story of why that install used to be silently incomplete).
+    include(FetchContent)
+
     FetchContent_Declare(grunk-adolc
         GIT_REPOSITORY https://github.com/grunk-dev/grunk-adolc.git
         GIT_TAG 233516a71e40cf55926f949f7b3a79432d710f9b
@@ -136,13 +148,13 @@ if(GRUNK_OCCT_ENABLE_AD)
         endif()
         FetchContent_Populate(grunk-adolc)
 
-        # grunk-adolc's own CMakeLists.txt FetchContent_Declare(grunk ...)s the
-        # *same* "grunk" content name, at the *same* pinned commit as this project's
-        # own declaration above - by the time its add_subdirectory runs below,
-        # grunk_POPULATED is already TRUE (set above), so its own populate/
-        # add_subdirectory block is skipped entirely and it simply reuses the grunk
-        # already added into this build - not a second, independent copy of
-        # grunk::plugin/grunk::recipe (which would collide as duplicate targets).
+        # grunk-adolc's own CMakeLists.txt does its own find_package(grunk REQUIRED)
+        # (see its own CMakeLists.txt comment) - CMAKE_PREFIX_PATH (the *environment*
+        # variable, set by pixi.toml's own activation.env to include .deps/grunk,
+        # not just the CMake-language variable this file itself appends to above) is
+        # what makes that call resolve to the *same* installed grunk this project's
+        # own find_package(grunk) call above already found - one shared install, not
+        # a second, independently vendored copy.
         #
         # GRUNK_ADOLC_TESTS OFF is not optional, it's required: grunk-adolc's own
         # CMakeLists.txt (with its own test harness enabled) defines an

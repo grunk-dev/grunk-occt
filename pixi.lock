@@ -69,7 +69,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.7.22-hbd8a1cb_0.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python_abi-3.14-9_cp314.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2026c-h151e31d_0.conda
-      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=c16f519888eae62564145b1ba4c025c1e6dcc6c2#c16f519888eae62564145b1ba4c025c1e6dcc6c2
+      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=a372159c47d3722e138634ad9997c8037c6fd422#a372159c47d3722e138634ad9997c8037c6fd422
   default:
     channels:
     - url: https://conda.anaconda.org/conda-forge/
@@ -168,7 +168,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/noarch/fonts-conda-forge-1-hc364b38_1.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/python_abi-3.14-9_cp314.conda
       - conda: https://conda.anaconda.org/conda-forge/noarch/tzdata-2026c-h151e31d_0.conda
-      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=c16f519888eae62564145b1ba4c025c1e6dcc6c2#c16f519888eae62564145b1ba4c025c1e6dcc6c2
+      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=a372159c47d3722e138634ad9997c8037c6fd422#a372159c47d3722e138634ad9997c8037c6fd422
       - pypi: https://files.pythonhosted.org/packages/1d/fc/716c1e62e512ef1c160e7984a73a5fc7df45166f2ff3f254e71c58076f7c/libclang-18.1.1-py2.py3-none-manylinux2010_x86_64.whl
       osx-64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.7.22-hbd8a1cb_0.conda
@@ -239,7 +239,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/osx-64/yaml-0.2.5-had63097_3.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/yaml-cpp-0.8.0-h2fb4741_1.conda
       - conda: https://conda.anaconda.org/conda-forge/osx-64/zstd-1.5.7-hbc1a06c_7.conda
-      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=c16f519888eae62564145b1ba4c025c1e6dcc6c2#c16f519888eae62564145b1ba4c025c1e6dcc6c2
+      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=a372159c47d3722e138634ad9997c8037c6fd422#a372159c47d3722e138634ad9997c8037c6fd422
       - pypi: https://files.pythonhosted.org/packages/e2/e5/fc61bbded91a8830ccce94c5294ecd6e88e496cc85f6704bf350c0634b70/libclang-18.1.1-py2.py3-none-macosx_10_9_x86_64.whl
       win-64:
       - conda: https://conda.anaconda.org/conda-forge/noarch/ca-certificates-2026.7.22-h4c7d964_0.conda
@@ -308,7 +308,7 @@ environments:
       - conda: https://conda.anaconda.org/conda-forge/win-64/yaml-cpp-0.8.0-h5112557_1.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zlib-1.3.2-hfd05255_3.conda
       - conda: https://conda.anaconda.org/conda-forge/win-64/zstd-1.5.7-h534d264_7.conda
-      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=c16f519888eae62564145b1ba4c025c1e6dcc6c2#c16f519888eae62564145b1ba4c025c1e6dcc6c2
+      - pypi: git+https://github.com/grunk-dev/grunk.git?rev=a372159c47d3722e138634ad9997c8037c6fd422#a372159c47d3722e138634ad9997c8037c6fd422
       - pypi: https://files.pythonhosted.org/packages/0b/2d/3f480b1e1d31eb3d6de5e3ef641954e5c67430d5ac93b7fa7e07589576c7/libclang-18.1.1-py2.py3-none-win_amd64.whl
   tools:
     channels:
@@ -3601,7 +3601,7 @@ packages:
     - zstd >=1.5.7,<1.6.0a0
   size: 387535
   timestamp: 1786599623274
-- pypi: git+https://github.com/grunk-dev/grunk.git?rev=c16f519888eae62564145b1ba4c025c1e6dcc6c2#c16f519888eae62564145b1ba4c025c1e6dcc6c2
+- pypi: git+https://github.com/grunk-dev/grunk.git?rev=a372159c47d3722e138634ad9997c8037c6fd422#a372159c47d3722e138634ad9997c8037c6fd422
   name: grunk
   version: 0.5.0
   requires_python: '>=3.9'
