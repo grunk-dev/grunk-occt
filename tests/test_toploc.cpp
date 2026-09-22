@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: fourth module expansion sweep module (see DESIGN.md/migration
-// plan). TopLoc_Location was previously unregistered, so every earlier module's
-// TopLoc_Location parameter/return was rejected purely for that reason -
-// TopoDsShapeLocationRoundTrip below exercises exactly one of those retroactively
-// unlocked cases (TopoDS_Shape::Location/Move, generated/topods.cpp).
+// TopLoc_Location registration unlocks every other module's own
+// TopLoc_Location parameter/return, previously rejected purely for lack of it -
+// TopoDsShapeLocationRoundTrip below exercises one such case (TopoDS_Shape::
+// Location/Move, generated/topods.cpp).
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>

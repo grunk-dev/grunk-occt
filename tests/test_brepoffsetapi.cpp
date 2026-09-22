@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: sixth module expansion sweep addition (see DESIGN.md/migration
-// plan). BRepOffsetAPI_MakeThickSolid extends BRepOffsetAPI_MakeOffsetShape, itself
-// registered by this same module - shelling a single face of the Step 4b smoke
-// test's own cylinder proves that inheritance chain reaches
+// BRepOffsetAPI_MakeThickSolid extends BRepOffsetAPI_MakeOffsetShape, itself
+// registered by this same module - shelling a single face of the box/cylinder/cut
+// smoke test's own cylinder proves that inheritance chain reaches
 // BRepBuilderAPI_MakeShape::Shape()/BRepBuilderAPI_Command::IsDone() correctly, same
 // reasoning as ShapesTest's own box/cylinder/cut chain.
 //

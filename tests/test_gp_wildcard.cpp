@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: the code generator itself was extended (see DESIGN.md/
-// codegen/README.md) to lift the one-class-per-header assumption, accept glob
-// header patterns, and support plain C-style enums. The "gp" module's config now
+// The code generator itself was extended (see DESIGN.md/codegen/README.md) to
+// lift the one-class-per-header assumption, accept glob header patterns, and
+// support plain C-style enums. The "gp" module's config now
 // wraps gp_*.hxx wholesale instead of five hand-picked headers, retroactively
 // unlocking real, previously-rejected coverage across several other modules too
 // (Geom_Line::Lin, BRepPrimAPI_MakeCylinder's positioned constructor,

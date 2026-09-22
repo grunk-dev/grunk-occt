@@ -2,16 +2,15 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Hand-written escape hatch (Step 4b, see DESIGN.md/migration plan) - every
-// BRepTools::Write overload takes a Message_ProgressRange (registered, see
-// codegen/config.yml's message_progress module) as its LAST parameter, but always
-// with a default value (`= Message_ProgressRange()`); this generator doesn't expand
-// default arguments (see codegen/README.md's "Known gaps"), so calling it from Lua
-// would otherwise require constructing one explicitly every time
-// (occt.BRepTools_Write(shape, filename, occt.Message_ProgressRange.new())). A single
-// hand-written free function is simpler than teaching the generator default-argument
-// expansion for this one call site - same category as legacy grocc's custom_init.cpp
-// free functions (serialize_brep, export_to_step).
+// Hand-written escape hatch - BRepTools::Write is a static free function in a
+// static-only namespace class, outside what codegen/config.yml's breptools module
+// wraps; every overload also takes a Message_ProgressRange (registered, see
+// codegen/config.yml's message_progress module) as its last parameter, always with
+// a default value (`= Message_ProgressRange()`), so calling it from Lua would
+// otherwise require constructing one explicitly every time
+// (occt.BRepTools_Write(shape, filename, occt.Message_ProgressRange.new())). A
+// single hand-written free function with a simpler two-argument signature is
+// simpler than extending the generator for this one call site.
 
 #pragma once
 

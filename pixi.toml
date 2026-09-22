@@ -249,3 +249,23 @@ description = "Bootstrap ADOL-C/adOCCT if needed, then configure, build, test, a
 [environments]
 default = { features = ["occt"] }
 ad = { features = ["ad"], no-default-feature = true }
+tools = { features = ["tools"], no-default-feature = true }
+
+# REUSE (license-compliance) tooling - kept in its own environment/feature (like
+# `ad`) rather than added to [dependencies], since nothing else here needs it and
+# it has no reason to affect the default/ad environments' own package sets.
+[feature.tools.dependencies]
+python = "*"
+
+[feature.tools.pypi-dependencies]
+reuse = "*"
+
+[feature.tools.tasks]
+_reuse = { cmd = "reuse {{ sub_cmd }}", args = [
+    { "arg" = "sub_cmd", "default" = "lint" },
+] }
+
+[tasks.reuse]
+args = [{ "arg" = "sub_cmd", "default" = "lint" }]
+depends-on = [{ task = "_reuse", environment = "tools", args = ["{{ sub_cmd }}"] }]
+description = "Run the REUSE license-compliance tool. sub_cmd selects the REUSE subcommand (e.g. lint, spdx) - defaults to lint."

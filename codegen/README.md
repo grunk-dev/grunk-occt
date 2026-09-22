@@ -10,8 +10,7 @@ A libclang-based generator that parses OCCT headers (driven by `config.yml`) and
 grunk plugin registration code targeting `register_type`/`add_constructors`/
 `add_member_function` (`generated/<module>.{hpp,cpp}`, checked into git - see
 `../DESIGN.md`'s "Generated-code policy"). Successor to legacy grocc's
-`occt_generator.py`, rebuilt from scratch against the new API (see the migration
-plan's Step 2).
+`occt_generator.py`, rebuilt from scratch against the new API.
 
 ## Running it
 
@@ -29,8 +28,10 @@ Review the stderr summary (accepted/rejected/blacklisted counts, and every rejec
 reason) after every run - it's the primary way to notice a symbol that needs a
 hand-written escape hatch, or a blacklist entry that's no longer warranted.
 
-## What it does (Step 2 MVP scope, since expanded - see "Lifting the
-one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" below)
+## What it does
+
+(see "Lifting the one-class-per-header assumption" / "Wildcard header patterns" /
+"Enum support" below for how the scope below is actually discovered)
 
 - **Public constructors, instance methods, and a specific set of operators/friend
   functions** (see "Operator overloads and friend free functions" below - added
@@ -88,7 +89,7 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   [grunk-dev/grunk#280](https://github.com/grunk-dev/grunk/issues/280) entirely,
   since calling an overloaded method with concrete argument types is never
   ambiguous, only *taking its address* is.
-- **`Standard_Transient`/`Handle(T)` support** (Step 3): a class whose ancestor chain
+- **`Standard_Transient`/`Handle(T)` support**: a class whose ancestor chain
   includes `Standard_Transient` gets its constructors emitted as heap-allocating
   factories returning `opencascade::handle<T>` (`new T(args...)`, never a by-value
   `T`) instead of plain value constructors, and its full ancestor chain emitted as
@@ -102,7 +103,7 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   **Multiple inheritance is not handled** - only the first `CXX_BASE_SPECIFIER` per
   class is followed; fine for every OCCT class this generator has targeted so far
   (single inheritance throughout), but would need extending if that changes.
-- **`NCollection_Array1<X>`/`NCollection_Array2<X>` support (Step 5)**: a
+- **`NCollection_Array1<X>`/`NCollection_Array2<X>` support**: a
   by-value or const-reference parameter whose type is (or is a typedef for) one of
   these templates - e.g. `TColgp_Array1OfPnt` (`NCollection_Array1<gp_Pnt>`),
   `TColStd_Array1OfReal` (`NCollection_Array1<double>`) - is accepted whenever `X`
@@ -155,10 +156,11 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   `process_module()` call - re-parsing would roughly double an already
   non-trivial cost once `headers` can glob-expand to dozens of files (see
   "Wildcard header patterns" below).
-- **Lifting the one-class-per-header assumption** (Step 6): the Step 2 MVP assumed
-  each header defined exactly one class, named for the header's own filename stem
-  (`gp_Pnt.hxx` -> `gp_Pnt`) - true for hand-picked headers, but not a safe
-  assumption once `headers` can be a glob (below): a matched header might define a
+- **Lifting the one-class-per-header assumption**: an earlier version of the
+  generator assumed each header defined exactly one class, named for the header's
+  own filename stem (`gp_Pnt.hxx` -> `gp_Pnt`) - true for hand-picked headers, but
+  not a safe assumption once `headers` can be a glob (below): a matched header
+  might define a
   typedef instead of a real class (`gp_Vec2f.hxx`, just
   `typedef NCollection_Vec2<Standard_ShortReal> gp_Vec2f;`), an enum, a namespace,
   or occasionally more than one class. `discover_entities()` replaces the
@@ -181,8 +183,8 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     argument (`"NCollection_Lerp<gp_Trsf>"`) - `discover_entities()` treats any
     mismatch between the two as "this is a specialization, not a plain class" and
     skips it, which also matches this project's existing "no `NCollection` type is
-    ever exposed to Lua directly" policy (see `../DESIGN.md`'s Step 5/collections
-    note) rather than introducing an exception to it.
+    ever exposed to Lua directly" policy (see `../DESIGN.md`'s own note on
+    collections) rather than introducing an exception to it.
   - **Performance**: `discover_entities()` (and `find_class_definition()`, used by
     the base-chain walk) use `cursor.get_children()` - direct children of the
     translation unit only - rather than `cursor.walk_preorder()`, which recurses
@@ -200,8 +202,8 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     parsed/walked twice each in the naive two-pass design this was first
     implemented with, before the `ParsedHeader` cache above eliminated the second
     pass too).
-- **Wildcard header patterns** (Step 6, revives legacy grocc's own convention -
-  see `grocc/config.yml.in`'s `gp_*.hxx`): a module's `headers` entries accept
+- **Wildcard header patterns** (the same convention legacy grocc's own
+  `config.yml.in` used - see its `gp_*.hxx`): a module's `headers` entries accept
   glob patterns (containing `*`, `?`, or `[`), expanded via `expand_headers()`
   against `--occt-include-dir` and sorted for a deterministic, reviewable diff -
   or a literal filename, kept as-is (and required to exist - a typo here is almost
@@ -213,7 +215,7 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     `gp_Vec2f.hxx`, above) is skipped quietly if it came from a glob
     (`expand_headers()` tracks which matched headers were glob-sourced
     specifically for this), but still a hard `RuntimeError` if it was named
-    literally - preserves the Step 2 MVP's original "a header with nothing
+    literally - preserves the original "a header with nothing
     registrable is probably a typo" safety net for the common (still
     hand-picked-header) case, while not making every wildcard module responsible
     for enumerating its own typedef-only headers as false-positive exceptions.
@@ -226,7 +228,7 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     something an over-eager glob picked up, same as excluding anything else this
     generator shouldn't bind - there's no automatic "this looks unrelated"
     detection.
-- **Enum support** (Step 6): a plain C-style enum (`enum GeomAbs_Shape { ... };`,
+- **Enum support**: a plain C-style enum (`enum GeomAbs_Shape { ... };`,
   OCCT's own convention throughout - never `enum class`) discovered by
   `discover_entities()` is registered via sol2's own `new_enum(...)` rather than
   `register_type<T, Flags>()` (enums aren't usertypes - no constructors, no
@@ -252,8 +254,8 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     `Standard_Boolean` for parameter/return-type purposes (see the type list
     above) - passed through as a plain value, no conversion needed in the emitted
     lambda body.
-- **Default-argument expansion** (Step 6.5, revives legacy grocc's own generator's
-  same trick): a C++ declaration with N trailing default-valued parameters (e.g.
+- **Default-argument expansion** (the same trick legacy grocc's own generator
+  used): a C++ declaration with N trailing default-valued parameters (e.g.
   `BRepBuilderAPI_Transform(shape, trsf, Copy = Standard_False)`, `BRepAlgoAPI_Cut
   (S1, S2, theRange = Message_ProgressRange())`) is emitted as multiple overloads,
   one per reachable arity, instead of the earlier all-or-nothing behavior (accept
@@ -290,8 +292,8 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     error, not silently); re-derive a targeted fix (most likely a blacklist entry
     for whichever narrower overload should lose) if it ever is, per this project's
     own "confirmed by building, not assumed" policy.
-- **`extra_includes`** (a module's config, optional, revived from legacy grocc's
-  `config.yml.in` - Step 6): extra `#include <...>` lines added to the generated
+- **`extra_includes`** (a module's config, optional, the same convention legacy
+  grocc's own `config.yml.in` used): extra `#include <...>` lines added to the generated
   `.cpp` (never the `.hpp`, and never a source of new registrable classes - these
   headers are *not* walked for callables) for a type this module's callables use
   only by reference/pointer, where this module's *own* headers therefore only
@@ -303,8 +305,8 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   `TopoDS_Shape`) - omitting it fails with a real "invalid use of incomplete type"
   compile error (found on `bnd`, the first module needing it - see
   `codegen/config.yml`'s own comment there).
-- **`translation_units`** (top-level config, optional - Step 6.5's "Translation-unit
-  grouping"): controls how `CMakeLists.txt` groups `generated/*.cpp` files into
+- **`translation_units`** (top-level config, optional - see `../DESIGN.md`'s own
+  "Translation-unit grouping" section): controls how `CMakeLists.txt` groups `generated/*.cpp` files into
   compiler invocations, written by `generate.py` as `generated/translation_units.txt`
   (one line per translation unit, a space-separated list of module names, or a single
   line `*` for "everything in one"). `mode: separate` (the default) gives every
@@ -324,13 +326,13 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
 - **Blacklist**: `ClassName::MethodName` skips one method (all its overloads); a bare
   `ClassName` (or `EnumName`) skips the whole entity entirely - no
   `register_type`/`new_enum` call at all, checked *before* any of its own
-  callables/enumerators are even looked at (a bug in the Step 2-5 implementation
+  callables/enumerators are even looked at (an earlier implementation bug
   meant a bare-blacklisted class still ended up with an empty, useless
   `register_type<...>()` call with zero constructors/methods - fixed as part of
-  Step 6's discovery rewrite, though never actually exercised by a real config
+  the discovery rewrite above, though never actually exercised by a real config
   entry before then). Each entry in `config.yml` should carry an inline comment
-  explaining why - re-derive the reason fresh per the migration plan's Step 6
-  policy, don't copy a legacy grocc blacklist reason without checking it still applies.
+  explaining why - re-derive the reason fresh, don't copy a legacy grocc
+  blacklist reason without checking it still applies.
 - **Operator overloads and friend free functions** (added for grunk-adolc's own
   native ADOL-C binding - see its own `DESIGN.md` - generic, not adouble-specific;
   no OCCT module needed this before, but several turned out to benefit once it
@@ -373,7 +375,7 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   previously silently skipped entirely; `TopLoc_Location` gained `*`/`/`/`==`;
   `TopoDS_Shape` gained `==`. Verified: full regeneration, clean rebuild, all 37
   tests plus both example recipes pass with zero regressions.
-- **Static-only "namespace classes"** (Step 4 spike, see `../DESIGN.md`): OCCT
+- **Static-only "namespace classes"** (see `../DESIGN.md`): OCCT
   expresses this concept two different ways, both handled: a genuine C++ `namespace`
   with free functions (`TopoDS.hxx`'s `namespace TopoDS { const TopoDS_Face&
   Face(const TopoDS_Shape&); ... }`), and an ordinary `class` whose methods happen to
@@ -396,9 +398,9 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
     `TopoDS_Face` usertype's own table. Detected (composed name already in this
     module's `registered_types`) and redirected: attached as that type's own
     `.DownCast(shape)` member instead (`occt.TopoDS_Face.DownCast(shape)`) - mirrors
-    Step 3's `Handle(T)::DownCast` naming (`src/geom/geom_extras.hpp`) for one
-    consistent Lua-side idiom regardless of which OCCT downcast mechanism is
-    underneath. **Only detected within a single module's own class set** - a
+    the `Handle(T)::DownCast` naming used elsewhere (`src/geom/geom_extras.hpp`)
+    for one consistent Lua-side idiom regardless of which OCCT downcast mechanism
+    is underneath. **Only detected within a single module's own class set** - a
     collision between a static/namespace function in one module and a class
     registered in a *different* module wouldn't be caught (not yet hit in practice).
 - **Toolchain include-path discovery is GCC/Clang-only** (`system_cxx_include_dirs()`
@@ -408,5 +410,8 @@ one-class-per-header assumption" / "Wildcard header patterns" / "Enum support" b
   whatever platform a maintainer actually runs it from), but worth fixing before
   relying on Windows-run regeneration.
 - **One clang parse per header** (no shared "compilation database"/precompiled
-  headers) - fine at this scale (5 headers), may need revisiting for performance once
-  Step 6 covers dozens of modules.
+  headers) - the `ParsedHeader` cache (see "Type registration spans the whole
+  config" above) already avoids re-parsing the same header twice across a whole
+  run; sharing a compilation database/precompiled headers across *different*
+  headers remains a possible further optimization if generation time ever
+  becomes a real bottleneck.

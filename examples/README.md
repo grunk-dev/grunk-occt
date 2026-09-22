@@ -6,30 +6,20 @@ SPDX-License-Identifier: MPL-2.0
 
 # Examples
 
-Real, runnable `grunk::recipe` YAML files built on the `occt` plugin - the Step 6.5
-milestone of the migration plan (see `../DESIGN.md`): documentation showing realistic,
-multi-call usage (rather than the isolated unit smoke tests under `../tests/`), and
-integration coverage exercising call sequences and data flow across several bindings
-together.
-
-Ported from legacy grocc's own example recipes (`../reference/legacy-recipes/`,
-`grunk` v0.3.x + legacy `grocc`), rewritten for the new grunk (v0.5.0, YAML `uses:`/
-`parameters:`/`steps:`/`recipes:`/`outputs:` shape, Lua `steps:` instead of the old
-per-step YAML tags, `occt.*` namespace calls instead of `!<grocc::...>` tags).
+Real, runnable `grunk::recipe` YAML files built on the `occt` plugin
 
 ## Contents
 
 - `cavity_model.grr.yml` - a gas turbine cavity: a revolved sketch fused with one
   cylinder, a second (rotated, translated, half-space-clipped) cylinder fused in
   too. Two named sub-recipes (`cavity_sketch`, `cylinder`).
-- `cavity_model_v2.grr.yml` - ported from legacy's own `20241017.grr.yml` (see
-  `../reference/legacy-recipes/README.md`) - a newer, more involved iteration of
-  the same gas turbine cavity: two revolved sectors (its own `cavity_sketch`/
-  `cylinder` sub-recipes, distinct from `cavity_model.grr.yml`'s own) grouped into
-  one `TopoDS_CompSolid` (via `occt_helpers.comp_solid`, not `compound` - see
-  below), both axial ends clipped by their own half-space, two cylinders fused in.
-  Kept alongside `cavity_model.grr.yml` for now rather than replacing it - they
-  may be consolidated later.
+- `cavity_model_v2.grr.yml` - a newer, more involved iteration of the same gas
+  turbine cavity: two revolved sectors (its own `cavity_sketch`/`cylinder`
+  sub-recipes, distinct from `cavity_model.grr.yml`'s own) grouped into one
+  `TopoDS_CompSolid` (via `occt_helpers.comp_solid`, not `compound` - see below),
+  both axial ends clipped by their own half-space, two cylinders fused in. Kept
+  alongside `cavity_model.grr.yml` for now rather than replacing it - they may be
+  consolidated later.
 - `tank_model.grr.yml` - a hydrogen tank: a "squircle" cylinder (four quarter-wall
   segments plus a square core) capped by a dome (a box core plus five spherical
   wedges). Nested sub-recipes three levels deep (`cylinder` → `cylinder_segment`,
@@ -42,27 +32,16 @@ per-step YAML tags, `occt.*` namespace calls instead of `!<grocc::...>` tags).
   examples" below), using grunk's Python bindings - deliberately skips legacy
   grunk's `build_recipe`/`run_recipe` pair, not needed for recipes this size.
 
-Legacy's own `fuel_D150.grr`/`fuelsystem.grr.yml` (see
-`../reference/legacy-recipes/README.md`) are **not** ported here, and per an
-explicit decision are not planned to be: both are large (1800+ line), auto-exported
-parameter dumps rather than hand-authored recipes - explicitly called out in that
-README as "not useful as documentation", and their real per-face parameter
-structure isn't a good fit for hand-porting. Their own OCCT surface was still
-audited (see `../DESIGN.md`'s "Step 6.5 coverage audit") so the binding can cover
-their functionality even without a literal port.
+A couple of OCCT types wrapped here (`Geom_BSplineSurface`/`Geom_BezierSurface`,
+for instance) aren't used by any example above - they came out of auditing a
+couple of large, real-world CAD models against this binding's own coverage
+without actually porting them as examples (see `../DESIGN.md`'s "OCCT surface
+coverage audit").
 
-## Why a plugin, not a shared module
+## OCCT Helpers
 
-An earlier version of this milestone registered `occt_helpers` as a plain grunk
-module (`state.run_module_file`) from the runner script, with no mention of it
-anywhere in either recipe's own YAML - purely an implicit, undocumented runtime
-requirement the runner happened to set up first. That works, but it directly
-undercuts one of grunk's own stated goals: recipes that are reusable, distributable,
-and reproducible with shareable customization. A recipe that silently doesn't work
-without a specific *other* file, known only from prose in this README, isn't really
-self-describing or distributable on its own.
 
-`occt_helpers.lua` is instead a small, standalone **pure Lua grunk plugin** now:
+`occt_helpers.lua` is a small, standalone **pure Lua grunk plugin** now:
 every `.grr.yml` file here declares it explicitly, right alongside `occt` itself:
 
 ```yaml
@@ -117,28 +96,5 @@ FreeCAD) to inspect the result.
 
 To override a *different* parameter, or read back a different feature, edit
 `run_example.py` directly - it's meant to be read and modified, not a generic CLI
-tool (see the migration plan's own Step 0 decision to skip a
-`grunk::recipe`-based end-to-end test until several modules existed, and Step 6.5's
-decision to skip legacy grunk's `build_recipe` concept here for the same reason:
-one small, explicit example script is simpler than a generic driver for a handful
-of recipes this size).
-
-## A note on recipe-level vs. plugin/module-level dynamic dispatch
-
-If you extend either recipe (or write your own against `occt_plugin`) and hit
-`"Feature: type ... has no member ..."`, see `../DESIGN.md`'s "Recipe-level dynamic
-dispatch does not walk `add_bases<...>()`" section before assuming something is
-broken - it's grunk's own documented, deliberate behavior (recipe `steps:`/
-`recipes:` need an explicit `:as(BaseType)` cast to reach an inherited method;
-plugin/module bodies don't have this problem). Every `.grr.yml` file here and
-`plugins/occt_helpers.lua` already show this pattern in context.
-
-Separately: if a plugin/module function needs a *list* of tracked values
-(points, edges, shapes, ...), pass them as trailing varargs
-(`helpers.polygon_face(p0, p1, ...)`), not as a single Lua table
-(`helpers.polygon_face({p0, p1, ...})`) - the latter is not just clunkier, it can
-silently read back the wrong (default/stale) value due to an upstream grunk
-dependency-tracking bug, [grunk-dev/grunk#289](https://github.com/grunk-dev/grunk/issues/289).
-See `../DESIGN.md`'s "A related, narrower gotcha..." section and
-`plugins/occt_helpers.lua`'s own `polygon_face`/`wire_face`/`compound` for the
-varargs pattern.
+tool. One small, explicit example script is simpler than a generic driver for a
+handful of recipes this size.

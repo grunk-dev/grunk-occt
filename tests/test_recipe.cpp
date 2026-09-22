@@ -7,11 +7,10 @@
 // test_load.cpp's/every other test_*.cpp's raw create_env()/eval() harness - none of
 // which ever goes through the recipe/parametric layer. examples/run_example.py
 // already exercises this same layer end-to-end via grunk's Python bindings, but only
-// as an external script, not as a fast, always-run C++ unit test - this is the
-// "one true grunk::recipe-based end-to-end test" the migration plan's Step 0 noted
-// as deferred until several modules existed, reusing cavity_model.grr.yml itself
-// (Step 6.5) rather than inlining a separate minimal recipe, so this test and that
-// example can never silently drift apart.
+// as an external script, not as a fast, always-run C++ unit test - this is that
+// same coverage as a fast unit test, reusing cavity_model.grr.yml itself rather
+// than inlining a separate minimal recipe, so this test and that example can never
+// silently drift apart.
 //
 // EXAMPLES_DIR is set by CMakeLists.txt to the absolute path of examples/.
 
@@ -96,9 +95,9 @@ TEST_F(RecipeTest, CavityModelReactsToParameterChange)
     EXPECT_TRUE(ok.value().as<bool>());
 }
 
-// Reads examples/cavity_model_v2.grr.yml (see run_example.py) - ported from legacy
-// grocc's own 20241017.grr.yml, a newer, more involved iteration of
-// cavity_model.grr.yml (two revolved sectors grouped into a TopoDS_CompSolid via
+// Reads examples/cavity_model_v2.grr.yml (see run_example.py) - a newer, more
+// involved iteration of cavity_model.grr.yml (two revolved sectors grouped into a
+// TopoDS_CompSolid via
 // occt_helpers.comp_solid, both axial ends clipped by their own half-space, two
 // cylinders fused in) - and confirms export_brep's own "ok" output, both at its
 // own defaults and after overriding a parameter a sub-recipe two levels deep

@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// AD validation milestone (Step 7, see ../DESIGN.md): only built when
-// GRUNK_OCCT_ENABLE_AD is ON (see ../CMakeLists.txt), in which case occt_plugin was
+// Only built when GRUNK_OCCT_ENABLE_AD is ON (see ../CMakeLists.txt), in which
+// case occt_plugin was
 // compiled against an AD-enabled OCCT fork (adOCCT) instead of stock OCCT, and
 // checks a real forward-mode AD derivative against a closed-form value - mirrors
 // grunk's own cad_autodiff example (its README's "Verifying the derivative" section,

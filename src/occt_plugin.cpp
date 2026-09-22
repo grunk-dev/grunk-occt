@@ -2,33 +2,29 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 0 built an empty grunk plugin proving the whole toolchain (pixi -> cmake ->
-// conda-forge OCCT -> dlopen -> grunk::state). Step 1 hand-wrote the first real
-// module (gp); Step 2's generator now reproduces (and exceeds) it. Step 3 added
-// Standard_Transient/Handle(T) + add_bases support (geom module). Step 4 adds plain
-// value-type inheritance (topods), static-method/namespace flattening (also topods),
-// and the box/cylinder/cut boolean-op smoke test (brepbuilderapi/brepprimapi/
-// brepalgoapi) - see generated/*.cpp, codegen/README.md, src/geom/geom_extras.hpp,
-// src/shape_io.hpp. Step 5 adds NCollection_Array1/2 <-> std::vector<T> support
-// (Geom_BezierCurve, src/collections.hpp). Step 6 is the module expansion sweep -
-// bnd (Bnd_Box/BRepBndLib), brep (BRep_Builder/BRep_Tool), breptools
-// (BRepTools), toploc (TopLoc_Location), gc (GC_Root/GC_MakeSegment/
-// GC_MakeCircle), brepoffsetapi (BRepOffsetAPI_*, whole-module wildcard), and
-// geomapi (GeomAPI_*, whole-module wildcard), and brepfilletapi (BRepFilletAPI_*,
-// whole-module wildcard) so far - toploc retroactively unlocked several
-// TopLoc_Location&/const& parameters in topods/brep that were rejected before it
-// existed. gc's own Value() methods return Handle(Geom_TrimmedCurve)/
-// Handle(Geom_Circle), registered in a *different* generated file (geom.cpp) -
-// this only works because occt_plugin is compiled with the translation-unit
-// grouping CMakeLists.txt reads from generated/translation_units.txt (see
-// codegen/config.yml's own translation_units: section and DESIGN.md's
-// "Translation-unit grouping"/"Handle(X) return type requires being in the same
-// translation unit as X"). Step 7 (AD validation milestone, see DESIGN.md)
-// compiles this *exact same* source - unmodified below this comment - against an
-// AD-enabled OCCT (adOCCT) instead of stock OCCT, with GRUNK_OCCT_WITH_ADOLC
-// defined, when configured with -DGRUNK_OCCT_ENABLE_AD=ON (see CMakeLists.txt and
-// README.md's "Building with AD support" - a build option on this one project, not
-// a separate CMake tree).
+// register_occt() (below) wires together every generated OCCT module - gp; geom
+// (Standard_Transient/Handle(T) support with add_bases<...>()); topods (plain
+// value-type inheritance, static-method/namespace flattening); brepbuilderapi/
+// brepprimapi/brepalgoapi (box/cylinder/cut boolean-op coverage - see
+// generated/*.cpp, codegen/README.md, src/geom/geom_extras.hpp, src/shape_io.hpp);
+// collections support for NCollection_Array1/2 <-> std::vector<T>
+// (Geom_BezierCurve, src/collections.hpp); bnd (Bnd_Box/BRepBndLib), brep
+// (BRep_Builder/BRep_Tool), breptools (BRepTools), toploc (TopLoc_Location), gc
+// (GC_Root/GC_MakeSegment/GC_MakeCircle), and whole-module wildcards for
+// brepoffsetapi (BRepOffsetAPI_*), geomapi (GeomAPI_*), and brepfilletapi
+// (BRepFilletAPI_*). toploc retroactively unlocks several TopLoc_Location&/const&
+// parameters in topods/brep that would otherwise be rejected. gc's own Value()
+// methods return Handle(Geom_TrimmedCurve)/Handle(Geom_Circle), registered in a
+// *different* generated file (geom.cpp) - this only works because occt_plugin is
+// compiled with the translation-unit grouping CMakeLists.txt reads from
+// generated/translation_units.txt (see codegen/config.yml's own translation_units:
+// section and DESIGN.md's "Translation-unit grouping"/"Handle(X) return type
+// requires being in the same translation unit as X"). This *exact same* source -
+// unmodified below this comment - also compiles against an AD-enabled OCCT
+// (adOCCT) instead of stock OCCT, with GRUNK_OCCT_WITH_ADOLC defined, when
+// configured with -DGRUNK_OCCT_ENABLE_AD=ON (see CMakeLists.txt and README.md's
+// "Building with AD support" - a build option on this one project, not a separate
+// CMake tree).
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin/loader.hpp>

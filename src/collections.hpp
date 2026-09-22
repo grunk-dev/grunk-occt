@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// std::vector<T> <-> NCollection_Array1/2 conversion helpers (Step 5, see
-// DESIGN.md/migration plan). Used by the generator itself (codegen/generate.py's
+// std::vector<T> <-> NCollection_Array1/2 conversion helpers. Used by the
+// generator itself (codegen/generate.py's
 // "array1"/"array2" parameter kind - see codegen/README.md's "NCollection_Array1/2
 // support") for any by-value/const-reference NCollection_Array1<T>/
 // NCollection_Array2<T> parameter (e.g. TColgp_Array1OfPnt is a typedef for

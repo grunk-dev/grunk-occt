@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: second module expansion sweep module (see DESIGN.md/migration
-// plan). BRep_Builder constructs topology from scratch (MakeVertex/MakeEdge/
+// BRep_Builder constructs topology from scratch (MakeVertex/MakeEdge/
 // MakeFace, all mutating an existing TopoDS_* userdata in place - same pattern as
 // bnd's BRepBndLib::Add); BRep_Tool inspects it back out (Pnt, Tolerance, ...) -
 // exercised together here as a construct/inspect round trip on a bare TopoDS_Vertex,

@@ -11,9 +11,7 @@
 // Lets sol2 treat an OCCT opencascade::handle<T> (i.e. Handle(T)) like any other
 // unique-ownership smart pointer, so a Handle can be returned from a registered
 // grunk function or pulled back out of a grunk::object via .as<Handle(T)>() without
-// a raw-pointer detour. Not needed yet (Step 1's gp module has no Standard_Transient-
-// derived/Handle-wrapped types), added now so every later module can include this
-// one shared header - ported verbatim from grunk's cad_autodiff example
+// a raw-pointer detour - ported verbatim from grunk's cad_autodiff example
 // (plugins/occt_sol_traits.hpp).
 namespace sol {
     template <typename T>

@@ -6,9 +6,8 @@ SPDX-License-Identifier: MPL-2.0
 
 # Design decisions
 
-This file tracks decisions made during the grocc → grunk-occt migration that aren't obvious from
-reading the code, so they don't need re-litigating later. See the migration plan for the full
-step-by-step rationale; this file only records the *outcomes*.
+This file records design decisions, bugs found and fixed, and known limitations that aren't
+obvious from reading the code alone, so they don't need re-discovering later.
 
 ## Scope
 
@@ -69,16 +68,14 @@ step (`arch: x64`) before `setup-pixi` in `.github/workflows/ci.yml`, matching g
 
 ## Test-harness shape
 
-The test harness (`tests/test_*.cpp`, one file per module, growing over subsequent steps) loads
-the plugin via `grunk::plugin::load_native` and drives it through **raw Lua via
+The test harness (`tests/test_*.cpp`, one file per module) loads the plugin via
+`grunk::plugin::load_native` and drives it through **raw Lua via
 `grunk::state::create_env()`** directly - not through `grunk::recipe`'s YAML+Lua layer. This keeps
-plugin-binding bugs isolated from the separately-young recipe layer. A `grunk::recipe`-based
-end-to-end test is added later (once several OCCT modules exist), to validate realistic recipe
-usage - see Step 6.5 of the migration plan (porting legacy plugin-using example recipes) for that
-milestone. **Added**: `tests/test_recipe.cpp`, once `cavity_model.grr.yml` existed - reads that
-same example recipe (the one `examples/run_example.py` already runs end-to-end via Python) through
-the plain C++ `grunk::recipe` API instead, so the recipe layer has a fast, always-run unit test of
-its own, not only an external Python example script.
+plugin-binding bugs isolated from the recipe layer. `tests/test_recipe.cpp` complements this with a
+`grunk::recipe`-based end-to-end test: it reads `cavity_model.grr.yml` (the same example recipe
+`examples/run_example.py` already runs end-to-end via Python) through the plain C++
+`grunk::recipe` API, so the recipe layer has a fast, always-run unit test of its own, not only an
+external Python example script.
 
 **Test framework: gtest** (matches both legacy grocc's own test suite and grunk's own
 `tests/cpp/`). One `runUnitTests` binary (`CMakeLists.txt`, via `find_package(GTest REQUIRED)` +
@@ -91,21 +88,21 @@ same `SetUpTestCase`-once-per-suite pattern legacy grocc's `test_gp_Pnt.cpp`/
 entry - `ctest --test-dir build` reports each one (and can filter via `-R <regex>`), not one
 pass/fail per module/file.
 
-**Gotcha found while implementing Step 0's harness**: `grunk::state::create_env()`'s resulting
+**Gotcha**: `grunk::state::create_env()`'s resulting
 environment's `__index` fallback is `original_env` (grunk's own registered-symbol table), *not*
 Lua's base library - so plain Lua globals like `assert`, `print`, `tostring`, `pairs`, ... are
 **not** reachable inside an `env.eval("...")` string, only whatever's actually registered (e.g.
 `occt`, `grunk`, or a module). This differs from `create_parametric_env()`, which grunk's own
 `tests/cpp/plugin_loader.cpp` uses successfully with `assert(...)` inside `eval(...)` - it isn't
 Standard_Lua-vs-grunk difference so much as which fallback table each environment chains to.
-Consequence for every later step's smoke tests: check registrations via the `environment`
+Consequence for smoke tests: check registrations via the `environment`
 wrapper's own `operator[]`/`get<T>()` (C++-side) rather than via a Lua-side `assert(...)` call
 inside `create_env()`'s environment, or switch to `create_parametric_env()` if a test genuinely
 needs Lua-side `assert`/`print` and doesn't mind the added dependency-tracking behavior.
 
 ## Copying an algorithm/builder class segfaults - fixed via std::unique_ptr<T>
 
-Found in Step 4b (the boolean-op smoke test): registering `BRepAlgoAPI_Cut`'s
+Registering `BRepAlgoAPI_Cut`'s
 constructor the same way as every other class so far
 (`[](Args...) { return BRepAlgoAPI_Cut(Args...); }`) built and ran, but **segfaulted
 at program exit** with heap corruption inside `BRepAlgoAPI_BuilderAlgo::~BRepAlgoAPI_BuilderAlgo()`
@@ -120,7 +117,7 @@ falling back to copy), this ends up shallow-copying `myDSFiller` at least once. 
 copies eventually get destroyed (once as the lambda's own temporary, once as the
 Lua-owned instance at state teardown) and free the same pointer twice.
 
-This is **not** the `Standard_Transient`/`Handle(T)` case Step 3 solved -
+This is **not** the `Standard_Transient`/`Handle(T)` case solved elsewhere -
 `BRepAlgoAPI_Cut` isn't Transient-derived, and nothing else in OCCT expects it
 wrapped in a `Handle`. Fixed generically in the generator
 (`codegen/generate.py`'s `owns_resource_unsafely()`): a class is heap-allocated via
@@ -136,7 +133,7 @@ rationale and its own "Known gaps" note on where this could still be wrong.
 
 ## Non-const-reference ("out") parameters are supported, deliberately
 
-Initially (Step 3, first pass) the generator rejected every non-const-reference
+Initially the generator rejected every non-const-reference
 parameter outright, treating out-params as generically unsupportable. That was wrong,
 corrected after review: OCCT's OO APIs use mutate-through-reference constantly
 (`Geom_Curve::D0/D1/D2/D3`, `gp_Pnt::Coord`'s 3-out-param overload, ...) and it isn't
@@ -181,7 +178,7 @@ exercise an out-param call from `steps:` - that specific case remains unexercise
 here, now with a confirmed-elsewhere reason to be careful about it whenever it comes
 up.
 
-## Null Handle arguments segfault (found in Step 3, filed as grunk-dev/grunk#281)
+## Null Handle arguments segfault (filed as grunk-dev/grunk#281)
 
 Passing a Lua value that is `nil` as an argument to a function/method parameter typed
 `Handle(T) const&` (bridged via `occt_sol_traits.hpp`'s
@@ -213,7 +210,7 @@ OCCT (e.g. `gp_Trsf::SetTranslation`, `SetRotation`, `SetMirror` each have 2+ C+
 `src/gp/gp_registration.hpp`). When a name genuinely needs more than one overload exposed to Lua
 under the same key, pass `sol::overload(overload1, overload2)` as `fun` instead (per
 `usertype_proxy::add_member_function`'s own doc comment) - not needed yet in the `gp` module, but
-expect it in Step 6 modules with more heavily overloaded methods.
+expect it in modules with more heavily overloaded methods.
 
 ## `automagic_flags` policy
 
@@ -223,32 +220,32 @@ only opted into fuller automagic after explicit human confirmation it's safe (e.
 types with no dangerous operator surface, following the `gp_Pnt` precedent in grunk's
 `cad_autodiff` example). This is a generator-wide rule, not a per-type ad hoc choice.
 
-## Code generator (Step 2)
+## Code generator
 
 `codegen/generate.py` (libclang-based, see `codegen/README.md` for full design/scope)
-targets the `gp` module and reproduces - and exceeds - Step 1's hand-written
-registrations: 166 constructors/methods accepted automatically (vs. ~15 hand-picked),
-48 rejected with a recorded reason each (unregistered types like `gp_XYZ`/`gp_Ax2`,
-non-const-reference out-params, `Standard_OStream&`, ...), 1 deliberately blacklisted
-(`gp_Pnt::BaryCenter`, the Step 2 checkpoint proving the blacklist mechanism). The
-hand-written `src/gp/gp_registration.hpp` was deleted once `generated/gp.cpp` passed
-Step 1's tests unchanged - generated and hand-written versions of the same module must
-never coexist/drift.
+targets the `gp` module first and reproduces - and exceeds - the earlier hand-written
+registrations it replaced: 166 constructors/methods accepted automatically (vs. ~15
+hand-picked), 48 rejected with a recorded reason each (unregistered types like
+`gp_XYZ`/`gp_Ax2`, non-const-reference out-params, `Standard_OStream&`, ...), 1
+deliberately blacklisted (`gp_Pnt::BaryCenter`, a checkpoint proving the blacklist
+mechanism works end to end). The hand-written `src/gp/gp_registration.hpp` was deleted
+once `generated/gp.cpp` reproduced its own tests unchanged - generated and hand-written
+versions of the same module must never coexist/drift.
 
 The AD-portability macro name is **`GRUNK_OCCT_WITH_ADOLC`** (not defined anywhere yet
 - only the plain branch of every `#ifdef`-gated dual form is compiled today). The
 generator bakes this in automatically for every `Standard_Real` parameter; hand-written
-escape-hatch code (Steps 4a/6) should use the same macro name for consistency.
+escape-hatch code should use the same macro name for consistency.
 
 ## `Standard_Real` / AD-portability rule
 
-Every constructor/function parameter of type `Standard_Real` is emitted (by hand today, by the
-generator from Step 2 onward) as an `#ifdef`-gated pair: a plain-fundamental-type overload for
-ordinary builds, and a `sol::object`-based mixed-conversion overload for a future AD-enabled build
+Every constructor/function parameter of type `Standard_Real` is emitted by the generator as an
+`#ifdef`-gated pair: a plain-fundamental-type overload for ordinary builds, and a
+`sol::object`-based mixed-conversion overload for a future AD-enabled build
 (mirroring `geoml_registration.hpp`'s `gp_Pnt` constructor in grunk's `cad_autodiff` example). This
 makes the deferred AD milestone a recompile against an AD-enabled OCCT build, not a source rewrite.
 
-## Collections: `std::vector<T>` <-> `NCollection_Array1/2` (Step 5)
+## Collections: `std::vector<T>` <-> `NCollection_Array1/2`
 
 Validated with `Geom_BezierCurve` (`codegen/config.yml`'s `geom` module gained
 `Geom_BoundedCurve.hxx`/`Geom_BezierCurve.hxx`).
@@ -293,9 +290,8 @@ v.size()]`, matching OCCT's own array convention throughout its docs), and the
   `Weights()`). Both need a decided answer to a question the parameter side
   doesn't: what happens on a size mismatch (out-param) or which Lua-facing shape a
   freshly-`from_array1`/`from_array2`-converted return value takes - deferred until
-  a concrete consumer forces the decision, per the same "don't design for
-  hypothetical requirements" principle as the migration plan's own Step-by-step
-  scoping.
+  a concrete consumer forces the decision, per the general "don't design for
+  hypothetical requirements" principle this project follows throughout.
 
 **Gotcha found while implementing this**: a bare Lua table of `occt.gp_Pnt` values is
 **not** accepted directly as a `std::vector<gp_Pnt> const&` function parameter - sol2
@@ -315,15 +311,15 @@ generator) since the generator doesn't emit this for any type yet.
 
 ## Known issue: `Handle(T)` upcast argument-checking fails in Debug (`SOL_SAFE_FUNCTION_CALLS`) builds
 
-Found while validating Step 5 (unrelated to it - reproduces identically on
-unmodified `main`, confirmed via `git stash`): `tests/test_geom.cpp`'s
+Found independently of any particular change (reproduces identically on unmodified
+`main`, confirmed via `git stash`): `tests/test_geom.cpp`'s
 `NullHandleSurfacesAsNil` (`downcast_to_geom_line(Handle(Geom_Geometry) const&)`
 called with a genuine `Handle(Geom_Line)` value, upcast via `add_bases`) **fails**
 when grunk-occt is built with `CMAKE_BUILD_TYPE=Debug`, with sol2's own "unrecognized
-userdata (not pushed by sol?)" error - the exact same failure mode as the
-never-fully-explained synthetic `Handle<T>` repro documented in
-`docs/step5-investigation/`, except this reproduces with a **real OCCT type**, gated
-purely by Debug vs. Release.
+userdata (not pushed by sol?)" error - the exact same failure mode as a
+never-fully-explained synthetic `Handle<T>` repro found earlier during
+investigation, except this reproduces with a **real OCCT type**, gated purely by
+Debug vs. Release.
 
 Root cause, now much better understood after the grunk `with_std_vector` fix (see
 [grunk-dev/grunk#282](https://github.com/grunk-dev/grunk/pull/282)): sol2's
@@ -337,20 +333,19 @@ exercised - `pixi.toml`'s `configure` task defaults to Release, and CI
 *checked* path (Debug) incorrectly rejects it.
 
 **Consequence for this codebase**: not fixed here - deep sol2-internal territory,
-same category as grunk-dev/grunk#281, and orthogonal to Step 5's own deliverable
-(Step 5's own new test, `BezierCurveFromVectorOfPoints`, passes in both Debug and
-Release - this is exclusively about the pre-existing `downcast_to_geom_line` case).
-grunk-occt's only currently-tested/supported build configuration is Release (matches
+same category as grunk-dev/grunk#281 (the `BezierCurveFromVectorOfPoints` test
+passes in both Debug and Release - this is exclusively about the pre-existing
+`downcast_to_geom_line` case). grunk-occt's only currently-tested/supported build
+configuration is Release (matches
 CI); a Debug build should be understood as not fully validated for `Handle(T)`
 upcasting until this is root-caused upstream in sol2/grunk. Filed as
 [grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283).
 
-## Step 6 module expansion sweep
+## Module coverage sweep
 
-One module per PR, each with its own smoke test plus the full accumulated
-regression suite (see the migration plan's own Step 6 policy) - no blacklist
-entries carried over from legacy grocc's `config.yml.in` without re-deriving the
-reason fresh (Step 0.5's policy); so far every module has needed none of its own.
+Each module gets its own smoke test plus the full accumulated regression suite - no
+blacklist entries carried over from legacy grocc's `config.yml.in` without
+re-deriving the reason fresh; so far every module has needed none of its own.
 
 - **`bnd`** (`Bnd_Box`, `BRepBndLib`): introduced the `extra_includes` config field
   (revived from legacy grocc's own schema) - a module's own headers can
@@ -363,8 +358,8 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   `gp_Pnt2d`/`TopLoc_Location`/`GeomAbs_Shape`/`TopAbs_ShapeEnum`, none registered
   yet) - 37 accepted, 67 rejected, all recorded. `BRep_Builder` has no explicit
   constructor of its own (a plain compiler-synthesized default one, invisible to
-  the generator's AST walk, same "missing implicit constructors" category the
-  migration plan's own reference material names this exact class under) - added via
+  the generator's AST walk - the same "missing implicit constructors" category as
+  any other compiler-synthesized-only constructor) - added via
   a hand-written escape hatch (`src/brep/brep_extras.hpp`, `modify_type<BRep_Builder>
   ().add_constructors(...)`, following `gp_extras.hpp`'s established pattern).
   `tests/test_brep.cpp` also found that `BRep_Tool::IsClosed` on a `Solid` isn't the
@@ -386,8 +381,7 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   the rest are `TopLoc_Location`'s own internal list/hashing machinery, never
   meant to be exposed to Lua on their own): 16 accepted, 5 rejected (the
   `Handle(TopLoc_Datum3D)` constructor, operators - skipped by name prefix, not a
-  real rejection). A plain value type, buildable from a `gp_Trsf` (registered
-  since Step 1).
+  real rejection). A plain value type, buildable from a `gp_Trsf`.
   - **More consequential than bnd/brep/breptools**: `TopLoc_Location` was
     previously *unregistered*, so every earlier module's `TopLoc_Location&`/
     `const&` parameter or return was rejected for that reason alone. A full
@@ -424,8 +418,8 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
   `config.yml.in` already wildcarded this entire module
   (`BRepOffsetAPI_*.hxx`) with one blacklist entry
   (`BRepOffsetAPI_FindContigousEdges` - a real OCCT bug, undefined symbol `NbEdges`
-  at Windows link time, not a toolchain/generator artifact - re-derived fresh per
-  Step 0.5 policy rather than carried forward uncritically, but kept since the
+  at Windows link time, not a toolchain/generator artifact - re-derived fresh
+  rather than carried forward from grocc uncritically, but kept since the
   underlying OCCT issue has no reason to be gone). 103 accepted, 50 rejected
   (`GeomAbs_Shape`/`GeomAbs_JoinType`/`Approx_ParametrizationType`/other unregistered
   enums, `TopTools_ListOfShape&`/`const&` out-params and returns, `Standard_OStream&`,
@@ -454,14 +448,14 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
     single-use `TopExp_Explorer` wrapper returning the first `TopAbs_FACE` found) as
     a hand-written escape hatch, same category as `shape_io.hpp`'s `export_brep`.
     `tests/test_brepoffsetapi.cpp`'s `ThickSolidFromBox` shells a single face of the
-    Step 4b smoke test's own cylinder (not the box - a box's sharp corners were
+    boolean-op smoke test's own cylinder (not the box - a box's sharp corners were
     tried too before isolating the real cause, a closed vs. non-closed input, not
     corner geometry).
 - **`geomapi`** (`GeomAPI_*`, whole-module wildcard): legacy grocc's own
   `config.yml.in` wildcarded this whole module too, with one blacklist entry
   (`GeomAPI_Interpolate::ClearTangents` - legacy's own comment notes it's a Windows
   link error, the definition apparently missing from OCCT's own
-  `GeomAPI_Interpolate.cxx`); re-derived fresh per Step 6 policy and kept, same
+  `GeomAPI_Interpolate.cxx`); re-derived fresh and kept, same
   reasoning as `brepoffsetapi`'s carried-forward entry (a real OCCT library gap, not
   a toolchain/generator artifact).
   - **A new generator gap**: `GeomAPI_ExtremaCurveCurve`, `GeomAPI_ExtremaCurveSurface`,
@@ -502,8 +496,8 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
     (full sol2-internals writeup and the recommended fix), deliberately kept as an
     *occt-specific generator customization point* rather than a generic generator
     feature: `codegen/generate.py` is planned to eventually move into the `grunk`
-    repo itself so other plugins can reuse it (see the migration plan's own
-    "long-term toolkit... explicitly out of scope" decision, already deferred once)
+    repo itself so other plugins can reuse it (a longer-term goal, deliberately out
+    of scope for now)
     - this Handle(T)/base-casting problem is entirely specific to OCCT's handle
     idiom, not something a hypothetical future non-OCCT plugin using the same
     generator core would ever hit, so its fix belongs in this repo's own
@@ -521,19 +515,19 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
     generator, never yet exercised from Lua either). `tests/test_geomapi.cpp`'s own
     `InterpolateBSplineSurfaceFromPointGrid` sidesteps this entirely -
     `GeomAPI_PointsToBSplineSurface::Interpolate` takes a 2D grid of `gp_Pnt` (via
-    Step 5's `NCollection_Array2<gp_Pnt>` conversion), no `Handle(Geom_*)` parameter
+    the `NCollection_Array2<gp_Pnt>` conversion above), no `Handle(Geom_*)` parameter
     involved.
 - **`brepfilletapi`** (`BRepFilletAPI_*`, whole-module wildcard): legacy grocc's own
   `config.yml.in` wildcarded this whole module too, with **no** blacklist entries at
-  all - re-derived fresh per Step 6 policy (verified, not just carried forward) and
+  all - re-derived fresh (verified, not just carried forward) and
   confirmed to still need none. 106 accepted, 30 rejected (unregistered enums/
   `Handle(Law_Function)`/`Handle(TopOpeBRepBuild_HBuilder)`, `TopTools_ListOfShape`/
   `TopTools_SequenceOfShape` returns, mutable `Standard_Real&` out-params - same
   categories as prior modules).
   - `BRepFilletAPI_MakeFillet` has **zero** accepted constructors: its only real
     constructor takes a trailing `ChFi3d_FilletShape` with a default value (at
-    this point in the project, the generator didn't yet expand default arguments -
-    **superseded by Step 6.5's "Default-argument expansion" section below**, which
+    this point the generator didn't yet expand default arguments -
+    **superseded by the "Default-argument expansion" section below**, which
     gives it a real constructor), so it's rejected outright - same category as
     `geomapi`'s own `GeomAPI_PointsToBSpline` (also blocked by a trailing
     `GeomAbs_Shape` default at the time, also fixed by that same section). It
@@ -543,11 +537,7 @@ reason fresh (Step 0.5's policy); so far every module has needed none of its own
     enum, so it's the module's actual smoke-test candidate. Its `Add(Dis, E)` needs
     a `TopoDS_Edge` - extended `src/topexp_extras.hpp` with `occt.first_edge(shape)`,
     symmetric with the existing `first_face`. `tests/test_brepfilletapi.cpp`'s
-    `ChamferOneEdgeOfBox` chamfers one edge of the Step 4b box and passed first try.
-  - This was the last module from the migration plan's own Step 6 list (`Bnd`,
-    `BRep`, `BRepTools`, `BRepOffsetAPI`, `Geom`, `GeomAPI`, `BRepFilletAPI`, `GC`,
-    `TopLoc`) - Step 6's module expansion sweep is now complete; Step 6.5 (porting
-    legacy plugin-using example recipes) is next.
+    `ChamferOneEdgeOfBox` chamfers one edge of the smoke-test box and passed first try.
 
 ## Handle(X) return type requires being in the same translation unit as X
 
@@ -606,7 +596,7 @@ applied here unconditionally rather than as an opt-in toggle. It eliminates the
 whatever logical lines make sense (matching legacy's own module boundaries, e.g. `gc`
 staying separate from `geom` despite returning its types) without having to route
 around this compile error module-by-module as more cross-referencing modules are
-added in later Step 6 sweeps. The generated unity file is a build artifact (like any
+added later. The generated unity file is a build artifact (like any
 `.o`), not checked in - written under `CMAKE_BINARY_DIR`, already covered by
 `.gitignore`'s `/build/` entry.
 
@@ -695,12 +685,12 @@ still pass unchanged. `mode: unity` remains available and was verified to still
 produce the exact same manifest (`*`) and unity-build behavior as before, for anyone
 who wants the original one-invocation build back.
 
-## Generator redesign: enums, multi-class-per-header, wildcard headers (Step 6)
+## Generator redesign: enums, multi-class-per-header, wildcard headers
 
-Prompted directly by real project needs surfacing during Step 6: the generator
-needed to support binding C++ enums (many rejected callables return/take one -
-`GeomAbs_Shape`, `TopAbs_Orientation`, ...), the Step 2 MVP's "one class per header,
-named for the header's filename" assumption didn't hold for every OCCT header (a
+The generator needed to support binding C++ enums (many rejected callables
+return/take one - `GeomAbs_Shape`, `TopAbs_Orientation`, ...), the original "one
+class per header, named for the header's filename" assumption didn't hold for
+every OCCT header (a
 glob can match a typedef-only header, an enum-only header, or occasionally more than
 one class), and the original hand-picked `gp` module (5 headers) was missing
 `gp_Lin`/`gp_Ax2`/`gp_Circ`/... - real, ubiquitous OCCT types needed as parameters/
@@ -713,8 +703,8 @@ finding, sol2's `new_enum` API and the `plugin_namespace::table()` constness
 workaround) - this note is about the concrete *outcome*.
 
 `gp`'s config changed from 5 hand-picked headers to `gp_*.hxx` wholesale (matching
-legacy grocc's own convention), plus two blacklist entries re-derived fresh per Step
-6's policy (`gp_Pnt::BaryCenter`, the pre-existing Step 2 checkpoint;
+legacy grocc's own convention), plus two blacklist entries re-derived fresh
+(`gp_Pnt::BaryCenter`, the pre-existing blacklist checkpoint;
 `gp_VectorWithNullMagnitude`, an exception type, not a geometric value type). `gp`
 alone went from 166 to 1255
 accepted callables. More importantly, since `registered_types`/`registered_enums`
@@ -775,7 +765,7 @@ regress the Linux build, and that `/bigobj` is CMake's own long-standing, standa
 remedy for exactly this MSVC error class; real confirmation is Windows CI itself
 going green on this fix.
 
-## Step 6.5: example recipes, and a real gap between recipe-level and module-level dynamic dispatch
+## Example recipes, and a real gap between recipe-level and module-level dynamic dispatch
 
 `examples/cavity_model.grr.yml`, `examples/cavity_model_v2.grr.yml` (ported from
 legacy's own `20241017.grr.yml`), and `examples/tank_model.grr.yml` (see
@@ -795,7 +785,7 @@ needed:
   `geomapi`/`brepfilletapi` before them) - the two recipes need `MakeFace`/
   `MakePolygon`/`MakeWire`/`MakeEdge`/`Transform`, `MakeRevol`/`MakeHalfSpace`/
   `MakeSphere`/`MakePrism`, `Fuse`/`Common`, and `GC_MakeArcOfCircle`, none of which
-  the Step 4b hand-picked subsets included. Needed a new generator feature to get
+  the earlier hand-picked subsets included. Needed a new generator feature to get
   there: `expand_headers`'s `exclude_headers` (`codegen/config.yml`'s
   `exclude_headers:` key) - `BRepBuilderAPI_CellFilter.hxx`/`VertexInspector.hxx`/
   `FastSewing.hxx`/`BndBoxTreeSelector.hxx` don't even *parse* standalone
@@ -978,38 +968,26 @@ doesn't have to rediscover it from a cryptic runtime error.
 
 ### `fuel_D150.grr`/`fuelsystem.grr.yml` - not ported
 
-See `examples/README.md`'s own note: both are large (1800+ line), auto-exported
-parameter dumps (already characterized that way in
-`reference/legacy-recipes/README.md`, from before this milestone started), not
-hand-authored recipes - a poor fit for hand-porting, and explicitly called out as
-"not useful as documentation" rather than silently dropped, per an explicit
-decision not to port them (or anything else) further. `cavity_model.grr.yml`/
-`cavity_model_v2.grr.yml`/`tank_model.grr.yml` already exercise every module either fuel
-recipe would add (`gp`, `geom`/`gc`, `topods`, `brep`, `brepbuilderapi`,
+Two legacy example recipes, both large (1800+ line) auto-exported parameter
+dumps rather than hand-authored recipes - a poor fit for hand-porting, so they
+were never added under `examples/`. `cavity_model.grr.yml`/
+`cavity_model_v2.grr.yml`/`tank_model.grr.yml` already exercise every module
+either of them would add (`gp`, `geom`/`gc`, `topods`, `brep`, `brepbuilderapi`,
 `brepprimapi`, `brepalgoapi`, `message_progress`) plus sub-recipes 3 levels deep
-and a shared module - the documentation/integration-test goals of this milestone
-are already met without them.
+and a shared module.
 
-### Step 6.5 coverage audit
+### OCCT surface coverage audit
 
-Once the three example recipes above were ported, working, and tested, a
-follow-up pass (prompted by: "do another pass on all reference recipes in
-grunk-occt as well as the recipes in the grunk example directory for possible
-occt features that still need binding... it would be great if the binding is
-complete enough to map the functionality of all of the legacy grunk examples")
-went further than the module-level claim above: every distinct `!<grocc::...>`
-tag in `fuel_D150.grr`/`fuelsystem.grr.yml` (not ported, but still audited - see
-above), plus six more `grocc`+`tigl`/`geo` recipes that were excluded from
-`reference/legacy-recipes/` entirely (see that directory's own README) because
-they need plugins beyond `grunk-occt`'s own scope - `CPACS_wingbox.grr.yml`,
+A follow-up pass checked whether the binding's coverage maps the functionality
+of every OCCT/`grocc`-tag usage across the legacy recipes above plus six more
+recipes that use plugins beyond `grunk-occt`'s own scope (`tigl`/`geo`, CAD
+aircraft-geometry plugins not part of this project) - `CPACS_wingbox.grr.yml`,
 `seat_model.grr.yml`, `load_carrier.grr`,
 `wing_fuselage_configuration/{fused_wing_fuselage,solid_fuselage,solid_wing}.grr`,
-`hello_world/box.grr.yml`, `wingBody/wing_body.grr.yml` (fetched fresh from
-grunk's own `seat_example`/`tigl_wingbox_and_fuel_system_example`/
-`wingbody_example` branches for this audit, not checked into this repo - only
-their `grocc`/OCCT-only symbol usage matters here, `tigl::`/`geo::` tags are out
-of scope) - was checked class-by-class, method-by-method against what
-`generated/*.cpp`/`src/**/*.hpp` actually register.
+`hello_world/box.grr.yml`, `wingBody/wing_body.grr.yml` - checked class-by-class,
+method-by-method against what `generated/*.cpp`/`src/**/*.hpp` actually
+register (only each recipe's own OCCT/`grocc`-tag usage matters here, the
+`tigl::`/`geo::` tags themselves are out of scope).
 
 **Result**: `fuel_D150.grr`/`fuelsystem.grr.yml` themselves needed nothing new -
 every symbol they use (`TColgp_Array1OfPnt`+`SetValue`+`Handle_Geom_BezierCurve`,
@@ -1063,7 +1041,7 @@ resolved cleanly to a real OCCT class/method name.
 Writing the example recipes kept running into the generator's own all-or-nothing
 handling of a C++ default value: `BRepAlgoAPI_Cut(S1, S2, theRange =
 Message_ProgressRange())` needed a real `Message_ProgressRange` from Lua every
-single time (the `message_progress` module - Step 6 - exists purely because of
+single time (the `message_progress` module exists purely because of
 this), and `BRepFilletAPI_MakeFillet(S, FShape = ChFi3d_Rational)` had **zero**
 accepted constructors at all (its only constructor's sole non-defaulted parameter
 came right before the unsupported, but genuinely optional, `ChFi3d_FilletShape`).
@@ -1095,15 +1073,15 @@ effect across the whole config, one regeneration, zero other changes: `gp`
 40→74, `brepfilletapi` 106→110 accepted. Verified: full regeneration, clean
 rebuild, all 35 tests plus both example recipes still pass with zero regressions.
 
-## Step 7: AD validation milestone
+## AD validation milestone
 
 Recompiles this repo's existing registration code (unmodified: `src/occt_plugin.cpp` and
 `generated/*.cpp`, compiled exactly as they are for a plain build) against
 [adOCCT](https://github.com/dlr-sp/adOCCT), a fork of OCCT redefining `Standard_Real` to be
 `Standard_Adouble` (a thin wrapper around ADOL-C's `adtl::adouble`), with `GRUNK_OCCT_WITH_ADOLC`
 defined so every `#ifdef`-gated dual-emission overload (see "`Standard_Real` / AD-portability rule"
-above, and Step 6.5's "Default-argument expansion" for how it's actually emitted) switches to its
-AD branch. This is the milestone the AD-portability rule was designed for from Step 1 onward - the
+above, and "Default-argument expansion" for how it's actually emitted) switches to its
+AD branch. This is the milestone the AD-portability rule was designed for from the start - the
 whole point was for this to be a recompile, not a source rewrite, and that held.
 
 ### Single project, AD as a build option
@@ -1122,13 +1100,13 @@ pin, the whole translation-unit-grouping block) that would only have kept drifti
 either project changed. Consolidating removed that duplication outright - `occt_plugin` is one
 target either way, `GRUNK_OCCT_ENABLE_AD` only changes what it links against and which extra
 compile definition it gets, not its name. Pick one variant per build directory (`build/` for
-stock, `build-ad/` for AD - see README.md's "Building with AD support" and `pixi.toml`'s
-`configure_ad`/`build_ad`/`test_ad` tasks); a single configure never needs both.
+stock, `build-ad/` for AD - see README.md's "Algorithmic differentiation (AD)" and `pixi.toml`'s
+`ad` environment); a single configure never needs both.
 
 ### Bootstrap automation (`scripts/install_adolc.sh`, `scripts/install_adocct.sh`)
 
-Two idempotent shell scripts, wired into `pixi.toml` as `install_adolc`/`install_adocct` (plus
-`configure_ad`/`build_ad`/`test_ad`/`all_ad` for the rest) - mirrors the same pattern
+Two idempotent shell scripts, wired into `pixi.toml`'s `ad` environment as `install_adolc`/
+`install_adocct` (plus `configure`/`build`/`test`/`all` for the rest) - mirrors the same pattern
 `grunk-adolc`'s own `scripts/install_adolc.sh` already established for that repo, so building the
 AD variant here needs no more manual copy-paste shell than building the plain one does.
 
@@ -1178,9 +1156,10 @@ clear exactly what needs to cross the boundary, not before.
 The single genuinely load-bearing piece of new code this milestone needed (as opposed to
 "recompile and it works"): `src/occt_ad_support.hpp`'s existing `to_real(sol::object o)` -
 `o.is<Standard_Real>() ? o.as<Standard_Real>() : Standard_Real(o.as<double>())` - already existed
-from Step 1 (the AD-portability rule), but `o.is<Standard_Real>()` can never be `true` for anything
-unless `Standard_Real` itself (== `Standard_Adouble` under this build) has its own registered sol2
-usertype somewhere. Nothing in Steps 1-6 ever registered it - there was no need to until an
+from the AD-portability rule's own inception, but `o.is<Standard_Real>()` can never be `true` for
+anything unless `Standard_Real` itself (== `Standard_Adouble` under this build) has its own
+registered sol2 usertype somewhere. Nothing in the plain build ever registered it - there was no
+need to until an
 AD-enabled build actually existed to exercise that branch. Without this registration, the AD
 milestone would not fail to compile or to run - it would silently take the "else" branch on every
 single dual-emission overload throughout every generated module, discarding whatever AD tape/
@@ -1201,7 +1180,7 @@ ever added.
 Everything else - every generated constructor/method's own dual-emission `to_real()` call, every
 plain `Standard_Real`-returning accessor (`gp_Pnt::X()` etc., automatically wrapped as an
 `occt.Standard_Real` return value once the type is registered, no dual emission needed on returns,
-only on parameters) - already existed unchanged from Step 1 onward and needed no new code at all.
+only on parameters) - already existed unchanged and needed no new code at all.
 
 ### Validation methodology
 
@@ -1310,7 +1289,7 @@ before it ever reached grunk-adolc). Generator centralization into a shared loca
 grunk-adolc doesn't need its own full copy of `generate.py`) remains a separate, not-yet-done task -
 grunk-adolc's own `codegen/` is, for now, a deliberate, temporary duplicate of this one.
 
-## Step 8: packaging
+## Packaging
 
 `occt_plugin` (and, under `GRUNK_OCCT_ENABLE_AD`, grunk-adolc's own `adtl_plugin`) is a
 runtime-loaded grunk plugin - `grunk::plugin::load_native` dlopens it by path, no consuming

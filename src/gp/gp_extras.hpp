@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Hand-written escape hatch (Step 5, see DESIGN.md/migration plan) - grunk's
-// with_std_vector() (Foo.as_vec(...)/Foo.new_vec(), see grunk/dynamic/usertype_proxy.hpp)
-// is a grunk-level convenience the generator does not emit for any type yet (see
-// codegen/README.md's "Known gaps"); opted in here, by hand, for gp_Pnt - the
-// concrete type Step 5's bezier_curve (src/geom/bezier.hpp) needs to collect into a
-// std::vector<gp_Pnt> from Lua before converting it into an OCCT array via
-// collections.hpp's to_array1().
+// Hand-written escape hatch - grunk's with_std_vector() (Foo.as_vec(...)/
+// Foo.new_vec(), see grunk/dynamic/usertype_proxy.hpp) is a grunk-level
+// convenience the generator does not emit for any type yet (see
+// codegen/README.md's "Known gaps"); opted in here, by hand, for gp_Pnt - needed to
+// collect points into a std::vector<gp_Pnt> from Lua before converting it into an
+// OCCT array via collections.hpp's to_array1(), e.g. for Geom_BezierCurve's own
+// constructor.
 //
 // gp_Pnt/gp_Vec/gp_Dir also get a sol::meta_function::to_string metamethod here -
 // another grunk-level convenience (see grunk's own tests/cpp/recipe_simple.cpp,

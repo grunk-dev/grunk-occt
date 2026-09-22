@@ -2,19 +2,18 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Hand-written escape hatch (Step 6.5, see DESIGN.md/migration plan) - grunk's own
-// Lua state only opens sol::lib::base (grunk/dynamic/state.hpp's state constructor),
-// not sol::lib::math, so plain Lua scripts (a recipe's steps:, or a grunk module)
-// have no cos/sin/acos/tan/sqrt/pi available at all. Angle-based positioning (gp_Ax1/gp_Ax2
-// construction, gp_Trsf::SetRotation) is common enough in OCCT modeling - the
-// examples/ recipes ported from legacy grocc need it directly - that it's simpler to
+// Hand-written escape hatch - grunk's own Lua state only opens sol::lib::base
+// (grunk/dynamic/state.hpp's state constructor), not sol::lib::math, so plain Lua
+// scripts (a recipe's steps:, or a grunk module) have no cos/sin/acos/tan/sqrt/pi
+// available at all. Angle-based positioning (gp_Ax1/gp_Ax2 construction,
+// gp_Trsf::SetRotation) is common enough in OCCT modeling that it's simpler to
 // expose the handful of trig primitives actually needed here than to work around
 // their absence with pre-computed literal parameters (which would make derived
 // positions stop reacting to the parameter they're actually derived from, defeating
 // the point of a parametric recipe). Not literally an OCCT-specific type/function
 // (no corresponding OCCT header), same "net-new free function" category as
-// shape_io.hpp's own export_brep - kept here rather than in one of the ported
-// examples themselves since any future recipe could equally need it.
+// shape_io.hpp's own export_brep - kept here rather than in one example recipe
+// since any recipe could equally need it.
 //
 // error() below is a related but separate gap: it's not that sol::lib::base isn't
 // loaded (it is - error/assert are genuinely part of it), it's that a recipe's own

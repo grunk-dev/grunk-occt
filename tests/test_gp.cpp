@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 1/2 milestone: exercises the gp module (generated/gp.cpp) through raw Lua (see
-// DESIGN.md's "test-harness shape") - constructors, accessors, gp_Vec::Multiplied,
+// Exercises the gp module (generated/gp.cpp) through raw Lua (see DESIGN.md's
+// "test-harness shape") - constructors, accessors, gp_Vec::Multiplied,
 // gp_Ax1's constructor-from-(gp_Pnt,gp_Dir), and gp_Trsf's SetTranslation/
-// SetRotation/SetMirror overloads (the exact gp surface the two grocc-only target
-// integration recipes need - see reference/legacy-recipes/{cavity_model,
-// tank_model}.grr.yml).
+// SetRotation/SetMirror overloads, the gp surface examples/cavity_model.grr.yml
+// and examples/tank_model.grr.yml build on.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>

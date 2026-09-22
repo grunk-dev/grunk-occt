@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Hand-written escape hatch (Step 6, see DESIGN.md/migration plan) - TopExp_Explorer's
-// More()/Next()/Current() iterator pattern has no generator support (same category of
-// gap as legacy grocc's own iterator-shaped classes), so there is currently no way to
-// pull an individual sub-shape (e.g. a single face or edge) out of a compound shape
+// Hand-written escape hatch - TopExp_Explorer's More()/Next()/Current() iterator
+// pattern has no generator support, so there is currently no way to pull an
+// individual sub-shape (e.g. a single face or edge) out of a compound shape
 // like a BRepPrimAPI_MakeBox/MakeCylinder result from Lua. first_face/first_edge are
 // thin, single-use wrappers around the first TopAbs_FACE/TopAbs_EDGE TopExp_Explorer
 // finds - net-new relative to any one OCCT header, same category as shape_io.hpp's

@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: fifth module expansion sweep addition (see DESIGN.md/migration
-// plan). GC_MakeSegment/GC_MakeCircle are registered as part of the geom module
+// GC_MakeSegment/GC_MakeCircle are registered as part of the geom module
 // (generated/geom.cpp), not their own file - see DESIGN.md's "Handle(X) return type
 // requires being registered in the same generated .cpp as X itself" for why.
 

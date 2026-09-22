@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Hand-written escape hatch for the geom module (Step 3, see DESIGN.md/migration
-// plan) - net-new free functions with no OCCT header counterpart, same category as
-// legacy grocc's custom_init.cpp free functions (serialize_brep, export_to_step).
+// Hand-written escape hatch for the geom module - net-new free functions with no
+// OCCT header counterpart.
 //
 // opencascade::handle<T>::DownCast is a static member of the Handle template itself,
 // not of the class it's parameterized on - the generator (codegen/generate.py) only

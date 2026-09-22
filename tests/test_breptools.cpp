@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: third module expansion sweep module (see DESIGN.md/migration
-// plan). BRepTools is a static-only "namespace class" (see codegen/README.md's
+// BRepTools is a static-only "namespace class" (see codegen/README.md's
 // "Static-only 'namespace classes'") - exercised here on real shapes from other
 // modules (BRepPrimAPI_MakeBox, BRep_Builder) rather than in isolation.
 
@@ -73,7 +72,7 @@ TEST_F(BRepToolsTest, UpdateAndCleanOnBoxShape)
 }
 
 // Compare(vertex, vertex) and RemoveInternals(shape) on bare vertices built via
-// BRep_Builder (Step 6's brep module) - exercises BRepTools independent of any
+// BRep_Builder (the brep module) - exercises BRepTools independent of any
 // higher-level shape builder.
 TEST_F(BRepToolsTest, CompareVerticesAndRemoveInternals)
 {

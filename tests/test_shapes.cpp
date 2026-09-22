@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 4b milestone: reproduces legacy grocc's test_simple_boolean_op.cpp (box,
-// cylinder, cut) - functional parity with the legacy plugin's core demonstrated use
-// case. Exercises: TopoDS_Shape + leaf-type plain-value inheritance (add_bases,
-// generalized from Step 3's Handle(T) case to ordinary value types - see DESIGN.md),
+// A box/cylinder/cut boolean-op smoke test. Exercises: TopoDS_Shape + leaf-type
+// plain-value inheritance (add_bases works for ordinary value types, not just
+// Handle(T) - see DESIGN.md),
 // BRepBuilderAPI_MakeShape::Shape()/BRepBuilderAPI_Command::IsDone() reached via
 // add_bases from BRepPrimAPI_MakeBox/MakeCylinder/BRepAlgoAPI_Cut (a 4-5 level
 // inheritance chain, most of it never separately registered - see
@@ -93,9 +92,9 @@ TEST_F(ShapesTest, BooleanCutAndExport)
     EXPECT_TRUE(env.get<bool>("export_ok"));
 }
 
-// TopoDS.hxx's namespace-flattened DownCast helper (Step 4's spike) - box is a
-// genuine TopoDS_Solid under the hood (BRepPrimAPI_MakeBox always builds one), so
-// downcasting it back from the generic TopoDS_Shape succeeds.
+// TopoDS.hxx's namespace-flattened DownCast helper - box is a genuine TopoDS_Solid
+// under the hood (BRepPrimAPI_MakeBox always builds one), so downcasting it back
+// from the generic TopoDS_Shape succeeds.
 TEST_F(ShapesTest, TopoDsDowncastHelper)
 {
     auto env = state_->create_env();

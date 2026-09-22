@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: eighth module expansion sweep addition (see DESIGN.md/migration
-// plan). GeomAPI_PointsToBSplineSurface::Interpolate takes a 2D grid of gp_Pnt via
-// the Step 5 NCollection_Array2<gp_Pnt> <-> std::vector<gp_Pnt> conversion
-// (src/collections.hpp's to_array2, same helper Collections.Array2RoundTrip already
-// exercises) - no Handle(Geom_Surface)/Handle(Geom_Curve) parameter involved.
+// GeomAPI_PointsToBSplineSurface::Interpolate takes a 2D grid of gp_Pnt via the
+// NCollection_Array2<gp_Pnt> <-> std::vector<gp_Pnt> conversion (src/collections.hpp's
+// to_array2, same helper Collections.Array2RoundTrip already exercises) - no
+// Handle(Geom_Surface)/Handle(Geom_Curve) parameter involved.
 //
 // This module's more obvious smoke test candidate, GeomAPI_ProjectPointOnCurve
 // (projecting a point onto a real curve, e.g. a Handle(Geom_Line)), does NOT

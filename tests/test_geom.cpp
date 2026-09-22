@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 3 milestone: Standard_Transient/Handle(T) support + add_bases<...>(), exercised
-// on Geom_Line (Transient-derived, array-free - see codegen/config.yml's rationale for
-// picking this over Geom_BezierCurve, which needs collections support from Step 5).
+// Standard_Transient/Handle(T) support + add_bases<...>(), exercised on Geom_Line
+// (Transient-derived, array-free - see codegen/config.yml's rationale for picking
+// this over Geom_BezierCurve, which needs collections support).
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>
@@ -103,7 +103,7 @@ TEST_F(GeomTest, NullHandleSurfacesAsNil)
 // through a grunk::recipe "module") since this test's create_env() harness is
 // already an undecorated/non-parametric environment - the module-wrapping pattern
 // only matters once this kind of call needs to happen inside a tracked recipe
-// (create_parametric_env(), deferred to Step 6.5).
+// (create_parametric_env()).
 TEST_F(GeomTest, OutParamMutatesInPlace)
 {
     auto env = state_->create_env();
@@ -122,8 +122,7 @@ TEST_F(GeomTest, OutParamMutatesInPlace)
     EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("out_pz")), 0.);
 }
 
-// Step 5 validation case (collections, see DESIGN.md/migration plan):
-// Geom_BezierCurve's own constructor (generated/geom.cpp, via
+// Collections validation case: Geom_BezierCurve's own constructor (generated/geom.cpp, via
 // codegen/generate.py's "array1" parameter kind) takes a std::vector<gp_Pnt>
 // const& - the generator converts it through src/collections.hpp's
 // to_array1<gp_Pnt>() into the TColgp_Array1OfPnt the real OCCT constructor
@@ -221,14 +220,12 @@ TEST_F(GeomTest, BSplineCurveFromExplicitKnotsAndMultiplicities)
     EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fz")), 0.0);
 }
 
-// Step 6.5 coverage audit (see ../DESIGN.md): Geom_BSplineSurface/Geom_BezierSurface
-// - the surface-side counterparts of Geom_BSplineCurve/Geom_BezierCurve above -
-// needed for legacy grocc's own fused_wing_fuselage.grr/solid_fuselage.grr/
-// solid_wing.grr (ExchangeUV) and wing_body.grr.yml (Handle(Geom_BezierSurface)).
-// Also what pulled BRep_Tool::Surface/BRepFilletAPI_MakeFillet::ComputedSurface
-// (both return Handle(Geom_Surface), previously rejected outright with
-// Geom_Surface unregistered) into codegen/config.yml's translation_units group
-// alongside geom - see that config's own comment.
+// Geom_BSplineSurface/Geom_BezierSurface - the surface-side counterparts of
+// Geom_BSplineCurve/Geom_BezierCurve above - also pulled
+// BRep_Tool::Surface/BRepFilletAPI_MakeFillet::ComputedSurface (both return
+// Handle(Geom_Surface), previously rejected outright with Geom_Surface
+// unregistered) into codegen/config.yml's translation_units group alongside geom -
+// see that config's own comment.
 //
 // Verifies ExchangeUV's own defining property directly, not just that it runs
 // without error: Value(u,v) after exchange must equal Value(v,u) before it, for

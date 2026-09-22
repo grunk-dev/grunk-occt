@@ -2,13 +2,11 @@
 //
 // SPDX-License-Identifier: MPL-2.0
 
-// Step 6 milestone: first module expansion sweep module (see DESIGN.md/migration
-// plan). Bnd_Box is a plain value type (Add(gp_Pnt const&), CornerMin/CornerMax
+// Bnd_Box is a plain value type (Add(gp_Pnt const&), CornerMin/CornerMax
 // returning gp_Pnt, ...); BRepBndLib::Add(shape, box&, ...) mutates the existing
 // Bnd_Box userdata passed in - the same non-const-reference-to-a-registered-object
-// out-param pattern as Step 3's Geom_Curve::D0 (codegen/README.md's
-// "Non-const-reference ('out') parameters"), exercised here on a real box shape
-// rather than a gp_Pnt.
+// out-param pattern as Geom_Curve::D0 (codegen/README.md's "Non-const-reference
+// ('out') parameters"), exercised here on a real box shape rather than a gp_Pnt.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>
