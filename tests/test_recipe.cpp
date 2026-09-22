@@ -96,15 +96,16 @@ TEST_F(RecipeTest, CavityModelReactsToParameterChange)
     EXPECT_TRUE(ok.value().as<bool>());
 }
 
-// Reads examples/20241017.grr.yml (see run_example.py) - a newer, more involved
-// iteration of cavity_model.grr.yml (two revolved sectors grouped into a
-// TopoDS_CompSolid via occt_helpers.comp_solid, both axial ends clipped by their
-// own half-space, two cylinders fused in) - and confirms export_brep's own "ok"
-// output, both at its own defaults and after overriding a parameter a sub-recipe
-// two levels deep (cavity_sketch.R1, via the top-level R1) depends on.
-TEST_F(RecipeTest, GasTurbineCavity20241017RecipeProducesOkOutput)
+// Reads examples/cavity_model_v2.grr.yml (see run_example.py) - ported from legacy
+// grocc's own 20241017.grr.yml, a newer, more involved iteration of
+// cavity_model.grr.yml (two revolved sectors grouped into a TopoDS_CompSolid via
+// occt_helpers.comp_solid, both axial ends clipped by their own half-space, two
+// cylinders fused in) - and confirms export_brep's own "ok" output, both at its
+// own defaults and after overriding a parameter a sub-recipe two levels deep
+// (cavity_sketch.R1, via the top-level R1) depends on.
+TEST_F(RecipeTest, CavityModelV2RecipeProducesOkOutput)
 {
-    auto recipe = state_->read(std::string(EXAMPLES_DIR) + "/20241017.grr.yml");
+    auto recipe = state_->read(std::string(EXAMPLES_DIR) + "/cavity_model_v2.grr.yml");
     auto ok = recipe.get_output("ok");
 
     EXPECT_TRUE(ok.value().as<bool>());

@@ -22,14 +22,14 @@ per-step YAML tags, `occt.*` namespace calls instead of `!<grocc::...>` tags).
 - `cavity_model.grr.yml` - a gas turbine cavity: a revolved sketch fused with one
   cylinder, a second (rotated, translated, half-space-clipped) cylinder fused in
   too. Two named sub-recipes (`cavity_sketch`, `cylinder`).
-- `20241017.grr.yml` - a newer, more involved iteration of the same gas turbine
-  cavity (see legacy's own `../reference/legacy-recipes/README.md`): two revolved
-  sectors (its own `cavity_sketch`/`cylinder` sub-recipes, distinct from
-  `cavity_model.grr.yml`'s own) grouped into one `TopoDS_CompSolid` (via
-  `occt_helpers.comp_solid`, not `compound` - see below), both axial ends clipped
-  by their own half-space, two cylinders fused in. Kept alongside
-  `cavity_model.grr.yml` for now rather than replacing it - they may be
-  consolidated later.
+- `cavity_model_v2.grr.yml` - ported from legacy's own `20241017.grr.yml` (see
+  `../reference/legacy-recipes/README.md`) - a newer, more involved iteration of
+  the same gas turbine cavity: two revolved sectors (its own `cavity_sketch`/
+  `cylinder` sub-recipes, distinct from `cavity_model.grr.yml`'s own) grouped into
+  one `TopoDS_CompSolid` (via `occt_helpers.comp_solid`, not `compound` - see
+  below), both axial ends clipped by their own half-space, two cylinders fused in.
+  Kept alongside `cavity_model.grr.yml` for now rather than replacing it - they
+  may be consolidated later.
 - `tank_model.grr.yml` - a hydrogen tank: a "squircle" cylinder (four quarter-wall
   segments plus a square core) capped by a dome (a box core plus five spherical
   wedges). Nested sub-recipes three levels deep (`cylinder` → `cylinder_segment`,
@@ -107,13 +107,13 @@ script yet, unlike the C++ test suite under `../tests/`).
 
 `run_example.py` loads `occt_plugin`, loads `occt_helpers.lua` as a plugin, reads
 each recipe, **overrides one of its parameters** (`cavity_h` for
-`cavity_model.grr.yml`, `R1` for `20241017.grr.yml`, `radius` for
+`cavity_model.grr.yml`, `R1` for `cavity_model_v2.grr.yml`, `radius` for
 `tank_model.grr.yml` - the same `recipe.get_feature("name").set_value(...)` pattern
 you'd use to override any other parameter), and reads back its `ok` output
 (`occt.export_brep`'s own return value). Each run writes a `.brep` file
-(`cavity_model.brep`, `20241017.brep`, `tank_model.brep`) into the current working
-directory - open any of them in a CAD viewer that reads BREP (e.g. FreeCAD) to
-inspect the result.
+(`cavity_model.brep`, `cavity_model_v2.brep`, `tank_model.brep`) into the current
+working directory - open any of them in a CAD viewer that reads BREP (e.g.
+FreeCAD) to inspect the result.
 
 To override a *different* parameter, or read back a different feature, edit
 `run_example.py` directly - it's meant to be read and modified, not a generic CLI

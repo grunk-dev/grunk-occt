@@ -777,10 +777,11 @@ going green on this fix.
 
 ## Step 6.5: example recipes, and a real gap between recipe-level and module-level dynamic dispatch
 
-`examples/cavity_model.grr.yml`, `examples/20241017.grr.yml`, and
-`examples/tank_model.grr.yml` (see `examples/README.md`) port legacy grocc's own
-recipes of the same name to the new `grunk::recipe` YAML+Lua format, sharing one
-small pure-Lua grunk plugin (`examples/plugins/occt_helpers.lua`, declared
+`examples/cavity_model.grr.yml`, `examples/cavity_model_v2.grr.yml` (ported from
+legacy's own `20241017.grr.yml`), and `examples/tank_model.grr.yml` (see
+`examples/README.md`) port legacy grocc's own recipes to the new
+`grunk::recipe` YAML+Lua format, sharing one small pure-Lua grunk plugin
+(`examples/plugins/occt_helpers.lua`, declared
 explicitly in each recipe/sub-recipe's own `uses:` block - see `examples/README.md`'s
 "Why a plugin, not a shared module" for why it's a plugin rather than a module
 registered ambiently by the runner) loaded by `examples/run_example.py` (grunk's
@@ -824,10 +825,10 @@ needed:
   Handle upcast happens inside plain C++, never crossing into sol2's argument
   matching at all.
 
-`examples/20241017.grr.yml` (ported later, once `cavity_model.grr.yml`/
-`tank_model.grr.yml` were already working) needed no new *module* - every OCCT
-class/method it uses was already covered by the module-level work above - just two
-small additions:
+`examples/cavity_model_v2.grr.yml` (ported later, once `cavity_model.grr.yml`/
+`tank_model.grr.yml` were already working, from legacy's own `20241017.grr.yml`)
+needed no new *module* - every OCCT class/method it uses was already covered by
+the module-level work above - just two small additions:
 
 - **`occt.acos`/`occt.tan`** (`src/math_extras.hpp`) - this recipe's own
   `angle_diff_stator` formula needs both; only `cos`/`sin`/`sqrt`/`pi` existed
@@ -961,7 +962,7 @@ dynamic-dispatch design, not anything OCCT-specific, so it belongs in `grunk`
 itself, not here.
 
 **grunk-occt follow-up reminder, once #285 lands**: revisit
-`examples/cavity_model.grr.yml`/`examples/20241017.grr.yml`/
+`examples/cavity_model.grr.yml`/`examples/cavity_model_v2.grr.yml`/
 `examples/tank_model.grr.yml`/`examples/plugins/occt_helpers.lua` and drop the
 now-unnecessary `:as(occt.BRepBuilderAPI_MakeShape):Shape()`-style casts sprinkled
 through all three recipes - they'll still work (an explicit `:as()` never becomes
@@ -983,7 +984,7 @@ parameter dumps (already characterized that way in
 hand-authored recipes - a poor fit for hand-porting, and explicitly called out as
 "not useful as documentation" rather than silently dropped, per an explicit
 decision not to port them (or anything else) further. `cavity_model.grr.yml`/
-`20241017.grr.yml`/`tank_model.grr.yml` already exercise every module either fuel
+`cavity_model_v2.grr.yml`/`tank_model.grr.yml` already exercise every module either fuel
 recipe would add (`gp`, `geom`/`gc`, `topods`, `brep`, `brepbuilderapi`,
 `brepprimapi`, `brepalgoapi`, `message_progress`) plus sub-recipes 3 levels deep
 and a shared module - the documentation/integration-test goals of this milestone

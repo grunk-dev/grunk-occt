@@ -162,7 +162,7 @@ end
 
 -- Same as compound() above, but for a TopoDS_CompSolid (a group of solids meant to
 -- share faces, e.g. two revolved sectors that are meant to be re-fused later - see
--- examples/20241017.grr.yml's own "assembly") rather than a TopoDS_Compound (an
+-- examples/cavity_model_v2.grr.yml's own "assembly") rather than a TopoDS_Compound (an
 -- unstructured group of arbitrary shapes) - BRep_Builder::MakeCompSolid instead of
 -- MakeCompound, same IsNull() guard and the same reason for it.
 function comp_solid(...)

@@ -4,8 +4,8 @@
 # SPDX-License-Identifier: MPL-2.0
 
 """Minimal example script (see README.md) demonstrating how to: load the occt
-plugin, load the occt_helpers Lua plugin cavity_model/20241017/tank-model all
-declare as a dependency in their own uses: block, read a ported example recipe,
+plugin, load the occt_helpers Lua plugin cavity_model/cavity_model_v2/tank-model
+all declare as a dependency in their own uses: block, read a ported example recipe,
 override one of its parameters, and read back its "ok" output (occt.export_brep's
 own return value). Deliberately skips legacy grunk's build_recipe/run_recipe pair -
 this single self-contained script is simpler for the small recipes here.
