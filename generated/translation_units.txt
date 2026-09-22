@@ -1,13 +1,11 @@
 gp
-gc geom geomapi
+gc geom geomapi brep brepfilletapi
 message_progress
 topods
 brepbuilderapi
 brepprimapi
 brepalgoapi
 bnd
-brep
 breptools
 toploc
 brepoffsetapi
-brepfilletapi

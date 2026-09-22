@@ -135,15 +135,23 @@ void register_brepalgoapi(grunk::plugin_namespace& ns)
             [](const TopoDS_Shape & S1, const TopoDS_Shape & S2) { return std::make_unique<BRepAlgoAPI_Section>(S1, S2); },
             [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, S2, PerformNow); },
             [](const TopoDS_Shape & S1, const gp_Pln & Pl) { return std::make_unique<BRepAlgoAPI_Section>(S1, Pl); },
-            [](const TopoDS_Shape & S1, const gp_Pln & Pl, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, Pl, PerformNow); }
+            [](const TopoDS_Shape & S1, const gp_Pln & Pl, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, Pl, PerformNow); },
+            [](const TopoDS_Shape & S1, const opencascade::handle<Geom_Surface> & Sf) { return std::make_unique<BRepAlgoAPI_Section>(S1, Sf); },
+            [](const TopoDS_Shape & S1, const opencascade::handle<Geom_Surface> & Sf, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, Sf, PerformNow); },
+            [](const opencascade::handle<Geom_Surface> & Sf, const TopoDS_Shape & S2) { return std::make_unique<BRepAlgoAPI_Section>(Sf, S2); },
+            [](const opencascade::handle<Geom_Surface> & Sf, const TopoDS_Shape & S2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(Sf, S2, PerformNow); },
+            [](const opencascade::handle<Geom_Surface> & Sf1, const opencascade::handle<Geom_Surface> & Sf2) { return std::make_unique<BRepAlgoAPI_Section>(Sf1, Sf2); },
+            [](const opencascade::handle<Geom_Surface> & Sf1, const opencascade::handle<Geom_Surface> & Sf2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(Sf1, Sf2, PerformNow); }
         )
         .add_member_function("Init1", sol::overload(
             [](BRepAlgoAPI_Section& self, const TopoDS_Shape & S1) { self.Init1(S1); },
-            [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init1(Pl); }
+            [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init1(Pl); },
+            [](BRepAlgoAPI_Section& self, const opencascade::handle<Geom_Surface> & Sf) { self.Init1(Sf); }
         ))
         .add_member_function("Init2", sol::overload(
             [](BRepAlgoAPI_Section& self, const TopoDS_Shape & S2) { self.Init2(S2); },
-            [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init2(Pl); }
+            [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init2(Pl); },
+            [](BRepAlgoAPI_Section& self, const opencascade::handle<Geom_Surface> & Sf) { self.Init2(Sf); }
         ))
         .add_member_function("Approximation", [](BRepAlgoAPI_Section& self, const Standard_Boolean B) { self.Approximation(B); })
         .add_member_function("ComputePCurveOn1", [](BRepAlgoAPI_Section& self, const Standard_Boolean B) { self.ComputePCurveOn1(B); })

@@ -13,9 +13,14 @@
 #include <Geom_TrimmedCurve.hxx>
 #include <Geom_Conic.hxx>
 #include <Geom_Circle.hxx>
+#include <Geom_Surface.hxx>
+#include <Geom_BoundedSurface.hxx>
+#include <Geom_BSplineSurface.hxx>
+#include <Geom_BezierSurface.hxx>
 #include <gp_Lin.hxx>
 #include <gp_Circ.hxx>
 #include <gp_Ax2.hxx>
+#include <gp_GTrsf2d.hxx>
 
 #include <memory>
 
@@ -780,6 +785,602 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Transform", [](Geom_Circle& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_Circle const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_Surface, sol::automagic_flags::none>("Geom_Surface")
+        .add_member_function("UReverse", [](Geom_Surface& self) { self.UReverse(); })
+        .add_member_function("UReversed", [](Geom_Surface const& self) -> opencascade::handle<Geom_Surface> { return self.UReversed(); })
+        .add_member_function("UReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U) -> Standard_Real { return self.UReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U) -> Standard_Real { return self.UReversedParameter(U); }
+#endif
+        )
+        .add_member_function("VReverse", [](Geom_Surface& self) { self.VReverse(); })
+        .add_member_function("VReversed", [](Geom_Surface const& self) -> opencascade::handle<Geom_Surface> { return self.VReversed(); })
+        .add_member_function("VReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object V) -> Standard_Real { return self.VReversedParameter(occt_plugin::to_real(V)); }
+#else
+            [](Geom_Surface const& self, const Standard_Real V) -> Standard_Real { return self.VReversedParameter(V); }
+#endif
+        )
+        .add_member_function("ParametricTransformation", [](Geom_Surface const& self, const gp_Trsf & T) -> gp_GTrsf2d { return self.ParametricTransformation(T); })
+        .add_member_function("IsUClosed", [](Geom_Surface const& self) -> Standard_Boolean { return self.IsUClosed(); })
+        .add_member_function("IsVClosed", [](Geom_Surface const& self) -> Standard_Boolean { return self.IsVClosed(); })
+        .add_member_function("IsUPeriodic", [](Geom_Surface const& self) -> Standard_Boolean { return self.IsUPeriodic(); })
+        .add_member_function("UPeriod", [](Geom_Surface const& self) -> Standard_Real { return self.UPeriod(); })
+        .add_member_function("IsVPeriodic", [](Geom_Surface const& self) -> Standard_Boolean { return self.IsVPeriodic(); })
+        .add_member_function("VPeriod", [](Geom_Surface const& self) -> Standard_Real { return self.VPeriod(); })
+        .add_member_function("UIso", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U) -> opencascade::handle<Geom_Curve> { return self.UIso(occt_plugin::to_real(U)); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U) -> opencascade::handle<Geom_Curve> { return self.UIso(U); }
+#endif
+        )
+        .add_member_function("VIso", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object V) -> opencascade::handle<Geom_Curve> { return self.VIso(occt_plugin::to_real(V)); }
+#else
+            [](Geom_Surface const& self, const Standard_Real V) -> opencascade::handle<Geom_Curve> { return self.VIso(V); }
+#endif
+        )
+        .add_member_function("IsCNu", [](Geom_Surface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNu(N); })
+        .add_member_function("IsCNv", [](Geom_Surface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNv(N); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U, sol::object V, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), occt_plugin::to_real(V), P); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P) { self.D0(U, V, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.D1(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.D1(U, V, P, D1U, D1V); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.D2(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V, D2U, D2V, D2UV); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.D2(U, V, P, D1U, D1V, D2U, D2V, D2UV); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.D3(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.D3(U, V, P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#endif
+        )
+        .add_member_function("DN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U, sol::object V, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.DN(occt_plugin::to_real(U), occt_plugin::to_real(V), Nu, Nv); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.DN(U, V, Nu, Nv); }
+#endif
+        )
+        .add_member_function("Value", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_Surface const& self, sol::object U, sol::object V) -> gp_Pnt { return self.Value(occt_plugin::to_real(U), occt_plugin::to_real(V)); }
+#else
+            [](Geom_Surface const& self, const Standard_Real U, const Standard_Real V) -> gp_Pnt { return self.Value(U, V); }
+#endif
+        )
+        .add_bases<Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_BoundedSurface, sol::automagic_flags::none>("Geom_BoundedSurface")
+        .add_bases<Geom_Surface, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_BSplineSurface, sol::automagic_flags::none>("Geom_BSplineSurface")
+        .add_constructors(
+            [](std::vector<gp_Pnt> const& Poles_flat, Standard_Integer Poles_rows, Standard_Integer Poles_cols, std::vector<double> const& UKnots, std::vector<double> const& VKnots, std::vector<int> const& UMults, std::vector<int> const& VMults, const Standard_Integer UDegree, const Standard_Integer VDegree) -> opencascade::handle<Geom_BSplineSurface> { return opencascade::handle<Geom_BSplineSurface>(new Geom_BSplineSurface(occt_plugin::to_array2(Poles_flat, Poles_rows, Poles_cols), occt_plugin::to_real_array1(UKnots), occt_plugin::to_real_array1(VKnots), occt_plugin::to_array1(UMults), occt_plugin::to_array1(VMults), UDegree, VDegree)); },
+            [](std::vector<gp_Pnt> const& Poles_flat, Standard_Integer Poles_rows, Standard_Integer Poles_cols, std::vector<double> const& UKnots, std::vector<double> const& VKnots, std::vector<int> const& UMults, std::vector<int> const& VMults, const Standard_Integer UDegree, const Standard_Integer VDegree, const Standard_Boolean UPeriodic) -> opencascade::handle<Geom_BSplineSurface> { return opencascade::handle<Geom_BSplineSurface>(new Geom_BSplineSurface(occt_plugin::to_array2(Poles_flat, Poles_rows, Poles_cols), occt_plugin::to_real_array1(UKnots), occt_plugin::to_real_array1(VKnots), occt_plugin::to_array1(UMults), occt_plugin::to_array1(VMults), UDegree, VDegree, UPeriodic)); },
+            [](std::vector<gp_Pnt> const& Poles_flat, Standard_Integer Poles_rows, Standard_Integer Poles_cols, std::vector<double> const& UKnots, std::vector<double> const& VKnots, std::vector<int> const& UMults, std::vector<int> const& VMults, const Standard_Integer UDegree, const Standard_Integer VDegree, const Standard_Boolean UPeriodic, const Standard_Boolean VPeriodic) -> opencascade::handle<Geom_BSplineSurface> { return opencascade::handle<Geom_BSplineSurface>(new Geom_BSplineSurface(occt_plugin::to_array2(Poles_flat, Poles_rows, Poles_cols), occt_plugin::to_real_array1(UKnots), occt_plugin::to_real_array1(VKnots), occt_plugin::to_array1(UMults), occt_plugin::to_array1(VMults), UDegree, VDegree, UPeriodic, VPeriodic)); },
+            [](std::vector<gp_Pnt> const& Poles_flat, Standard_Integer Poles_rows, Standard_Integer Poles_cols, std::vector<double> const& Weights_flat, Standard_Integer Weights_rows, Standard_Integer Weights_cols, std::vector<double> const& UKnots, std::vector<double> const& VKnots, std::vector<int> const& UMults, std::vector<int> const& VMults, const Standard_Integer UDegree, const Standard_Integer VDegree) -> opencascade::handle<Geom_BSplineSurface> { return opencascade::handle<Geom_BSplineSurface>(new Geom_BSplineSurface(occt_plugin::to_array2(Poles_flat, Poles_rows, Poles_cols), occt_plugin::to_real_array2(Weights_flat, Weights_rows, Weights_cols), occt_plugin::to_real_array1(UKnots), occt_plugin::to_real_array1(VKnots), occt_plugin::to_array1(UMults), occt_plugin::to_array1(VMults), UDegree, VDegree)); },
+            [](std::vector<gp_Pnt> const& Poles_flat, Standard_Integer Poles_rows, Standard_Integer Poles_cols, std::vector<double> const& Weights_flat, Standard_Integer Weights_rows, Standard_Integer Weights_cols, std::vector<double> const& UKnots, std::vector<double> const& VKnots, std::vector<int> const& UMults, std::vector<int> const& VMults, const Standard_Integer UDegree, const Standard_Integer VDegree, const Standard_Boolean UPeriodic) -> opencascade::handle<Geom_BSplineSurface> { return opencascade::handle<Geom_BSplineSurface>(new Geom_BSplineSurface(occt_plugin::to_array2(Poles_flat, Poles_rows, Poles_cols), occt_plugin::to_real_array2(Weights_flat, Weights_rows, Weights_cols), occt_plugin::to_real_array1(UKnots), occt_plugin::to_real_array1(VKnots), occt_plugin::to_array1(UMults), occt_plugin::to_array1(VMults), UDegree, VDegree, UPeriodic)); },
+            [](std::vector<gp_Pnt> const& Poles_flat, Standard_Integer Poles_rows, Standard_Integer Poles_cols, std::vector<double> const& Weights_flat, Standard_Integer Weights_rows, Standard_Integer Weights_cols, std::vector<double> const& UKnots, std::vector<double> const& VKnots, std::vector<int> const& UMults, std::vector<int> const& VMults, const Standard_Integer UDegree, const Standard_Integer VDegree, const Standard_Boolean UPeriodic, const Standard_Boolean VPeriodic) -> opencascade::handle<Geom_BSplineSurface> { return opencascade::handle<Geom_BSplineSurface>(new Geom_BSplineSurface(occt_plugin::to_array2(Poles_flat, Poles_rows, Poles_cols), occt_plugin::to_real_array2(Weights_flat, Weights_rows, Weights_cols), occt_plugin::to_real_array1(UKnots), occt_plugin::to_real_array1(VKnots), occt_plugin::to_array1(UMults), occt_plugin::to_array1(VMults), UDegree, VDegree, UPeriodic, VPeriodic)); }
+        )
+        .add_member_function("ExchangeUV", [](Geom_BSplineSurface& self) { self.ExchangeUV(); })
+        .add_member_function("SetUPeriodic", [](Geom_BSplineSurface& self) { self.SetUPeriodic(); })
+        .add_member_function("SetVPeriodic", [](Geom_BSplineSurface& self) { self.SetVPeriodic(); })
+        .add_member_function("SetUOrigin", [](Geom_BSplineSurface& self, const Standard_Integer Index) { self.SetUOrigin(Index); })
+        .add_member_function("SetVOrigin", [](Geom_BSplineSurface& self, const Standard_Integer Index) { self.SetVOrigin(Index); })
+        .add_member_function("SetUNotPeriodic", [](Geom_BSplineSurface& self) { self.SetUNotPeriodic(); })
+        .add_member_function("SetVNotPeriodic", [](Geom_BSplineSurface& self) { self.SetVNotPeriodic(); })
+        .add_member_function("UReverse", [](Geom_BSplineSurface& self) { self.UReverse(); })
+        .add_member_function("VReverse", [](Geom_BSplineSurface& self) { self.VReverse(); })
+        .add_member_function("UReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U) -> Standard_Real { return self.UReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U) -> Standard_Real { return self.UReversedParameter(U); }
+#endif
+        )
+        .add_member_function("VReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object V) -> Standard_Real { return self.VReversedParameter(occt_plugin::to_real(V)); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real V) -> Standard_Real { return self.VReversedParameter(V); }
+#endif
+        )
+        .add_member_function("IncreaseDegree", [](Geom_BSplineSurface& self, const Standard_Integer UDegree, const Standard_Integer VDegree) { self.IncreaseDegree(UDegree, VDegree); })
+        .add_member_function("InsertUKnots", sol::overload(
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults) { self.InsertUKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults)); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, sol::object ParametricTolerance) { self.InsertUKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), occt_plugin::to_real(ParametricTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, const Standard_Real ParametricTolerance) { self.InsertUKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), ParametricTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, sol::object ParametricTolerance, const Standard_Boolean Add) { self.InsertUKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), occt_plugin::to_real(ParametricTolerance), Add); }
+#else
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, const Standard_Real ParametricTolerance, const Standard_Boolean Add) { self.InsertUKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), ParametricTolerance, Add); }
+#endif
+        
+        ))
+        .add_member_function("InsertVKnots", sol::overload(
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults) { self.InsertVKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults)); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, sol::object ParametricTolerance) { self.InsertVKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), occt_plugin::to_real(ParametricTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, const Standard_Real ParametricTolerance) { self.InsertVKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), ParametricTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, sol::object ParametricTolerance, const Standard_Boolean Add) { self.InsertVKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), occt_plugin::to_real(ParametricTolerance), Add); }
+#else
+            [](Geom_BSplineSurface& self, std::vector<double> const& Knots, std::vector<int> const& Mults, const Standard_Real ParametricTolerance, const Standard_Boolean Add) { self.InsertVKnots(occt_plugin::to_real_array1(Knots), occt_plugin::to_array1(Mults), ParametricTolerance, Add); }
+#endif
+        
+        ))
+        .add_member_function("RemoveUKnot", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer Index, const Standard_Integer M, sol::object Tolerance) -> Standard_Boolean { return self.RemoveUKnot(Index, M, occt_plugin::to_real(Tolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer Index, const Standard_Integer M, const Standard_Real Tolerance) -> Standard_Boolean { return self.RemoveUKnot(Index, M, Tolerance); }
+#endif
+        )
+        .add_member_function("RemoveVKnot", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer Index, const Standard_Integer M, sol::object Tolerance) -> Standard_Boolean { return self.RemoveVKnot(Index, M, occt_plugin::to_real(Tolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer Index, const Standard_Integer M, const Standard_Real Tolerance) -> Standard_Boolean { return self.RemoveVKnot(Index, M, Tolerance); }
+#endif
+        )
+        .add_member_function("IncreaseUMultiplicity", sol::overload(
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Integer M) { self.IncreaseUMultiplicity(UIndex, M); },
+            [](Geom_BSplineSurface& self, const Standard_Integer FromI1, const Standard_Integer ToI2, const Standard_Integer M) { self.IncreaseUMultiplicity(FromI1, ToI2, M); }
+        ))
+        .add_member_function("IncrementUMultiplicity", [](Geom_BSplineSurface& self, const Standard_Integer FromI1, const Standard_Integer ToI2, const Standard_Integer Step) { self.IncrementUMultiplicity(FromI1, ToI2, Step); })
+        .add_member_function("IncreaseVMultiplicity", sol::overload(
+            [](Geom_BSplineSurface& self, const Standard_Integer VIndex, const Standard_Integer M) { self.IncreaseVMultiplicity(VIndex, M); },
+            [](Geom_BSplineSurface& self, const Standard_Integer FromI1, const Standard_Integer ToI2, const Standard_Integer M) { self.IncreaseVMultiplicity(FromI1, ToI2, M); }
+        ))
+        .add_member_function("IncrementVMultiplicity", [](Geom_BSplineSurface& self, const Standard_Integer FromI1, const Standard_Integer ToI2, const Standard_Integer Step) { self.IncrementVMultiplicity(FromI1, ToI2, Step); })
+        .add_member_function("InsertUKnot", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U, const Standard_Integer M, sol::object ParametricTolerance) { self.InsertUKnot(occt_plugin::to_real(U), M, occt_plugin::to_real(ParametricTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U, const Standard_Integer M, const Standard_Real ParametricTolerance) { self.InsertUKnot(U, M, ParametricTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U, const Standard_Integer M, sol::object ParametricTolerance, const Standard_Boolean Add) { self.InsertUKnot(occt_plugin::to_real(U), M, occt_plugin::to_real(ParametricTolerance), Add); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U, const Standard_Integer M, const Standard_Real ParametricTolerance, const Standard_Boolean Add) { self.InsertUKnot(U, M, ParametricTolerance, Add); }
+#endif
+        
+        ))
+        .add_member_function("InsertVKnot", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object V, const Standard_Integer M, sol::object ParametricTolerance) { self.InsertVKnot(occt_plugin::to_real(V), M, occt_plugin::to_real(ParametricTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real V, const Standard_Integer M, const Standard_Real ParametricTolerance) { self.InsertVKnot(V, M, ParametricTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object V, const Standard_Integer M, sol::object ParametricTolerance, const Standard_Boolean Add) { self.InsertVKnot(occt_plugin::to_real(V), M, occt_plugin::to_real(ParametricTolerance), Add); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real V, const Standard_Integer M, const Standard_Real ParametricTolerance, const Standard_Boolean Add) { self.InsertVKnot(V, M, ParametricTolerance, Add); }
+#endif
+        
+        ))
+        .add_member_function("Segment", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U1, sol::object U2, sol::object V1, sol::object V2) { self.Segment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2) { self.Segment(U1, U2, V1, V2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U1, sol::object U2, sol::object V1, sol::object V2, sol::object theUTolerance) { self.Segment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), occt_plugin::to_real(theUTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Real theUTolerance) { self.Segment(U1, U2, V1, V2, theUTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U1, sol::object U2, sol::object V1, sol::object V2, sol::object theUTolerance, sol::object theVTolerance) { self.Segment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), occt_plugin::to_real(theUTolerance), occt_plugin::to_real(theVTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Real theUTolerance, const Standard_Real theVTolerance) { self.Segment(U1, U2, V1, V2, theUTolerance, theVTolerance); }
+#endif
+        
+        ))
+        .add_member_function("CheckAndSegment", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U1, sol::object U2, sol::object V1, sol::object V2) { self.CheckAndSegment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2) { self.CheckAndSegment(U1, U2, V1, V2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U1, sol::object U2, sol::object V1, sol::object V2, sol::object theUTolerance) { self.CheckAndSegment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), occt_plugin::to_real(theUTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Real theUTolerance) { self.CheckAndSegment(U1, U2, V1, V2, theUTolerance); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, sol::object U1, sol::object U2, sol::object V1, sol::object V2, sol::object theUTolerance, sol::object theVTolerance) { self.CheckAndSegment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), occt_plugin::to_real(theUTolerance), occt_plugin::to_real(theVTolerance)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Real theUTolerance, const Standard_Real theVTolerance) { self.CheckAndSegment(U1, U2, V1, V2, theUTolerance, theVTolerance); }
+#endif
+        
+        ))
+        .add_member_function("SetUKnot", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, sol::object K) { self.SetUKnot(UIndex, occt_plugin::to_real(K)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Real K) { self.SetUKnot(UIndex, K); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, sol::object K, const Standard_Integer M) { self.SetUKnot(UIndex, occt_plugin::to_real(K), M); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Real K, const Standard_Integer M) { self.SetUKnot(UIndex, K, M); }
+#endif
+        
+        ))
+        .add_member_function("SetUKnots", [](Geom_BSplineSurface& self, std::vector<double> const& UK) { self.SetUKnots(occt_plugin::to_real_array1(UK)); })
+        .add_member_function("SetVKnot", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer VIndex, sol::object K) { self.SetVKnot(VIndex, occt_plugin::to_real(K)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer VIndex, const Standard_Real K) { self.SetVKnot(VIndex, K); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer VIndex, sol::object K, const Standard_Integer M) { self.SetVKnot(VIndex, occt_plugin::to_real(K), M); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer VIndex, const Standard_Real K, const Standard_Integer M) { self.SetVKnot(VIndex, K, M); }
+#endif
+        
+        ))
+        .add_member_function("SetVKnots", [](Geom_BSplineSurface& self, std::vector<double> const& VK) { self.SetVKnots(occt_plugin::to_real_array1(VK)); })
+        .add_member_function("SetPole", sol::overload(
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const gp_Pnt & P) { self.SetPole(UIndex, VIndex, P); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const gp_Pnt & P, sol::object Weight) { self.SetPole(UIndex, VIndex, P, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const gp_Pnt & P, const Standard_Real Weight) { self.SetPole(UIndex, VIndex, P, Weight); }
+#endif
+        
+        ))
+        .add_member_function("SetPoleCol", sol::overload(
+            [](Geom_BSplineSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles) { self.SetPoleCol(VIndex, occt_plugin::to_array1(CPoles)); },
+            [](Geom_BSplineSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.SetPoleCol(VIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); }
+        ))
+        .add_member_function("SetPoleRow", sol::overload(
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.SetPoleRow(UIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); },
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles) { self.SetPoleRow(UIndex, occt_plugin::to_array1(CPoles)); }
+        ))
+        .add_member_function("SetWeight", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, sol::object Weight) { self.SetWeight(UIndex, VIndex, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BSplineSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const Standard_Real Weight) { self.SetWeight(UIndex, VIndex, Weight); }
+#endif
+        )
+        .add_member_function("SetWeightCol", [](Geom_BSplineSurface& self, const Standard_Integer VIndex, std::vector<double> const& CPoleWeights) { self.SetWeightCol(VIndex, occt_plugin::to_real_array1(CPoleWeights)); })
+        .add_member_function("SetWeightRow", [](Geom_BSplineSurface& self, const Standard_Integer UIndex, std::vector<double> const& CPoleWeights) { self.SetWeightRow(UIndex, occt_plugin::to_real_array1(CPoleWeights)); })
+        .add_member_function("IsUClosed", [](Geom_BSplineSurface const& self) -> Standard_Boolean { return self.IsUClosed(); })
+        .add_member_function("IsVClosed", [](Geom_BSplineSurface const& self) -> Standard_Boolean { return self.IsVClosed(); })
+        .add_member_function("IsCNu", [](Geom_BSplineSurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNu(N); })
+        .add_member_function("IsCNv", [](Geom_BSplineSurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNv(N); })
+        .add_member_function("IsUPeriodic", [](Geom_BSplineSurface const& self) -> Standard_Boolean { return self.IsUPeriodic(); })
+        .add_member_function("IsURational", [](Geom_BSplineSurface const& self) -> Standard_Boolean { return self.IsURational(); })
+        .add_member_function("IsVPeriodic", [](Geom_BSplineSurface const& self) -> Standard_Boolean { return self.IsVPeriodic(); })
+        .add_member_function("IsVRational", [](Geom_BSplineSurface const& self) -> Standard_Boolean { return self.IsVRational(); })
+        .add_member_function("FirstUKnotIndex", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.FirstUKnotIndex(); })
+        .add_member_function("FirstVKnotIndex", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.FirstVKnotIndex(); })
+        .add_member_function("LastUKnotIndex", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.LastUKnotIndex(); })
+        .add_member_function("LastVKnotIndex", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.LastVKnotIndex(); })
+        .add_member_function("NbUKnots", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbUKnots(); })
+        .add_member_function("NbUPoles", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbUPoles(); })
+        .add_member_function("NbVKnots", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbVKnots(); })
+        .add_member_function("NbVPoles", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbVPoles(); })
+        .add_member_function("Pole", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> const gp_Pnt & { return self.Pole(UIndex, VIndex); })
+        .add_member_function("UDegree", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.UDegree(); })
+        .add_member_function("UKnot", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex) -> Standard_Real { return self.UKnot(UIndex); })
+        .add_member_function("UMultiplicity", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex) -> Standard_Integer { return self.UMultiplicity(UIndex); })
+        .add_member_function("VDegree", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.VDegree(); })
+        .add_member_function("VKnot", [](Geom_BSplineSurface const& self, const Standard_Integer VIndex) -> Standard_Real { return self.VKnot(VIndex); })
+        .add_member_function("VMultiplicity", [](Geom_BSplineSurface const& self, const Standard_Integer VIndex) -> Standard_Integer { return self.VMultiplicity(VIndex); })
+        .add_member_function("Weight", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> Standard_Real { return self.Weight(UIndex, VIndex); })
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), occt_plugin::to_real(V), P); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P) { self.D0(U, V, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.D1(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.D1(U, V, P, D1U, D1V); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.D2(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V, D2U, D2V, D2UV); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.D2(U, V, P, D1U, D1V, D2U, D2V, D2UV); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.D3(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.D3(U, V, P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#endif
+        )
+        .add_member_function("DN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.DN(occt_plugin::to_real(U), occt_plugin::to_real(V), Nu, Nv); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.DN(U, V, Nu, Nv); }
+#endif
+        )
+        .add_member_function("LocalD0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P) { self.LocalD0(occt_plugin::to_real(U), occt_plugin::to_real(V), FromUK1, ToUK2, FromVK1, ToVK2, P); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P) { self.LocalD0(U, V, FromUK1, ToUK2, FromVK1, ToVK2, P); }
+#endif
+        )
+        .add_member_function("LocalD1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.LocalD1(occt_plugin::to_real(U), occt_plugin::to_real(V), FromUK1, ToUK2, FromVK1, ToVK2, P, D1U, D1V); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.LocalD1(U, V, FromUK1, ToUK2, FromVK1, ToVK2, P, D1U, D1V); }
+#endif
+        )
+        .add_member_function("LocalD2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.LocalD2(occt_plugin::to_real(U), occt_plugin::to_real(V), FromUK1, ToUK2, FromVK1, ToVK2, P, D1U, D1V, D2U, D2V, D2UV); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.LocalD2(U, V, FromUK1, ToUK2, FromVK1, ToVK2, P, D1U, D1V, D2U, D2V, D2UV); }
+#endif
+        )
+        .add_member_function("LocalD3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.LocalD3(occt_plugin::to_real(U), occt_plugin::to_real(V), FromUK1, ToUK2, FromVK1, ToVK2, P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.LocalD3(U, V, FromUK1, ToUK2, FromVK1, ToVK2, P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#endif
+        )
+        .add_member_function("LocalDN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.LocalDN(occt_plugin::to_real(U), occt_plugin::to_real(V), FromUK1, ToUK2, FromVK1, ToVK2, Nu, Nv); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.LocalDN(U, V, FromUK1, ToUK2, FromVK1, ToVK2, Nu, Nv); }
+#endif
+        )
+        .add_member_function("LocalValue", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, sol::object V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2) -> gp_Pnt { return self.LocalValue(occt_plugin::to_real(U), occt_plugin::to_real(V), FromUK1, ToUK2, FromVK1, ToVK2); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2) -> gp_Pnt { return self.LocalValue(U, V, FromUK1, ToUK2, FromVK1, ToVK2); }
+#endif
+        )
+        .add_member_function("UIso", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U) -> opencascade::handle<Geom_Curve> { return self.UIso(occt_plugin::to_real(U)); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U) -> opencascade::handle<Geom_Curve> { return self.UIso(U); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object U, const Standard_Boolean CheckRational) -> opencascade::handle<Geom_Curve> { return self.UIso(occt_plugin::to_real(U), CheckRational); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real U, const Standard_Boolean CheckRational) -> opencascade::handle<Geom_Curve> { return self.UIso(U, CheckRational); }
+#endif
+        
+        ))
+        .add_member_function("VIso", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object V) -> opencascade::handle<Geom_Curve> { return self.VIso(occt_plugin::to_real(V)); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real V) -> opencascade::handle<Geom_Curve> { return self.VIso(V); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BSplineSurface const& self, sol::object V, const Standard_Boolean CheckRational) -> opencascade::handle<Geom_Curve> { return self.VIso(occt_plugin::to_real(V), CheckRational); }
+#else
+            [](Geom_BSplineSurface const& self, const Standard_Real V, const Standard_Boolean CheckRational) -> opencascade::handle<Geom_Curve> { return self.VIso(V, CheckRational); }
+#endif
+        
+        ))
+        .add_member_function("Transform", [](Geom_BSplineSurface& self, const gp_Trsf & T) { self.Transform(T); })
+        .add_member_function("Copy", [](Geom_BSplineSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_bases<Geom_BoundedSurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
+    ns.register_type<Geom_BezierSurface, sol::automagic_flags::none>("Geom_BezierSurface")
+        .add_constructors(
+            [](std::vector<gp_Pnt> const& SurfacePoles_flat, Standard_Integer SurfacePoles_rows, Standard_Integer SurfacePoles_cols) -> opencascade::handle<Geom_BezierSurface> { return opencascade::handle<Geom_BezierSurface>(new Geom_BezierSurface(occt_plugin::to_array2(SurfacePoles_flat, SurfacePoles_rows, SurfacePoles_cols))); },
+            [](std::vector<gp_Pnt> const& SurfacePoles_flat, Standard_Integer SurfacePoles_rows, Standard_Integer SurfacePoles_cols, std::vector<double> const& PoleWeights_flat, Standard_Integer PoleWeights_rows, Standard_Integer PoleWeights_cols) -> opencascade::handle<Geom_BezierSurface> { return opencascade::handle<Geom_BezierSurface>(new Geom_BezierSurface(occt_plugin::to_array2(SurfacePoles_flat, SurfacePoles_rows, SurfacePoles_cols), occt_plugin::to_real_array2(PoleWeights_flat, PoleWeights_rows, PoleWeights_cols))); }
+        )
+        .add_member_function("ExchangeUV", [](Geom_BezierSurface& self) { self.ExchangeUV(); })
+        .add_member_function("Increase", [](Geom_BezierSurface& self, const Standard_Integer UDeg, const Standard_Integer VDeg) { self.Increase(UDeg, VDeg); })
+        .add_member_function("InsertPoleColAfter", sol::overload(
+            [](Geom_BezierSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles) { self.InsertPoleColAfter(VIndex, occt_plugin::to_array1(CPoles)); },
+            [](Geom_BezierSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.InsertPoleColAfter(VIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); }
+        ))
+        .add_member_function("InsertPoleColBefore", sol::overload(
+            [](Geom_BezierSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles) { self.InsertPoleColBefore(VIndex, occt_plugin::to_array1(CPoles)); },
+            [](Geom_BezierSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.InsertPoleColBefore(VIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); }
+        ))
+        .add_member_function("InsertPoleRowAfter", sol::overload(
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles) { self.InsertPoleRowAfter(UIndex, occt_plugin::to_array1(CPoles)); },
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.InsertPoleRowAfter(UIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); }
+        ))
+        .add_member_function("InsertPoleRowBefore", sol::overload(
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles) { self.InsertPoleRowBefore(UIndex, occt_plugin::to_array1(CPoles)); },
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.InsertPoleRowBefore(UIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); }
+        ))
+        .add_member_function("RemovePoleCol", [](Geom_BezierSurface& self, const Standard_Integer VIndex) { self.RemovePoleCol(VIndex); })
+        .add_member_function("RemovePoleRow", [](Geom_BezierSurface& self, const Standard_Integer UIndex) { self.RemovePoleRow(UIndex); })
+        .add_member_function("Segment", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface& self, sol::object U1, sol::object U2, sol::object V1, sol::object V2) { self.Segment(occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2)); }
+#else
+            [](Geom_BezierSurface& self, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2) { self.Segment(U1, U2, V1, V2); }
+#endif
+        )
+        .add_member_function("SetPole", sol::overload(
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const gp_Pnt & P) { self.SetPole(UIndex, VIndex, P); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const gp_Pnt & P, sol::object Weight) { self.SetPole(UIndex, VIndex, P, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const gp_Pnt & P, const Standard_Real Weight) { self.SetPole(UIndex, VIndex, P, Weight); }
+#endif
+        
+        ))
+        .add_member_function("SetPoleCol", sol::overload(
+            [](Geom_BezierSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles) { self.SetPoleCol(VIndex, occt_plugin::to_array1(CPoles)); },
+            [](Geom_BezierSurface& self, const Standard_Integer VIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.SetPoleCol(VIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); }
+        ))
+        .add_member_function("SetPoleRow", sol::overload(
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles) { self.SetPoleRow(UIndex, occt_plugin::to_array1(CPoles)); },
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, std::vector<gp_Pnt> const& CPoles, std::vector<double> const& CPoleWeights) { self.SetPoleRow(UIndex, occt_plugin::to_array1(CPoles), occt_plugin::to_real_array1(CPoleWeights)); }
+        ))
+        .add_member_function("SetWeight", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, sol::object Weight) { self.SetWeight(UIndex, VIndex, occt_plugin::to_real(Weight)); }
+#else
+            [](Geom_BezierSurface& self, const Standard_Integer UIndex, const Standard_Integer VIndex, const Standard_Real Weight) { self.SetWeight(UIndex, VIndex, Weight); }
+#endif
+        )
+        .add_member_function("SetWeightCol", [](Geom_BezierSurface& self, const Standard_Integer VIndex, std::vector<double> const& CPoleWeights) { self.SetWeightCol(VIndex, occt_plugin::to_real_array1(CPoleWeights)); })
+        .add_member_function("SetWeightRow", [](Geom_BezierSurface& self, const Standard_Integer UIndex, std::vector<double> const& CPoleWeights) { self.SetWeightRow(UIndex, occt_plugin::to_real_array1(CPoleWeights)); })
+        .add_member_function("UReverse", [](Geom_BezierSurface& self) { self.UReverse(); })
+        .add_member_function("UReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object U) -> Standard_Real { return self.UReversedParameter(occt_plugin::to_real(U)); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real U) -> Standard_Real { return self.UReversedParameter(U); }
+#endif
+        )
+        .add_member_function("VReverse", [](Geom_BezierSurface& self) { self.VReverse(); })
+        .add_member_function("VReversedParameter", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object V) -> Standard_Real { return self.VReversedParameter(occt_plugin::to_real(V)); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real V) -> Standard_Real { return self.VReversedParameter(V); }
+#endif
+        )
+        .add_member_function("D0", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object U, sol::object V, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), occt_plugin::to_real(V), P); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P) { self.D0(U, V, P); }
+#endif
+        )
+        .add_member_function("D1", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.D1(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V) { self.D1(U, V, P, D1U, D1V); }
+#endif
+        )
+        .add_member_function("D2", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.D2(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V, D2U, D2V, D2UV); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV) { self.D2(U, V, P, D1U, D1V, D2U, D2V, D2UV); }
+#endif
+        )
+        .add_member_function("D3", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object U, sol::object V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.D3(occt_plugin::to_real(U), occt_plugin::to_real(V), P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real U, const Standard_Real V, gp_Pnt & P, gp_Vec & D1U, gp_Vec & D1V, gp_Vec & D2U, gp_Vec & D2V, gp_Vec & D2UV, gp_Vec & D3U, gp_Vec & D3V, gp_Vec & D3UUV, gp_Vec & D3UVV) { self.D3(U, V, P, D1U, D1V, D2U, D2V, D2UV, D3U, D3V, D3UUV, D3UVV); }
+#endif
+        )
+        .add_member_function("DN", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object U, sol::object V, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.DN(occt_plugin::to_real(U), occt_plugin::to_real(V), Nu, Nv); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real U, const Standard_Real V, const Standard_Integer Nu, const Standard_Integer Nv) -> gp_Vec { return self.DN(U, V, Nu, Nv); }
+#endif
+        )
+        .add_member_function("NbUPoles", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.NbUPoles(); })
+        .add_member_function("NbVPoles", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.NbVPoles(); })
+        .add_member_function("Pole", [](Geom_BezierSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> const gp_Pnt & { return self.Pole(UIndex, VIndex); })
+        .add_member_function("UDegree", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.UDegree(); })
+        .add_member_function("UIso", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object U) -> opencascade::handle<Geom_Curve> { return self.UIso(occt_plugin::to_real(U)); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real U) -> opencascade::handle<Geom_Curve> { return self.UIso(U); }
+#endif
+        )
+        .add_member_function("VDegree", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.VDegree(); })
+        .add_member_function("VIso", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Geom_BezierSurface const& self, sol::object V) -> opencascade::handle<Geom_Curve> { return self.VIso(occt_plugin::to_real(V)); }
+#else
+            [](Geom_BezierSurface const& self, const Standard_Real V) -> opencascade::handle<Geom_Curve> { return self.VIso(V); }
+#endif
+        )
+        .add_member_function("Weight", [](Geom_BezierSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> Standard_Real { return self.Weight(UIndex, VIndex); })
+        .add_member_function("IsUClosed", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsUClosed(); })
+        .add_member_function("IsVClosed", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsVClosed(); })
+        .add_member_function("IsCNu", [](Geom_BezierSurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNu(N); })
+        .add_member_function("IsCNv", [](Geom_BezierSurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNv(N); })
+        .add_member_function("IsUPeriodic", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsUPeriodic(); })
+        .add_member_function("IsVPeriodic", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsVPeriodic(); })
+        .add_member_function("IsURational", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsURational(); })
+        .add_member_function("IsVRational", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsVRational(); })
+        .add_member_function("Transform", [](Geom_BezierSurface& self, const gp_Trsf & T) { self.Transform(T); })
+        .add_member_function("Copy", [](Geom_BezierSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_bases<Geom_BoundedSurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_function("Geom_BezierCurve_MaxDegree", []() -> Standard_Integer { return Geom_BezierCurve::MaxDegree(); });
     ns.register_function("Geom_BSplineCurve_MaxDegree", []() -> Standard_Integer { return Geom_BSplineCurve::MaxDegree(); });
+    ns.register_function("Geom_BSplineSurface_MaxDegree", []() -> Standard_Integer { return Geom_BSplineSurface::MaxDegree(); });
+    ns.register_function("Geom_BezierSurface_MaxDegree", []() -> Standard_Integer { return Geom_BezierSurface::MaxDegree(); });
 }

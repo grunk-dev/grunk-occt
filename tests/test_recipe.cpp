@@ -96,6 +96,26 @@ TEST_F(RecipeTest, CavityModelReactsToParameterChange)
     EXPECT_TRUE(ok.value().as<bool>());
 }
 
+// Reads examples/20241017.grr.yml (see run_example.py) - a newer, more involved
+// iteration of cavity_model.grr.yml (two revolved sectors grouped into a
+// TopoDS_CompSolid via occt_helpers.comp_solid, both axial ends clipped by their
+// own half-space, two cylinders fused in) - and confirms export_brep's own "ok"
+// output, both at its own defaults and after overriding a parameter a sub-recipe
+// two levels deep (cavity_sketch.R1, via the top-level R1) depends on.
+TEST_F(RecipeTest, GasTurbineCavity20241017RecipeProducesOkOutput)
+{
+    auto recipe = state_->read(std::string(EXAMPLES_DIR) + "/20241017.grr.yml");
+    auto ok = recipe.get_output("ok");
+
+    EXPECT_TRUE(ok.value().as<bool>());
+
+    recipe.get_feature("R1").set_value(180.0);
+    EXPECT_TRUE(ok.value().as<bool>());
+
+    recipe.get_feature("alpha").set_value(25.0);
+    EXPECT_TRUE(ok.value().as<bool>());
+}
+
 // gp_Pnt/gp_Vec/gp_Dir as independent (parameter-typed, not just step-local) recipe
 // values - mirrors grunk's own tests/cpp/recipe_simple.cpp,
 // TEST(Recipe, simple_userdata_parameters), which is what src/gp/gp_extras.hpp's own

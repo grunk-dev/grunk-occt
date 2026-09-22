@@ -102,6 +102,8 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeDraft& self, const Standard_Real LengthMax) { self.Perform(LengthMax); }
 #endif
         ,
+            [](BRepOffsetAPI_MakeDraft& self, const opencascade::handle<Geom_Surface> & Surface) { self.Perform(Surface); },
+            [](BRepOffsetAPI_MakeDraft& self, const opencascade::handle<Geom_Surface> & Surface, const Standard_Boolean KeepInsideSurface) { self.Perform(Surface, KeepInsideSurface); },
             [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape) { self.Perform(StopShape); },
             [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape, const Standard_Boolean KeepOutSide) { self.Perform(StopShape, KeepOutSide); }
         ))

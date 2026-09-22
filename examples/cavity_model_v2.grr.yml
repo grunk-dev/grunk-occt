@@ -1,0 +1,170 @@
+# SPDX-FileCopyrightText: 2026 Jan Kleinert <jan.kleinert@dlr.de>
+#
+# SPDX-License-Identifier: MPL-2.0
+
+# Ported from legacy grocc's own 20241017.grr.yml (see
+# ../reference/legacy-recipes/20241017.grr.yml and its README) - a newer iteration of
+# cavity_model.grr.yml's own gas turbine cavity, with two revolved sectors (rotor
+# "_R"/"_N" naming throughout - stator/nozzle "N", rotor "R") fused into a CompSolid
+# "assembly", clipped on both axial ends by half-spaces, then fused with two
+# cylinders. See ../README.md for how to run this with run_example.py.
+uses:
+  grunk: 0.5.0
+  occt: 0.1.0
+  occt_helpers: "1.0.0"
+parameters:
+  R1: 203.19999999999999
+  R2: 250.0
+  s_stator: 5.0
+  s_rotor: 5.0
+  l_R: 150.0
+  d_R: 10.0
+  R_R: 220.0
+  l_N: 150.0
+  alpha: 20.0
+  d_N: 8.0
+  N_N: 12.0
+  N_R: 12.0
+  l_ax_N: 200.0
+steps: |
+  x_axis = occt.gp_Dir.new(1.0, 0.0, 0.0)
+
+  -- Two half-spaces clipping the assembly on both axial ends, well outside the
+  -- actual geometry (2x the cut plane's own offset) so BRepPrimAPI_MakeHalfSpace's
+  -- own reference point unambiguously picks the correct side to keep.
+  xcut_Nin = l_ax_N * -1.0
+  xcut_temp2 = xcut_Nin * 2.0
+  halfspace_pnt2 = occt.gp_Pnt.new(xcut_temp2, 0.0, 0.0)
+  pnt_Nin = occt.gp_Pnt.new(xcut_Nin, 0.0, 0.0)
+  pln_Nin = occt.gp_Pln.new(pnt_Nin, x_axis)
+  halfspace_face2 = occt.BRepBuilderAPI_MakeFace.new(pln_Nin):Face()
+  halfspace2 = occt.BRepPrimAPI_MakeHalfSpace.new(halfspace_face2, halfspace_pnt2):Solid()
+
+  -- xcut_Nout is always 0 by construction (its own defining product includes a
+  -- literal 0 factor, unchanged from the legacy source) - kept as a formula rather
+  -- than simplified to a literal, in case a future parameter sweep revives it.
+  xcut_Nout = (s_stator + s_rotor) * 0.0
+  pnt_Nout = occt.gp_Pnt.new(xcut_Nout, 0.0, 0.0)
+  pln_Nout = occt.gp_Pln.new(pnt_Nout, x_axis)
+  halfspace_face1 = occt.BRepBuilderAPI_MakeFace.new(pln_Nout):Face()
+  xcut_temp1 = xcut_Nin * -2.0
+  halfspace_pnt1 = occt.gp_Pnt.new(xcut_temp1, 0.0, 0.0)
+  halfspace1 = occt.BRepPrimAPI_MakeHalfSpace.new(halfspace_face1, halfspace_pnt1):Solid()
+
+  angle_rad_rotor = occt.pi() * 360.0 / N_R / 180.0
+  angle_sector_rotor_rad = -angle_rad_rotor / 2.0
+  angle_rad_stator = occt.pi() * 360.0 / N_N / 180.0
+
+  -- Revolution axis, pointing in -x.
+  o = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+  d = occt.gp_Dir.new(-1.0, 0.0, 0.0)
+  ax = occt.gp_Ax1.new(o, d)
+
+  -- Second cylinder's own direction, tilted by alpha off the x axis.
+  alpha_rad = occt.pi() * alpha / 180.0
+  dir_z = -occt.cos(alpha_rad)
+  dir_x = -occt.sin(alpha_rad)
+  cyl2_dir = occt.gp_Dir.new(dir_x, 0.0, dir_z)
+
+  cyl2_pos_x = s_stator + s_rotor
+  cyl2_origin = occt.gp_Pnt.new(cyl2_pos_x, R_R, 0.0)
+  l_N_add = l_N + (s_stator + s_rotor) / occt.sin(alpha_rad)
+
+  cyl2_builder = recipes.cylinder()
+  cyl2_builder.l = l_N_add
+  cyl2_builder.d = d_N
+  cyl2_builder.origin = cyl2_origin
+  cyl2_builder.direction = cyl2_dir
+  cylinder2 = cyl2_builder.cylinder
+
+  cylinder2_cut1 = occt.BRepAlgoAPI_Cut.new(cylinder2, halfspace1):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  cylinder2_cut2 = occt.BRepAlgoAPI_Cut.new(cylinder2_cut1, halfspace2):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  l_R_add = l_R + 0.25 * (s_stator + s_rotor)
+  cyl1_pos_x = 0.75 * (s_stator + s_rotor)
+  cyl1_origin = occt.gp_Pnt.new(cyl1_pos_x, R_R, 0.0)
+
+  cyl1_builder = recipes.cylinder()
+  cyl1_builder.l = l_R_add
+  cyl1_builder.d = d_R
+  cyl1_builder.origin = cyl1_origin
+  cylinder1 = cyl1_builder.cylinder
+
+  -- Rotor sector: cavity_sketch built at its own default position, translated out
+  -- to (s_stator, R1, 0), rotated by half its own sweep angle, then revolved.
+  translation_rotor = occt.gp_Vec.new(s_stator, R1, 0.0)
+  rotor_sketch_builder = recipes.cavity_sketch()
+  rotor_sketch_builder.R1 = R1
+  rotor_sketch_builder.R2 = R2
+  rotor_sketch_builder.s = s_rotor
+  cavity_face_rotor = rotor_sketch_builder.face
+
+  translated_face_rotor = occt_helpers.translate(cavity_face_rotor, translation_rotor)
+  rotated_face_rotor = occt_helpers.rotate(translated_face_rotor, ax, angle_sector_rotor_rad)
+  revol_rotor = occt.BRepPrimAPI_MakeRevol.new(rotated_face_rotor, ax, angle_rad_rotor):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  -- Stator sector: same shape, its own translation/rotation - the rotation offset
+  -- additionally corrects for the tilted second cylinder's own footprint
+  -- (angle_diff_stator), not just half the sweep angle.
+  translation_stator = occt.gp_Vec.new(0.0, R1, 0.0)
+  angle_diff_stator = occt.acos(R1 / occt.sqrt(((s_stator + s_rotor) / occt.tan(alpha_rad))^2 + R1^2))
+  angle_sector_stator_rad = -angle_rad_stator / 2.0 + angle_diff_stator
+  stator_sketch_builder = recipes.cavity_sketch()
+  stator_sketch_builder.R1 = R1
+  stator_sketch_builder.R2 = R2
+  stator_sketch_builder.s = s_stator
+  cavity_face_stator = stator_sketch_builder.face
+
+  translated_face_stator = occt_helpers.translate(cavity_face_stator, translation_stator)
+  rotated_face_stator = occt_helpers.rotate(translated_face_stator, ax, angle_sector_stator_rad)
+  revol_stator = occt.BRepPrimAPI_MakeRevol.new(rotated_face_stator, ax, angle_rad_stator):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  -- The two revolved sectors, grouped into one CompSolid (not a plain Compound -
+  -- they're meant to be fused with the cylinders as one connected solid body next,
+  -- not kept as an unstructured group of shapes).
+  assembly = occt_helpers.comp_solid(revol_stator, revol_rotor)
+
+  cavity_cyl1 = occt.BRepAlgoAPI_Fuse.new(assembly, cylinder1):as(occt.BRepBuilderAPI_MakeShape):Shape()
+  cavity = occt.BRepAlgoAPI_Fuse.new(cavity_cyl1, cylinder2_cut2):as(occt.BRepBuilderAPI_MakeShape):Shape()
+
+  ok = occt.export_brep(cavity, "20241017.brep")
+outputs:
+  cavity: cavity
+  ok: ok
+recipes:
+  cavity_sketch:
+    uses:
+      grunk: 0.5.0
+      occt: 0.1.0
+      occt_helpers: "1.0.0"
+    parameters:
+      R1: 50.0
+      s: 1.0
+      R2: 100.0
+    steps: |
+      cavity_height = R2 - R1
+
+      p0 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+      p1 = occt.gp_Pnt.new(s, 0.0, 0.0)
+      p2 = occt.gp_Pnt.new(s, cavity_height, 0.0)
+      p3 = occt.gp_Pnt.new(0.0, cavity_height, 0.0)
+
+      face = occt_helpers.polygon_face(p0, p1, p2, p3)
+    outputs:
+      face: face
+  cylinder:
+    uses:
+      grunk: 0.5.0
+      occt: 0.1.0
+    parameters:
+      origin: occt.gp_Pnt.new(0.0, 0.0, 0.0)
+      direction: occt.gp_Dir.new(1.0, 0.0, 0.0)
+      direction2: occt.gp_Dir.new(0.0, 1.0, 0.0)
+      d: 1.0
+      l: 1.0
+    steps: |
+      cyl_radius = d / 2.0
+      ax2 = occt.gp_Ax2.new(origin, direction, direction2)
+      cylinder = occt.BRepPrimAPI_MakeCylinder.new(ax2, cyl_radius, l):as(occt.BRepBuilderAPI_MakeShape):Shape()
+    outputs:
+      cylinder: cylinder

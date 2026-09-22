@@ -159,3 +159,23 @@ function compound(...)
     end
     return c
 end
+
+-- Same as compound() above, but for a TopoDS_CompSolid (a group of solids meant to
+-- share faces, e.g. two revolved sectors that are meant to be re-fused later - see
+-- examples/20241017.grr.yml's own "assembly") rather than a TopoDS_Compound (an
+-- unstructured group of arbitrary shapes) - BRep_Builder::MakeCompSolid instead of
+-- MakeCompound, same IsNull() guard and the same reason for it.
+function comp_solid(...)
+    local shapes = {...}
+    local c = occt.TopoDS_CompSolid.new()
+    local builder = occt.BRep_Builder.new()
+    builder:MakeCompSolid(c)
+    for i = 1, #shapes do
+        local shape = shapes[i]
+        if shape:IsNull() then
+            occt.error("occt_helpers.comp_solid: shape " .. i .. " of " .. #shapes .. " is null/empty - refusing to add it (TopoDS_Builder::Add does not handle this and segfaults instead of failing cleanly)")
+        end
+        builder:Add(c, shape)
+    end
+    return c
+end

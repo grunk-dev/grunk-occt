@@ -26,14 +26,39 @@
 void register_brep(grunk::plugin_namespace& ns)
 {
     ns.register_type<BRep_Builder, sol::automagic_flags::none>("BRep_Builder")
-        .add_member_function("MakeFace", [](BRep_Builder const& self, TopoDS_Face & F) { self.MakeFace(F); })
-        .add_member_function("UpdateFace", 
+        .add_member_function("MakeFace", sol::overload(
+            [](BRep_Builder const& self, TopoDS_Face & F) { self.MakeFace(F); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, TopoDS_Face & F, const opencascade::handle<Geom_Surface> & S, sol::object Tol) { self.MakeFace(F, S, occt_plugin::to_real(Tol)); }
+#else
+            [](BRep_Builder const& self, TopoDS_Face & F, const opencascade::handle<Geom_Surface> & S, const Standard_Real Tol) { self.MakeFace(F, S, Tol); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, TopoDS_Face & F, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, sol::object Tol) { self.MakeFace(F, S, L, occt_plugin::to_real(Tol)); }
+#else
+            [](BRep_Builder const& self, TopoDS_Face & F, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, const Standard_Real Tol) { self.MakeFace(F, S, L, Tol); }
+#endif
+        
+        ))
+        .add_member_function("UpdateFace", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, const TopoDS_Face & F, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, sol::object Tol) { self.UpdateFace(F, S, L, occt_plugin::to_real(Tol)); }
+#else
+            [](BRep_Builder const& self, const TopoDS_Face & F, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, const Standard_Real Tol) { self.UpdateFace(F, S, L, Tol); }
+#endif
+        ,
+            
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRep_Builder const& self, const TopoDS_Face & F, sol::object Tol) { self.UpdateFace(F, occt_plugin::to_real(Tol)); }
 #else
             [](BRep_Builder const& self, const TopoDS_Face & F, const Standard_Real Tol) { self.UpdateFace(F, Tol); }
 #endif
-        )
+        
+        ))
         .add_member_function("NaturalRestriction", [](BRep_Builder const& self, const TopoDS_Face & F, const Standard_Boolean N) { self.NaturalRestriction(F, N); })
         .add_member_function("MakeEdge", sol::overload(
             [](BRep_Builder const& self, TopoDS_Edge & E) { self.MakeEdge(E); },
@@ -95,6 +120,13 @@ void register_brep(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, sol::object First, sol::object Last) { self.Range(E, S, L, occt_plugin::to_real(First), occt_plugin::to_real(Last)); }
+#else
+            [](BRep_Builder const& self, const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, const Standard_Real First, const Standard_Real Last) { self.Range(E, S, L, First, Last); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRep_Builder const& self, const TopoDS_Edge & E, const TopoDS_Face & F, sol::object First, sol::object Last) { self.Range(E, F, occt_plugin::to_real(First), occt_plugin::to_real(Last)); }
 #else
             [](BRep_Builder const& self, const TopoDS_Edge & E, const TopoDS_Face & F, const Standard_Real First, const Standard_Real Last) { self.Range(E, F, First, Last); }
@@ -139,6 +171,13 @@ void register_brep(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRep_Builder const& self, const TopoDS_Vertex & V, sol::object P, const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, sol::object Tol) { self.UpdateVertex(V, occt_plugin::to_real(P), E, S, L, occt_plugin::to_real(Tol)); }
+#else
+            [](BRep_Builder const& self, const TopoDS_Vertex & V, const Standard_Real P, const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, const Standard_Real Tol) { self.UpdateVertex(V, P, E, S, L, Tol); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRep_Builder const& self, const TopoDS_Vertex & Ve, sol::object U, sol::object V, const TopoDS_Face & F, sol::object Tol) { self.UpdateVertex(Ve, occt_plugin::to_real(U), occt_plugin::to_real(V), F, occt_plugin::to_real(Tol)); }
 #else
             [](BRep_Builder const& self, const TopoDS_Vertex & Ve, const Standard_Real U, const Standard_Real V, const TopoDS_Face & F, const Standard_Real Tol) { self.UpdateVertex(Ve, U, V, F, Tol); }
@@ -164,7 +203,12 @@ void register_brep(grunk::plugin_namespace& ns)
         .add_member_function("Remove", [](TopoDS_Builder const& self, TopoDS_Shape & S, const TopoDS_Shape & C) { self.Remove(S, C); });
     ns.register_function("BRep_Tool_IsClosed", sol::overload(
         [](const TopoDS_Shape & S) -> Standard_Boolean { return BRep_Tool::IsClosed(S); },
-        [](const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Boolean { return BRep_Tool::IsClosed(E, F); }
+        [](const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Boolean { return BRep_Tool::IsClosed(E, F); },
+        [](const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L) -> Standard_Boolean { return BRep_Tool::IsClosed(E, S, L); }
+    ));
+    ns.register_function("BRep_Tool_Surface", sol::overload(
+        [](const TopoDS_Face & F, TopLoc_Location & L) -> opencascade::handle<Geom_Surface> { return BRep_Tool::Surface(F, L); },
+        [](const TopoDS_Face & F) -> opencascade::handle<Geom_Surface> { return BRep_Tool::Surface(F); }
     ));
     ns.register_function("BRep_Tool_Tolerance", sol::overload(
         [](const TopoDS_Face & F) -> Standard_Real { return BRep_Tool::Tolerance(F); },
@@ -179,16 +223,24 @@ void register_brep(grunk::plugin_namespace& ns)
     ns.register_function("BRep_Tool_SameParameter", [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::SameParameter(E); });
     ns.register_function("BRep_Tool_SameRange", [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::SameRange(E); });
     ns.register_function("BRep_Tool_Degenerated", [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::Degenerated(E); });
-    ns.register_function("BRep_Tool_UVPoints", [](const TopoDS_Edge & E, const TopoDS_Face & F, gp_Pnt2d & PFirst, gp_Pnt2d & PLast) { BRep_Tool::UVPoints(E, F, PFirst, PLast); });
-    ns.register_function("BRep_Tool_SetUVPoints", [](const TopoDS_Edge & E, const TopoDS_Face & F, const gp_Pnt2d & PFirst, const gp_Pnt2d & PLast) { BRep_Tool::SetUVPoints(E, F, PFirst, PLast); });
+    ns.register_function("BRep_Tool_UVPoints", sol::overload(
+        [](const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, gp_Pnt2d & PFirst, gp_Pnt2d & PLast) { BRep_Tool::UVPoints(E, S, L, PFirst, PLast); },
+        [](const TopoDS_Edge & E, const TopoDS_Face & F, gp_Pnt2d & PFirst, gp_Pnt2d & PLast) { BRep_Tool::UVPoints(E, F, PFirst, PLast); }
+    ));
+    ns.register_function("BRep_Tool_SetUVPoints", sol::overload(
+        [](const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L, const gp_Pnt2d & PFirst, const gp_Pnt2d & PLast) { BRep_Tool::SetUVPoints(E, S, L, PFirst, PLast); },
+        [](const TopoDS_Edge & E, const TopoDS_Face & F, const gp_Pnt2d & PFirst, const gp_Pnt2d & PLast) { BRep_Tool::SetUVPoints(E, F, PFirst, PLast); }
+    ));
     ns.register_function("BRep_Tool_HasContinuity", sol::overload(
         [](const TopoDS_Edge & E, const TopoDS_Face & F1, const TopoDS_Face & F2) -> Standard_Boolean { return BRep_Tool::HasContinuity(E, F1, F2); },
+        [](const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const TopLoc_Location & L1, const TopLoc_Location & L2) -> Standard_Boolean { return BRep_Tool::HasContinuity(E, S1, S2, L1, L2); },
         [](const TopoDS_Edge & E) -> Standard_Boolean { return BRep_Tool::HasContinuity(E); }
     ));
     ns.register_function("BRep_Tool_Pnt", [](const TopoDS_Vertex & V) -> gp_Pnt { return BRep_Tool::Pnt(V); });
     ns.register_function("BRep_Tool_Parameter", sol::overload(
         [](const TopoDS_Vertex & V, const TopoDS_Edge & E) -> Standard_Real { return BRep_Tool::Parameter(V, E); },
-        [](const TopoDS_Vertex & V, const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Real { return BRep_Tool::Parameter(V, E, F); }
+        [](const TopoDS_Vertex & V, const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Real { return BRep_Tool::Parameter(V, E, F); },
+        [](const TopoDS_Vertex & V, const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L) -> Standard_Real { return BRep_Tool::Parameter(V, E, S, L); }
     ));
     ns.register_function("BRep_Tool_Parameters", [](const TopoDS_Vertex & V, const TopoDS_Face & F) -> gp_Pnt2d { return BRep_Tool::Parameters(V, F); });
 }

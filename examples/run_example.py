@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: MPL-2.0
 
 """Minimal example script (see README.md) demonstrating how to: load the occt
-plugin, load the occt_helpers Lua plugin both cavity/tank-model recipes declare
-as a dependency in their own uses: block, read a ported example recipe, override
-one of its parameters, and read back its "ok" output (occt.export_brep's own
-return value). Deliberately skips legacy grunk's build_recipe/run_recipe pair -
+plugin, load the occt_helpers Lua plugin cavity_model/20241017/tank-model all
+declare as a dependency in their own uses: block, read a ported example recipe,
+override one of its parameters, and read back its "ok" output (occt.export_brep's
+own return value). Deliberately skips legacy grunk's build_recipe/run_recipe pair -
 this single self-contained script is simpler for the small recipes here.
 
 Also runs bspline_curve.grr.yml (see its own top comment) - unlike
@@ -109,6 +109,7 @@ def main() -> None:
     )
 
     run_recipe(state, EXAMPLES_DIR / "cavity_model.grr.yml", "cavity_h", 60.0)
+    run_recipe(state, EXAMPLES_DIR / "cavity_model_v2.grr.yml", "R1", 180.0)
     try:
         run_recipe(state, EXAMPLES_DIR / "tank_model.grr.yml", "radius", 1.5)
     except RuntimeError as exc:

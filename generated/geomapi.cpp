@@ -27,8 +27,26 @@ void register_geomapi(grunk::plugin_namespace& ns)
 {
     ns.register_type<GeomAPI_ExtremaSurfaceSurface, sol::automagic_flags::none>("GeomAPI_ExtremaSurfaceSurface")
         .add_constructors(
-            []() { return GeomAPI_ExtremaSurfaceSurface(); }
+            []() { return GeomAPI_ExtremaSurfaceSurface(); },
+            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2) { return GeomAPI_ExtremaSurfaceSurface(S1, S2); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object U1min, sol::object U1max, sol::object V1min, sol::object V1max, sol::object U2min, sol::object U2max, sol::object V2min, sol::object V2max) { return GeomAPI_ExtremaSurfaceSurface(S1, S2, occt_plugin::to_real(U1min), occt_plugin::to_real(U1max), occt_plugin::to_real(V1min), occt_plugin::to_real(V1max), occt_plugin::to_real(U2min), occt_plugin::to_real(U2max), occt_plugin::to_real(V2min), occt_plugin::to_real(V2max)); }
+#else
+            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real U1min, const Standard_Real U1max, const Standard_Real V1min, const Standard_Real V1max, const Standard_Real U2min, const Standard_Real U2max, const Standard_Real V2min, const Standard_Real V2max) { return GeomAPI_ExtremaSurfaceSurface(S1, S2, U1min, U1max, V1min, V1max, U2min, U2max, V2min, V2max); }
+#endif
+        
         )
+        .add_member_function("Init", sol::overload(
+            [](GeomAPI_ExtremaSurfaceSurface& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2) { self.Init(S1, S2); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_ExtremaSurfaceSurface& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object U1min, sol::object U1max, sol::object V1min, sol::object V1max, sol::object U2min, sol::object U2max, sol::object V2min, sol::object V2max) { self.Init(S1, S2, occt_plugin::to_real(U1min), occt_plugin::to_real(U1max), occt_plugin::to_real(V1min), occt_plugin::to_real(V1max), occt_plugin::to_real(U2min), occt_plugin::to_real(U2max), occt_plugin::to_real(V2min), occt_plugin::to_real(V2max)); }
+#else
+            [](GeomAPI_ExtremaSurfaceSurface& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real U1min, const Standard_Real U1max, const Standard_Real V1min, const Standard_Real V1max, const Standard_Real U2min, const Standard_Real U2max, const Standard_Real V2min, const Standard_Real V2max) { self.Init(S1, S2, U1min, U1max, V1min, V1max, U2min, U2max, V2min, V2max); }
+#endif
+        
+        ))
         .add_member_function("NbExtrema", [](GeomAPI_ExtremaSurfaceSurface const& self) -> Standard_Integer { return self.NbExtrema(); })
         .add_member_function("Points", [](GeomAPI_ExtremaSurfaceSurface const& self, const Standard_Integer Index, gp_Pnt & P1, gp_Pnt & P2) { self.Points(Index, P1, P2); })
         .add_member_function("Distance", [](GeomAPI_ExtremaSurfaceSurface const& self, const Standard_Integer Index) -> Standard_Real { return self.Distance(Index); })
@@ -37,8 +55,10 @@ void register_geomapi(grunk::plugin_namespace& ns)
         .add_member_function("LowerDistance", [](GeomAPI_ExtremaSurfaceSurface const& self) -> Standard_Real { return self.LowerDistance(); });
     ns.register_type<GeomAPI_IntCS, sol::automagic_flags::none>("GeomAPI_IntCS")
         .add_constructors(
-            []() { return GeomAPI_IntCS(); }
+            []() { return GeomAPI_IntCS(); },
+            [](const opencascade::handle<Geom_Curve> & C, const opencascade::handle<Geom_Surface> & S) { return GeomAPI_IntCS(C, S); }
         )
+        .add_member_function("Perform", [](GeomAPI_IntCS& self, const opencascade::handle<Geom_Curve> & C, const opencascade::handle<Geom_Surface> & S) { self.Perform(C, S); })
         .add_member_function("IsDone", [](GeomAPI_IntCS const& self) -> Standard_Boolean { return self.IsDone(); })
         .add_member_function("NbPoints", [](GeomAPI_IntCS const& self) -> Standard_Integer { return self.NbPoints(); })
         .add_member_function("Point", [](GeomAPI_IntCS const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Point(Index); })
@@ -46,7 +66,21 @@ void register_geomapi(grunk::plugin_namespace& ns)
         .add_member_function("Segment", [](GeomAPI_IntCS const& self, const Standard_Integer Index) -> opencascade::handle<Geom_Curve> { return self.Segment(Index); });
     ns.register_type<GeomAPI_IntSS, sol::automagic_flags::none>("GeomAPI_IntSS")
         .add_constructors(
-            []() { return GeomAPI_IntSS(); }
+            []() { return GeomAPI_IntSS(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object Tol) { return GeomAPI_IntSS(S1, S2, occt_plugin::to_real(Tol)); }
+#else
+            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real Tol) { return GeomAPI_IntSS(S1, S2, Tol); }
+#endif
+        
+        )
+        .add_member_function("Perform", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](GeomAPI_IntSS& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object Tol) { self.Perform(S1, S2, occt_plugin::to_real(Tol)); }
+#else
+            [](GeomAPI_IntSS& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real Tol) { self.Perform(S1, S2, Tol); }
+#endif
         )
         .add_member_function("IsDone", [](GeomAPI_IntSS const& self) -> Standard_Boolean { return self.IsDone(); })
         .add_member_function("NbLines", [](GeomAPI_IntSS const& self) -> Standard_Integer { return self.NbLines(); })
@@ -200,6 +234,7 @@ void register_geomapi(grunk::plugin_namespace& ns)
 #endif
         
         ))
+        .add_member_function("Surface", [](GeomAPI_PointsToBSplineSurface const& self) -> opencascade::handle<Geom_BSplineSurface> { return self.Surface(); })
         .add_member_function("IsDone", [](GeomAPI_PointsToBSplineSurface const& self) -> Standard_Boolean { return self.IsDone(); });
     ns.register_type<GeomAPI_ProjectPointOnCurve, sol::automagic_flags::none>("GeomAPI_ProjectPointOnCurve")
         .add_constructors(

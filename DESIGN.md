@@ -777,16 +777,17 @@ going green on this fix.
 
 ## Step 6.5: example recipes, and a real gap between recipe-level and module-level dynamic dispatch
 
-`examples/cavity_model.grr.yml` and `examples/tank_model.grr.yml` (see
-`examples/README.md`) port legacy grocc's own recipes of the same name to the new
-`grunk::recipe` YAML+Lua format, sharing one small pure-Lua grunk plugin
-(`examples/plugins/occt_helpers.lua`, declared explicitly in each recipe/
-sub-recipe's own `uses:` block - see `examples/README.md`'s "Why a plugin, not a
-shared module" for why it's a plugin rather than a module registered ambiently by
-the runner) loaded by `examples/run_example.py` (grunk's Python bindings - no
-bundled `ctest` integration coverage for this script, since building grunk's
-Python bindings isn't currently part of `grunk-occt`'s own CMake/pixi setup).
-Getting there needed:
+`examples/cavity_model.grr.yml`, `examples/20241017.grr.yml`, and
+`examples/tank_model.grr.yml` (see `examples/README.md`) port legacy grocc's own
+recipes of the same name to the new `grunk::recipe` YAML+Lua format, sharing one
+small pure-Lua grunk plugin (`examples/plugins/occt_helpers.lua`, declared
+explicitly in each recipe/sub-recipe's own `uses:` block - see `examples/README.md`'s
+"Why a plugin, not a shared module" for why it's a plugin rather than a module
+registered ambiently by the runner) loaded by `examples/run_example.py` (grunk's
+Python bindings - no bundled `ctest` integration coverage for this script, since
+building grunk's Python bindings isn't currently part of `grunk-occt`'s own
+CMake/pixi setup). Getting `cavity_model.grr.yml`/`tank_model.grr.yml` there
+needed:
 
 - **Widening `brepbuilderapi`/`brepprimapi`/`brepalgoapi`/`gc` to whole-module
   wildcards** (matching legacy grocc's own config, same pattern as `brepoffsetapi`/
@@ -822,6 +823,24 @@ Getting there needed:
   arc, build the edge from it, return only the finished `TopoDS_Edge`), so the
   Handle upcast happens inside plain C++, never crossing into sol2's argument
   matching at all.
+
+`examples/20241017.grr.yml` (ported later, once `cavity_model.grr.yml`/
+`tank_model.grr.yml` were already working) needed no new *module* - every OCCT
+class/method it uses was already covered by the module-level work above - just two
+small additions:
+
+- **`occt.acos`/`occt.tan`** (`src/math_extras.hpp`) - this recipe's own
+  `angle_diff_stator` formula needs both; only `cos`/`sin`/`sqrt`/`pi` existed
+  before.
+- **`occt_helpers.comp_solid`** (`examples/plugins/occt_helpers.lua`) - this
+  recipe groups its two revolved sectors into a `TopoDS_CompSolid` (meant to be
+  fused with the cylinders as one connected solid), not a `TopoDS_Compound` (an
+  unstructured group) the way `tank_model.grr.yml`'s own `compound()` helper
+  builds. Added as its own function (`BRep_Builder::MakeCompSolid` instead of
+  `MakeCompound`, same `IsNull()` guard, same reason for it) rather than
+  generalizing `compound()` to take the container type as a parameter - matches
+  this file's own established style of small, explicit, near-duplicate helpers
+  (`translate`/`rotate`/`mirror_point` already are) over a shared abstraction.
 
 ### Recipe-level dynamic dispatch does not walk `add_bases<...>()` - module-level dispatch does
 
@@ -942,12 +961,13 @@ dynamic-dispatch design, not anything OCCT-specific, so it belongs in `grunk`
 itself, not here.
 
 **grunk-occt follow-up reminder, once #285 lands**: revisit
-`examples/cavity_model.grr.yml`/`examples/tank_model.grr.yml`/`examples/plugins/
-occt_helpers.lua` and drop the now-unnecessary
-`:as(occt.BRepBuilderAPI_MakeShape):Shape()`-style casts sprinkled through both -
-they'll still work (an explicit `:as()` never becomes *wrong*, just redundant once
-`add_bases<...>()` is walked automatically), but the plain `:Shape()` form will be
-simpler and match every other colon-call in these recipes. Not urgent, not
+`examples/cavity_model.grr.yml`/`examples/20241017.grr.yml`/
+`examples/tank_model.grr.yml`/`examples/plugins/occt_helpers.lua` and drop the
+now-unnecessary `:as(occt.BRepBuilderAPI_MakeShape):Shape()`-style casts sprinkled
+through all three recipes - they'll still work (an explicit `:as()` never becomes
+*wrong*, just redundant once `add_bases<...>()` is walked automatically), but the
+plain `:Shape()` form will be simpler and match every other colon-call in these
+recipes. Not urgent, not
 blocking anything - purely a cleanup once the upstream fix is available.
 
 Not filed as a grunk issue - both behaviors are grunk's own documented, deliberate
@@ -961,12 +981,81 @@ See `examples/README.md`'s own note: both are large (1800+ line), auto-exported
 parameter dumps (already characterized that way in
 `reference/legacy-recipes/README.md`, from before this milestone started), not
 hand-authored recipes - a poor fit for hand-porting, and explicitly called out as
-"not useful as documentation" rather than silently dropped. `cavity_model.grr.yml`/
-`tank_model.grr.yml` already exercise every module either fuel recipe would add
-(`gp`, `geom`/`gc`, `topods`, `brep`, `brepbuilderapi`, `brepprimapi`,
-`brepalgoapi`, `message_progress`) plus sub-recipes 3 levels deep and a shared
-module - the documentation/integration-test goals of this milestone are already
-met without them.
+"not useful as documentation" rather than silently dropped, per an explicit
+decision not to port them (or anything else) further. `cavity_model.grr.yml`/
+`20241017.grr.yml`/`tank_model.grr.yml` already exercise every module either fuel
+recipe would add (`gp`, `geom`/`gc`, `topods`, `brep`, `brepbuilderapi`,
+`brepprimapi`, `brepalgoapi`, `message_progress`) plus sub-recipes 3 levels deep
+and a shared module - the documentation/integration-test goals of this milestone
+are already met without them.
+
+### Step 6.5 coverage audit
+
+Once the three example recipes above were ported, working, and tested, a
+follow-up pass (prompted by: "do another pass on all reference recipes in
+grunk-occt as well as the recipes in the grunk example directory for possible
+occt features that still need binding... it would be great if the binding is
+complete enough to map the functionality of all of the legacy grunk examples")
+went further than the module-level claim above: every distinct `!<grocc::...>`
+tag in `fuel_D150.grr`/`fuelsystem.grr.yml` (not ported, but still audited - see
+above), plus six more `grocc`+`tigl`/`geo` recipes that were excluded from
+`reference/legacy-recipes/` entirely (see that directory's own README) because
+they need plugins beyond `grunk-occt`'s own scope - `CPACS_wingbox.grr.yml`,
+`seat_model.grr.yml`, `load_carrier.grr`,
+`wing_fuselage_configuration/{fused_wing_fuselage,solid_fuselage,solid_wing}.grr`,
+`hello_world/box.grr.yml`, `wingBody/wing_body.grr.yml` (fetched fresh from
+grunk's own `seat_example`/`tigl_wingbox_and_fuel_system_example`/
+`wingbody_example` branches for this audit, not checked into this repo - only
+their `grocc`/OCCT-only symbol usage matters here, `tigl::`/`geo::` tags are out
+of scope) - was checked class-by-class, method-by-method against what
+`generated/*.cpp`/`src/**/*.hpp` actually register.
+
+**Result**: `fuel_D150.grr`/`fuelsystem.grr.yml` themselves needed nothing new -
+every symbol they use (`TColgp_Array1OfPnt`+`SetValue`+`Handle_Geom_BezierCurve`,
+`BRepOffsetAPI_MakePipe`, `BRepOffsetAPI_ThruSections`+`AddWire`, `gp_Circ`,
+`BRepBuilderAPI_MakeWire`+`Add`, ...) already maps onto already-registered
+functionality. Two real gaps turned up, both in the excluded
+`tigl`/`geo`-adjacent recipes, both now fixed:
+
+- **`Geom_BSplineSurface`** (needed for `ExchangeUV` in
+  `fused_wing_fuselage.grr`/`solid_fuselage.grr`/`solid_wing.grr`) and
+  **`Geom_BezierSurface`** (needed for `wing_body.grr.yml`'s own
+  `Handle_Geom_BezierSurface`) were not registered at all - the surface-side
+  counterparts of the already-registered `Geom_BSplineCurve`/`Geom_BezierCurve`.
+  Added to the `geom` module (`Geom_Surface`/`Geom_BoundedSurface` as the base
+  classes first, matching the existing curve-chain convention) - their own
+  constructors needed no new generator machinery at all, reusing `to_array2`/
+  `to_real_array2` (`src/collections.hpp`) exactly the way
+  `GeomAPI_PointsToBSplineSurface::Interpolate` already does (`tests/
+  test_geomapi.cpp`). Verified with two new tests (`tests/test_geom.cpp`,
+  `BSplineSurfaceExchangeUVSwapsParameters`/`BezierSurfaceFromPoleGridExchangeUV`)
+  checking `ExchangeUV`'s own defining property directly (`Value(u,v)` after
+  equals `Value(v,u)` before, on an asymmetric pole grid), not just that it runs.
+- **`gp_GTrsf2d.hxx`** needed adding to the `geom` module's own
+  `extra_includes` - `Geom_Surface::ParametricTransformation` returns
+  `gp_GTrsf2d` by value, only forward-declared (`friend class gp_GTrsf2d;` in
+  `gp_Mat2d.hxx`) by anything the module already included - same "return/take by
+  value but only forward-declared" story as `gp_Lin`/`gp_Circ`/`gp_Ax2` before
+  it.
+- **Registering `Geom_Surface` newly type-accepted two functions in *other*
+  modules that return `Handle(Geom_Surface)`** - `BRep_Tool::Surface` (`brep`)
+  and `BRepFilletAPI_MakeFillet::ComputedSurface` (`brepfilletapi`), both
+  previously rejected outright ("unsupported return type") since Geom_Surface
+  wasn't a registered type at all. Hit exactly the known
+  `Handle(X)-returning-code-only-compiles-in-X's-own-translation-unit` issue
+  `codegen/config.yml`'s own `translation_units` comment already documents and
+  warns to watch for - fixed the documented way, adding `brep`/`brepfilletapi`
+  to the `[gc, geom, geomapi]` group rather than blacklisting either function (a
+  first attempt did blacklist `BRep_Tool::Surface` before this was recognized as
+  the same already-solved problem, then reverted once it was).
+
+Everything else checked across all 8 files was already covered - some only
+after checking more carefully than a first grep suggested: `BRep_Builder::
+MakeShell`/`MakeSolid` initially looked unregistered, but both live on the base
+`TopoDS_Builder`, reachable via `BRep_Builder`'s own already-established
+`add_bases<TopoDS_Builder>()` (see this section's own earlier note on that).
+No ambiguous/unmapped symbols turned up - every `grocc::` tag across all 8 files
+resolved cleanly to a real OCCT class/method name.
 
 ### Default-argument expansion
 

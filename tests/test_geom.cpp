@@ -220,3 +220,95 @@ TEST_F(GeomTest, BSplineCurveFromExplicitKnotsAndMultiplicities)
     EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fy")), 4.0);
     EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("fz")), 0.0);
 }
+
+// Step 6.5 coverage audit (see ../DESIGN.md): Geom_BSplineSurface/Geom_BezierSurface
+// - the surface-side counterparts of Geom_BSplineCurve/Geom_BezierCurve above -
+// needed for legacy grocc's own fused_wing_fuselage.grr/solid_fuselage.grr/
+// solid_wing.grr (ExchangeUV) and wing_body.grr.yml (Handle(Geom_BezierSurface)).
+// Also what pulled BRep_Tool::Surface/BRepFilletAPI_MakeFillet::ComputedSurface
+// (both return Handle(Geom_Surface), previously rejected outright with
+// Geom_Surface unregistered) into codegen/config.yml's translation_units group
+// alongside geom - see that config's own comment.
+//
+// Verifies ExchangeUV's own defining property directly, not just that it runs
+// without error: Value(u,v) after exchange must equal Value(v,u) before it, for
+// an asymmetric surface (every pole distinct) where a mixed-up U/V would produce
+// a visibly different point. A degree-1 (bilinear) 2x2-pole patch is the smallest
+// surface that has genuinely distinct U/V directions to swap.
+TEST_F(GeomTest, BSplineSurfaceExchangeUVSwapsParameters)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        p00 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+        p01 = occt.gp_Pnt.new(1.0, 0.0, 0.0)
+        p10 = occt.gp_Pnt.new(0.0, 1.0, 5.0)
+        p11 = occt.gp_Pnt.new(1.0, 1.0, 5.0)
+        poles = occt.gp_Pnt.as_vec(p00, p01, p10, p11)
+        knots = occt.real_vec(0.0, 1.0)
+        mults = occt.int_vec(2, 2)
+
+        surface = occt.Geom_BSplineSurface.new(poles, 2, 2, knots, knots, mults, mults, 1, 1)
+
+        before_01 = surface:Value(0.0, 1.0)
+        before_01_x = before_01:X(); before_01_y = before_01:Y(); before_01_z = before_01:Z()
+
+        surface:ExchangeUV()
+
+        after_10 = surface:Value(1.0, 0.0)
+        after_10_x = after_10:X(); after_10_y = after_10:Y(); after_10_z = after_10:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("after_10_x")),
+        occt_plugin::to_double(env.get<sol::object>("before_01_x"))
+    );
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("after_10_y")),
+        occt_plugin::to_double(env.get<sol::object>("before_01_y"))
+    );
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("after_10_z")),
+        occt_plugin::to_double(env.get<sol::object>("before_01_z"))
+    );
+}
+
+// Handle(Geom_BezierSurface) construction from a 2D grid of poles (the same
+// to_array2 convention BSplineSurfaceExchangeUVSwapsParameters above exercises
+// for Geom_BSplineSurface) - wing_body.grr.yml's own need - plus its own
+// ExchangeUV, confirmed the same way.
+TEST_F(GeomTest, BezierSurfaceFromPoleGridExchangeUV)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        p00 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+        p01 = occt.gp_Pnt.new(1.0, 0.0, 0.0)
+        p10 = occt.gp_Pnt.new(0.0, 1.0, 5.0)
+        p11 = occt.gp_Pnt.new(1.0, 1.0, 5.0)
+        poles = occt.gp_Pnt.as_vec(p00, p01, p10, p11)
+
+        surface = occt.Geom_BezierSurface.new(poles, 2, 2)
+
+        before_01 = surface:Value(0.0, 1.0)
+        before_01_x = before_01:X(); before_01_y = before_01:Y(); before_01_z = before_01:Z()
+
+        surface:ExchangeUV()
+
+        after_10 = surface:Value(1.0, 0.0)
+        after_10_x = after_10:X(); after_10_y = after_10:Y(); after_10_z = after_10:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("after_10_x")),
+        occt_plugin::to_double(env.get<sol::object>("before_01_x"))
+    );
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("after_10_y")),
+        occt_plugin::to_double(env.get<sol::object>("before_01_y"))
+    );
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("after_10_z")),
+        occt_plugin::to_double(env.get<sol::object>("before_01_z"))
+    );
+}

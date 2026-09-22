@@ -37,10 +37,17 @@
 # here immediately if a similar no-match-for-operator</operator== compile error
 # ever appears after adding a new module - it means that module returns some other
 # module's Handle(X) type too.
+#
+# brep/brepfilletapi joined this group for exactly that reason (Step 6.5 coverage
+# audit): registering Geom_Surface (geom module, for Geom_BSplineSurface's own
+# ExchangeUV) newly type-accepted BRep_Tool::Surface (brep) and
+# BRepFilletAPI_MakeFillet::ComputedSurface (brepfilletapi), both of which return
+# Handle(Geom_Surface) - previously rejected outright (Geom_Surface wasn't a
+# registered type at all), so this never came up before.
 translation_units:
   mode: separate
   groups:
-    - [gc, geom, geomapi]
+    - [gc, geom, geomapi, brep, brepfilletapi]
 
 modules:
   - name: gp
@@ -110,16 +117,37 @@ modules:
       - Geom_TrimmedCurve.hxx
       - Geom_Conic.hxx
       - Geom_Circle.hxx
+      # Geom_Surface/Geom_BoundedSurface base classes, then Geom_BSplineSurface/
+      # Geom_BezierSurface - the surface-side counterparts of Geom_Curve/
+      # Geom_BoundedCurve/Geom_BSplineCurve/Geom_BezierCurve above, added for
+      # ../../DESIGN.md's "Step 6.5 coverage audit": legacy grocc's own
+      # fused_wing_fuselage.grr/solid_fuselage.grr/solid_wing.grr need
+      # Geom_BSplineSurface::ExchangeUV, wing_body.grr.yml needs
+      # Handle(Geom_BezierSurface) (constructed from a 2D grid of poles - the same
+      # to_array2/to_real_array2 flat-vector-plus-dims convention
+      # GeomAPI_PointsToBSplineSurface's own Interpolate already exercises, see
+      # tests/test_geomapi.cpp). Neither surface class was reachable from Lua
+      # before this - GeomAPI_PointsToBSplineSurface::Surface() returns
+      # Handle(Geom_BSplineSurface), but nothing needed to call a method on the
+      # result until now, so the unregistered type never came up.
+      - Geom_Surface.hxx
+      - Geom_BoundedSurface.hxx
+      - Geom_BSplineSurface.hxx
+      - Geom_BezierSurface.hxx
     # extra_includes: needed once the gp module's own wildcard expansion (Step 6)
     # registered gp_Lin/gp_Circ/gp_Ax2 - several Geom_* methods return/take them by
     # value (Geom_Line::Lin, Geom_Circle::Circ, Geom_Conic::SetAxis/Position, ...),
     # newly accepted now that those types are registered, but this module's own
     # headers only forward-declare them (e.g. Geom_Line.hxx's `class gp_Lin;`) -
-    # same reasoning as bnd/brep/breptools/toploc's own extra_includes.
+    # same reasoning as bnd/brep/breptools/toploc's own extra_includes. gp_GTrsf2d
+    # is the same story for Geom_Surface::ParametricTransformation (Step 6.5
+    # coverage audit, added alongside Geom_Surface itself) - gp_Mat2d.hxx (already
+    # transitively included) only forward-declares it (`friend class gp_GTrsf2d;`).
     extra_includes:
       - gp_Lin.hxx
       - gp_Circ.hxx
       - gp_Ax2.hxx
+      - gp_GTrsf2d.hxx
 
   - name: message_progress
     # Message_ProgressRange appears as a defaulted parameter across a large swath of
@@ -329,7 +357,11 @@ modules:
     # Vertex/Wire/Shell/Solid/CompSolid/Compound (sufficient for their own
     # reference/pointer-only usage) - sol2's usertype binding needs the complete
     # definitions, same reasoning as bnd's own extra_includes above.
-    # No blacklist entries - nothing accepted here needed excluding.
+    # No blacklist entries - nothing accepted here needs excluding. BRep_Tool::
+    # Surface returns Handle(Geom_Surface) - see translation_units's own comment
+    # above (Step 6.5 coverage audit) for why this module needed to join the
+    # [gc, geom, geomapi] translation-unit group once Geom_Surface itself became
+    # a registered type.
     headers:
       - BRep_Builder.hxx
       - BRep_Tool.hxx
