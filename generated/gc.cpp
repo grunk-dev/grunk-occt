@@ -46,13 +46,9 @@ void register_gc(grunk::plugin_namespace& ns)
 {
     ns.register_type<GC_MakeArcOfCircle, sol::automagic_flags::none>("GC_MakeArcOfCircle")
         .add_constructors(
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Circ & Circ, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
-#else
-            [](const gp_Circ & Circ, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, Alpha1, Alpha2, Sense); }
-#endif
-        ,
+            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeArcOfCircle(P1, P2, P3); },
+            [](const gp_Pnt & P1, const gp_Vec & V, const gp_Pnt & P2) { return GC_MakeArcOfCircle(P1, V, P2); },
+            [](const gp_Circ & Circ, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, P1, P2, Sense); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Circ & Circ, const gp_Pnt & P, sol::object Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, P, occt_plugin::to_real(Alpha), Sense); }
@@ -60,21 +56,19 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Circ & Circ, const gp_Pnt & P, const Standard_Real Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, P, Alpha, Sense); }
 #endif
         ,
-            [](const gp_Circ & Circ, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, P1, P2, Sense); },
-            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeArcOfCircle(P1, P2, P3); },
-            [](const gp_Pnt & P1, const gp_Vec & V, const gp_Pnt & P2) { return GC_MakeArcOfCircle(P1, V, P2); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Circ & Circ, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
+#else
+            [](const gp_Circ & Circ, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfCircle(Circ, Alpha1, Alpha2, Sense); }
+#endif
+        
         )
         .add_member_function("Value", [](GC_MakeArcOfCircle const& self) -> opencascade::handle<Geom_TrimmedCurve> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeArcOfEllipse, sol::automagic_flags::none>("GC_MakeArcOfEllipse")
         .add_constructors(
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Elips & Elips, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
-#else
-            [](const gp_Elips & Elips, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, Alpha1, Alpha2, Sense); }
-#endif
-        ,
+            [](const gp_Elips & Elips, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, P1, P2, Sense); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Elips & Elips, const gp_Pnt & P, sol::object Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, P, occt_plugin::to_real(Alpha), Sense); }
@@ -82,19 +76,19 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Elips & Elips, const gp_Pnt & P, const Standard_Real Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, P, Alpha, Sense); }
 #endif
         ,
-            [](const gp_Elips & Elips, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, P1, P2, Sense); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Elips & Elips, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
+#else
+            [](const gp_Elips & Elips, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfEllipse(Elips, Alpha1, Alpha2, Sense); }
+#endif
+        
         )
         .add_member_function("Value", [](GC_MakeArcOfEllipse const& self) -> opencascade::handle<Geom_TrimmedCurve> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeArcOfHyperbola, sol::automagic_flags::none>("GC_MakeArcOfHyperbola")
         .add_constructors(
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Hypr & Hypr, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
-#else
-            [](const gp_Hypr & Hypr, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, Alpha1, Alpha2, Sense); }
-#endif
-        ,
+            [](const gp_Hypr & Hypr, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, P1, P2, Sense); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Hypr & Hypr, const gp_Pnt & P, sol::object Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, P, occt_plugin::to_real(Alpha), Sense); }
@@ -102,19 +96,19 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Hypr & Hypr, const gp_Pnt & P, const Standard_Real Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, P, Alpha, Sense); }
 #endif
         ,
-            [](const gp_Hypr & Hypr, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, P1, P2, Sense); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Hypr & Hypr, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
+#else
+            [](const gp_Hypr & Hypr, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfHyperbola(Hypr, Alpha1, Alpha2, Sense); }
+#endif
+        
         )
         .add_member_function("Value", [](GC_MakeArcOfHyperbola const& self) -> opencascade::handle<Geom_TrimmedCurve> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeArcOfParabola, sol::automagic_flags::none>("GC_MakeArcOfParabola")
         .add_constructors(
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Parab & Parab, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
-#else
-            [](const gp_Parab & Parab, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, Alpha1, Alpha2, Sense); }
-#endif
-        ,
+            [](const gp_Parab & Parab, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, P1, P2, Sense); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Parab & Parab, const gp_Pnt & P, sol::object Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, P, occt_plugin::to_real(Alpha), Sense); }
@@ -122,13 +116,20 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Parab & Parab, const gp_Pnt & P, const Standard_Real Alpha, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, P, Alpha, Sense); }
 #endif
         ,
-            [](const gp_Parab & Parab, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, P1, P2, Sense); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Parab & Parab, sol::object Alpha1, sol::object Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, occt_plugin::to_real(Alpha1), occt_plugin::to_real(Alpha2), Sense); }
+#else
+            [](const gp_Parab & Parab, const Standard_Real Alpha1, const Standard_Real Alpha2, const Standard_Boolean Sense) { return GC_MakeArcOfParabola(Parab, Alpha1, Alpha2, Sense); }
+#endif
+        
         )
         .add_member_function("Value", [](GC_MakeArcOfParabola const& self) -> opencascade::handle<Geom_TrimmedCurve> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeCircle, sol::automagic_flags::none>("GC_MakeCircle")
         .add_constructors(
             [](const gp_Circ & C) { return GC_MakeCircle(C); },
+            [](const gp_Circ & Circ, const gp_Pnt & Point) { return GC_MakeCircle(Circ, Point); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & A2, sol::object Radius) { return GC_MakeCircle(A2, occt_plugin::to_real(Radius)); }
@@ -143,7 +144,13 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Circ & Circ, const Standard_Real Dist) { return GC_MakeCircle(Circ, Dist); }
 #endif
         ,
-            [](const gp_Circ & Circ, const gp_Pnt & Point) { return GC_MakeCircle(Circ, Point); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax1 & Axis, sol::object Radius) { return GC_MakeCircle(Axis, occt_plugin::to_real(Radius)); }
+#else
+            [](const gp_Ax1 & Axis, const Standard_Real Radius) { return GC_MakeCircle(Axis, Radius); }
+#endif
+        ,
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeCircle(P1, P2, P3); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -158,19 +165,13 @@ void register_gc(grunk::plugin_namespace& ns)
 #else
             [](const gp_Pnt & Center, const gp_Pnt & PtAxis, const Standard_Real Radius) { return GC_MakeCircle(Center, PtAxis, Radius); }
 #endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax1 & Axis, sol::object Radius) { return GC_MakeCircle(Axis, occt_plugin::to_real(Radius)); }
-#else
-            [](const gp_Ax1 & Axis, const Standard_Real Radius) { return GC_MakeCircle(Axis, Radius); }
-#endif
         
         )
         .add_member_function("Value", [](GC_MakeCircle const& self) -> opencascade::handle<Geom_Circle> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeConicalSurface, sol::automagic_flags::none>("GC_MakeConicalSurface")
         .add_constructors(
+            [](const gp_Cone & C) { return GC_MakeConicalSurface(C); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & A2, sol::object Ang, sol::object Radius) { return GC_MakeConicalSurface(A2, occt_plugin::to_real(Ang), occt_plugin::to_real(Radius)); }
@@ -178,7 +179,6 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Ax2 & A2, const Standard_Real Ang, const Standard_Real Radius) { return GC_MakeConicalSurface(A2, Ang, Radius); }
 #endif
         ,
-            [](const gp_Cone & C) { return GC_MakeConicalSurface(C); },
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3, const gp_Pnt & P4) { return GC_MakeConicalSurface(P1, P2, P3, P4); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -191,6 +191,9 @@ void register_gc(grunk::plugin_namespace& ns)
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeCylindricalSurface, sol::automagic_flags::none>("GC_MakeCylindricalSurface")
         .add_constructors(
+            [](const gp_Cylinder & C) { return GC_MakeCylindricalSurface(C); },
+            [](const gp_Circ & Circ) { return GC_MakeCylindricalSurface(Circ); },
+            [](const gp_Cylinder & Cyl, const gp_Pnt & Point) { return GC_MakeCylindricalSurface(Cyl, Point); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & A2, sol::object Radius) { return GC_MakeCylindricalSurface(A2, occt_plugin::to_real(Radius)); }
@@ -198,8 +201,6 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Ax2 & A2, const Standard_Real Radius) { return GC_MakeCylindricalSurface(A2, Radius); }
 #endif
         ,
-            [](const gp_Cylinder & C) { return GC_MakeCylindricalSurface(C); },
-            [](const gp_Cylinder & Cyl, const gp_Pnt & Point) { return GC_MakeCylindricalSurface(Cyl, Point); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Cylinder & Cyl, sol::object Dist) { return GC_MakeCylindricalSurface(Cyl, occt_plugin::to_real(Dist)); }
@@ -207,7 +208,6 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Cylinder & Cyl, const Standard_Real Dist) { return GC_MakeCylindricalSurface(Cyl, Dist); }
 #endif
         ,
-            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeCylindricalSurface(P1, P2, P3); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax1 & Axis, sol::object Radius) { return GC_MakeCylindricalSurface(Axis, occt_plugin::to_real(Radius)); }
@@ -215,33 +215,33 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Ax1 & Axis, const Standard_Real Radius) { return GC_MakeCylindricalSurface(Axis, Radius); }
 #endif
         ,
-            [](const gp_Circ & Circ) { return GC_MakeCylindricalSurface(Circ); }
+            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeCylindricalSurface(P1, P2, P3); }
         )
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeEllipse, sol::automagic_flags::none>("GC_MakeEllipse")
         .add_constructors(
             [](const gp_Elips & E) { return GC_MakeEllipse(E); },
+            [](const gp_Pnt & S1, const gp_Pnt & S2, const gp_Pnt & Center) { return GC_MakeEllipse(S1, S2, Center); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & A2, sol::object MajorRadius, sol::object MinorRadius) { return GC_MakeEllipse(A2, occt_plugin::to_real(MajorRadius), occt_plugin::to_real(MinorRadius)); }
 #else
             [](const gp_Ax2 & A2, const Standard_Real MajorRadius, const Standard_Real MinorRadius) { return GC_MakeEllipse(A2, MajorRadius, MinorRadius); }
 #endif
-        ,
-            [](const gp_Pnt & S1, const gp_Pnt & S2, const gp_Pnt & Center) { return GC_MakeEllipse(S1, S2, Center); }
+        
         )
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeHyperbola, sol::automagic_flags::none>("GC_MakeHyperbola")
         .add_constructors(
             [](const gp_Hypr & H) { return GC_MakeHyperbola(H); },
+            [](const gp_Pnt & S1, const gp_Pnt & S2, const gp_Pnt & Center) { return GC_MakeHyperbola(S1, S2, Center); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & A2, sol::object MajorRadius, sol::object MinorRadius) { return GC_MakeHyperbola(A2, occt_plugin::to_real(MajorRadius), occt_plugin::to_real(MinorRadius)); }
 #else
             [](const gp_Ax2 & A2, const Standard_Real MajorRadius, const Standard_Real MinorRadius) { return GC_MakeHyperbola(A2, MajorRadius, MinorRadius); }
 #endif
-        ,
-            [](const gp_Pnt & S1, const gp_Pnt & S2, const gp_Pnt & Center) { return GC_MakeHyperbola(S1, S2, Center); }
+        
         )
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeLine, sol::automagic_flags::none>("GC_MakeLine")
@@ -259,21 +259,15 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Pnt & Point) { return GC_MakeMirror(Point); },
             [](const gp_Ax1 & Axis) { return GC_MakeMirror(Axis); },
             [](const gp_Lin & Line) { return GC_MakeMirror(Line); },
-            [](const gp_Pnt & Point, const gp_Dir & Direc) { return GC_MakeMirror(Point, Direc); },
             [](const gp_Pln & Plane) { return GC_MakeMirror(Plane); },
-            [](const gp_Ax2 & Plane) { return GC_MakeMirror(Plane); }
+            [](const gp_Ax2 & Plane) { return GC_MakeMirror(Plane); },
+            [](const gp_Pnt & Point, const gp_Dir & Direc) { return GC_MakeMirror(Point, Direc); }
         );
     ns.register_type<GC_MakePlane, sol::automagic_flags::none>("GC_MakePlane")
         .add_constructors(
             [](const gp_Pln & Pl) { return GC_MakePlane(Pl); },
+            [](const gp_Ax1 & Axis) { return GC_MakePlane(Axis); },
             [](const gp_Pnt & P, const gp_Dir & V) { return GC_MakePlane(P, V); },
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object A, sol::object B, sol::object C, sol::object D) { return GC_MakePlane(occt_plugin::to_real(A), occt_plugin::to_real(B), occt_plugin::to_real(C), occt_plugin::to_real(D)); }
-#else
-            [](const Standard_Real A, const Standard_Real B, const Standard_Real C, const Standard_Real D) { return GC_MakePlane(A, B, C, D); }
-#endif
-        ,
             [](const gp_Pln & Pln, const gp_Pnt & Point) { return GC_MakePlane(Pln, Point); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -283,7 +277,13 @@ void register_gc(grunk::plugin_namespace& ns)
 #endif
         ,
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakePlane(P1, P2, P3); },
-            [](const gp_Ax1 & Axis) { return GC_MakePlane(Axis); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object A, sol::object B, sol::object C, sol::object D) { return GC_MakePlane(occt_plugin::to_real(A), occt_plugin::to_real(B), occt_plugin::to_real(C), occt_plugin::to_real(D)); }
+#else
+            [](const Standard_Real A, const Standard_Real B, const Standard_Real C, const Standard_Real D) { return GC_MakePlane(A, B, C, D); }
+#endif
+        
         )
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeRotation, sol::automagic_flags::none>("GC_MakeRotation")
@@ -323,13 +323,7 @@ void register_gc(grunk::plugin_namespace& ns)
     ns.register_type<GC_MakeSegment, sol::automagic_flags::none>("GC_MakeSegment")
         .add_constructors(
             [](const gp_Pnt & P1, const gp_Pnt & P2) { return GC_MakeSegment(P1, P2); },
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Lin & Line, sol::object U1, sol::object U2) { return GC_MakeSegment(Line, occt_plugin::to_real(U1), occt_plugin::to_real(U2)); }
-#else
-            [](const gp_Lin & Line, const Standard_Real U1, const Standard_Real U2) { return GC_MakeSegment(Line, U1, U2); }
-#endif
-        ,
+            [](const gp_Lin & Line, const gp_Pnt & P1, const gp_Pnt & P2) { return GC_MakeSegment(Line, P1, P2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Lin & Line, const gp_Pnt & Point, sol::object Ulast) { return GC_MakeSegment(Line, Point, occt_plugin::to_real(Ulast)); }
@@ -337,7 +331,13 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Lin & Line, const gp_Pnt & Point, const Standard_Real Ulast) { return GC_MakeSegment(Line, Point, Ulast); }
 #endif
         ,
-            [](const gp_Lin & Line, const gp_Pnt & P1, const gp_Pnt & P2) { return GC_MakeSegment(Line, P1, P2); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Lin & Line, sol::object U1, sol::object U2) { return GC_MakeSegment(Line, occt_plugin::to_real(U1), occt_plugin::to_real(U2)); }
+#else
+            [](const gp_Lin & Line, const Standard_Real U1, const Standard_Real U2) { return GC_MakeSegment(Line, U1, U2); }
+#endif
+        
         )
         .add_member_function("Value", [](GC_MakeSegment const& self) -> opencascade::handle<Geom_TrimmedCurve> { return self.Value(); })
         .add_bases<GC_Root>();
@@ -360,7 +360,6 @@ void register_gc(grunk::plugin_namespace& ns)
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeTrimmedCylinder, sol::automagic_flags::none>("GC_MakeTrimmedCylinder")
         .add_constructors(
-            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeTrimmedCylinder(P1, P2, P3); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Circ & Circ, sol::object Height) { return GC_MakeTrimmedCylinder(Circ, occt_plugin::to_real(Height)); }
@@ -368,6 +367,7 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Circ & Circ, const Standard_Real Height) { return GC_MakeTrimmedCylinder(Circ, Height); }
 #endif
         ,
+            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeTrimmedCylinder(P1, P2, P3); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax1 & A1, sol::object Radius, sol::object Height) { return GC_MakeTrimmedCylinder(A1, occt_plugin::to_real(Radius), occt_plugin::to_real(Height)); }

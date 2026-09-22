@@ -89,6 +89,21 @@ hand-written escape hatch, or a blacklist entry that's no longer warranted.
   [grunk-dev/grunk#280](https://github.com/grunk-dev/grunk/issues/280) entirely,
   since calling an overloaded method with concrete argument types is never
   ambiguous, only *taking its address* is.
+- **Overload registration order is not arbitrary** - `ambiguity_safe_overload_order()`
+  sorts each overload set (constructors, instance methods, static methods/free
+  functions) by `(arity, count of "real" kinds)` before emission, rather than
+  leaving them in libclang's own cursor-walk (= OCCT header declaration) order.
+  Found the hard way (see DESIGN.md's "sol2 overload-resolution ambiguity under
+  GRUNK_OCCT_WITH_ADOLC"): under the AD build, every `Standard_Real` parameter
+  becomes `sol::object` (needed for the AD dual-emission pattern below), which
+  also matches *any* Lua value - so an all-real overload of some arity can
+  silently shadow a same-arity, genuinely more specific one (e.g. a `gp_Ax2`-
+  taking constructor) if it happens to be registered first, since sol2 commits to
+  the first candidate whose parameter count and type checks succeed, and a
+  `sol::object` parameter's check never fails. This is exactly what broke
+  `examples/tank_model.grr.yml` under AD for an entire migration step before
+  being root-caused - not an adOCCT numerical issue, a pure binding-generation
+  bug.
 - **`Standard_Transient`/`Handle(T)` support**: a class whose ancestor chain
   includes `Standard_Transient` gets its constructors emitted as heap-allocating
   factories returning `opencascade::handle<T>` (`new T(args...)`, never a by-value

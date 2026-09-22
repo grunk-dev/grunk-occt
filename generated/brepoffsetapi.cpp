@@ -99,6 +99,8 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeDraft& self, const Standard_Boolean IsInternal) { self.SetDraft(IsInternal); }
         ))
         .add_member_function("Perform", sol::overload(
+            [](BRepOffsetAPI_MakeDraft& self, const opencascade::handle<Geom_Surface> & Surface) { self.Perform(Surface); },
+            [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape) { self.Perform(StopShape); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepOffsetAPI_MakeDraft& self, sol::object LengthMax) { self.Perform(occt_plugin::to_real(LengthMax)); }
@@ -106,9 +108,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeDraft& self, const Standard_Real LengthMax) { self.Perform(LengthMax); }
 #endif
         ,
-            [](BRepOffsetAPI_MakeDraft& self, const opencascade::handle<Geom_Surface> & Surface) { self.Perform(Surface); },
             [](BRepOffsetAPI_MakeDraft& self, const opencascade::handle<Geom_Surface> & Surface, const Standard_Boolean KeepInsideSurface) { self.Perform(Surface, KeepInsideSurface); },
-            [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape) { self.Perform(StopShape); },
             [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape, const Standard_Boolean KeepOutSide) { self.Perform(StopShape, KeepOutSide); }
         ))
         .add_member_function("Shell", [](BRepOffsetAPI_MakeDraft const& self) -> TopoDS_Shell { return self.Shell(); })
@@ -245,8 +245,8 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](const TopoDS_Wire & Spine) { return std::make_unique<BRepOffsetAPI_MakeOffset>(Spine); }
         )
         .add_member_function("Init", sol::overload(
-            [](BRepOffsetAPI_MakeOffset& self, const TopoDS_Face & Spine) { self.Init(Spine); },
-            [](BRepOffsetAPI_MakeOffset& self) { self.Init(); }
+            [](BRepOffsetAPI_MakeOffset& self) { self.Init(); },
+            [](BRepOffsetAPI_MakeOffset& self, const TopoDS_Face & Spine) { self.Init(Spine); }
         ))
         .add_member_function("SetApprox", [](BRepOffsetAPI_MakeOffset& self, const Standard_Boolean ToApprox) { self.SetApprox(ToApprox); })
         .add_member_function("AddWire", [](BRepOffsetAPI_MakeOffset& self, const TopoDS_Wire & Spine) { self.AddWire(Spine); })
@@ -324,8 +324,8 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         .add_member_function("Add", sol::overload(
             [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile) { self.Add(Profile); },
             [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const Standard_Boolean WithContact) { self.Add(Profile, WithContact); },
-            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const Standard_Boolean WithContact, const Standard_Boolean WithCorrection) { self.Add(Profile, WithContact, WithCorrection); },
             [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const TopoDS_Vertex & Location) { self.Add(Profile, Location); },
+            [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const Standard_Boolean WithContact, const Standard_Boolean WithCorrection) { self.Add(Profile, WithContact, WithCorrection); },
             [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const TopoDS_Vertex & Location, const Standard_Boolean WithContact) { self.Add(Profile, Location, WithContact); },
             [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & Profile, const TopoDS_Vertex & Location, const Standard_Boolean WithContact, const Standard_Boolean WithCorrection) { self.Add(Profile, Location, WithContact, WithCorrection); }
         ))

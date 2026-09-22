@@ -36,16 +36,16 @@ void register_bnd(grunk::plugin_namespace& ns)
         .add_member_function("Update", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](Bnd_Box& self, sol::object aXmin, sol::object aYmin, sol::object aZmin, sol::object aXmax, sol::object aYmax, sol::object aZmax) { self.Update(occt_plugin::to_real(aXmin), occt_plugin::to_real(aYmin), occt_plugin::to_real(aZmin), occt_plugin::to_real(aXmax), occt_plugin::to_real(aYmax), occt_plugin::to_real(aZmax)); }
+            [](Bnd_Box& self, sol::object X, sol::object Y, sol::object Z) { self.Update(occt_plugin::to_real(X), occt_plugin::to_real(Y), occt_plugin::to_real(Z)); }
 #else
-            [](Bnd_Box& self, const Standard_Real aXmin, const Standard_Real aYmin, const Standard_Real aZmin, const Standard_Real aXmax, const Standard_Real aYmax, const Standard_Real aZmax) { self.Update(aXmin, aYmin, aZmin, aXmax, aYmax, aZmax); }
+            [](Bnd_Box& self, const Standard_Real X, const Standard_Real Y, const Standard_Real Z) { self.Update(X, Y, Z); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](Bnd_Box& self, sol::object X, sol::object Y, sol::object Z) { self.Update(occt_plugin::to_real(X), occt_plugin::to_real(Y), occt_plugin::to_real(Z)); }
+            [](Bnd_Box& self, sol::object aXmin, sol::object aYmin, sol::object aZmin, sol::object aXmax, sol::object aYmax, sol::object aZmax) { self.Update(occt_plugin::to_real(aXmin), occt_plugin::to_real(aYmin), occt_plugin::to_real(aZmin), occt_plugin::to_real(aXmax), occt_plugin::to_real(aYmax), occt_plugin::to_real(aZmax)); }
 #else
-            [](Bnd_Box& self, const Standard_Real X, const Standard_Real Y, const Standard_Real Z) { self.Update(X, Y, Z); }
+            [](Bnd_Box& self, const Standard_Real aXmin, const Standard_Real aYmin, const Standard_Real aZmin, const Standard_Real aXmax, const Standard_Real aYmax, const Standard_Real aZmax) { self.Update(aXmin, aYmin, aZmin, aXmax, aYmax, aZmax); }
 #endif
         
         ))
@@ -113,8 +113,8 @@ void register_bnd(grunk::plugin_namespace& ns)
         .add_member_function("Add", sol::overload(
             [](Bnd_Box& self, const Bnd_Box & Other) { self.Add(Other); },
             [](Bnd_Box& self, const gp_Pnt & P) { self.Add(P); },
-            [](Bnd_Box& self, const gp_Pnt & P, const gp_Dir & D) { self.Add(P, D); },
-            [](Bnd_Box& self, const gp_Dir & D) { self.Add(D); }
+            [](Bnd_Box& self, const gp_Dir & D) { self.Add(D); },
+            [](Bnd_Box& self, const gp_Pnt & P, const gp_Dir & D) { self.Add(P, D); }
         ))
         .add_member_function("IsOut", sol::overload(
             [](Bnd_Box const& self, const gp_Pnt & P) -> Standard_Boolean { return self.IsOut(P); },

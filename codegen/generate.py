@@ -886,6 +886,48 @@ def emit_operator_lambda(c: Callable) -> str:
             f"{{ return self {c.operator_token} {c.params[0].name}; }}")
 
 
+def ambiguity_safe_overload_order(
+    overloads: list[tuple[Callable, list[str]]],
+) -> list[tuple[Callable, list[str]]]:
+    """Reorders a same-name overload set so sol2 tries the most concretely-typed
+    signature first, for each argument count.
+
+    Found the hard way (see DESIGN.md's "sol2 overload-resolution ambiguity under
+    GRUNK_OCCT_WITH_ADOLC"): under the AD build, every Standard_Real parameter's
+    own emitted C++ type is `sol::object`, not `double` - a deliberate, necessary
+    part of the AD dual-emission pattern (see emit_lambda/occt_ad_support.hpp),
+    but `sol::object` also matches *any* Lua value, including a completely
+    unrelated registered usertype (a gp_Ax2, say). sol2's own overload resolution
+    (both `.add_constructors(...)` and `sol::overload(...)` for regular methods)
+    tries candidates in the order they were registered and commits to the first
+    one whose parameter count and per-parameter type checks succeed - and since
+    `sol::object` never fails that check, an all-real overload (e.g.
+    `MakeSphere(Standard_Real R, Standard_Real angle1, Standard_Real angle2)`,
+    emitted as three `sol::object` parameters) can silently shadow a
+    same-arity, genuinely-more-specific one (`MakeSphere(gp_Ax2 const&,
+    Standard_Real R, Standard_Real angle)`) that was only ever meant to apply
+    when the first argument really is an axis. libclang's own cursor-walk order
+    (= declaration order in the OCCT header) is what originally decided
+    registration order here, with no awareness of this hazard at all - OCCT
+    itself, unsurprisingly, tends to declare the "just numbers" overload before
+    the "positioned by an axis/point" ones.
+
+    The fix: within each argument-count group (sol2 already dispatches on count
+    first, so different counts never compete), sort so a signature with *fewer*
+    "real" kinds - i.e. more parameters sol2 can actually type-check against a
+    concrete usertype, not a real-turned-sol::object stand-in - is tried before
+    one with more. A stable sort, so signatures that tie (same arity, same real
+    count) keep their original relative order rather than shuffling for no
+    reason. Harmless, not just safe, for the plain (non-AD) build too - there,
+    Standard_Real params are genuinely `double`, sol2 can already disambiguate
+    every one of these cases by real type-checking regardless of order - applying
+    the same reordering there anyway keeps one single ordering rule for both
+    build variants, rather than a second, conditional code path that only ever
+    reorders under GRUNK_OCCT_WITH_ADOLC.
+    """
+    return sorted(overloads, key=lambda ck: (len(ck[1]), ck[1].count("real")))
+
+
 def emit_callable_expr(c: Callable, kinds: list[str], ctor_mode: str) -> str:
     if c.kind == "operator":
         return emit_operator_lambda(c)
@@ -1218,6 +1260,7 @@ void register_{result.name}(grunk::plugin_namespace& ns);
                 continue  # operators always go through the instance-method loop below, never this one
             if not overloads[0][0].is_static:
                 continue
+            overloads = ambiguity_safe_overload_order(overloads)
             if len(overloads) == 1:
                 c, kinds = overloads[0]
                 fun_expr = emit_callable_expr(c, kinds, ctor_mode)
@@ -1290,7 +1333,7 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
         ctor_mode = result.ctor_mode.get(class_name, "value")
         instance_methods = {
-            method_name: overloads
+            method_name: ambiguity_safe_overload_order(overloads)
             for method_name, overloads in result.accepted_methods.get(class_name, {}).items()
             # An operator group's own overloads mix is_static=False (normal member
             # forms: self OP double, self OP self) and is_static=True (the
@@ -1304,7 +1347,7 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
         lines = [f'    ns.register_type<{class_name}, sol::automagic_flags::none>("{class_name}")']
 
-        ctors = result.accepted_ctors.get(class_name, [])
+        ctors = ambiguity_safe_overload_order(result.accepted_ctors.get(class_name, []))
         if ctors:
             ctor_exprs = [emit_callable_expr(c, kinds, ctor_mode) for c, kinds in ctors]
             lines.append("        .add_constructors(\n            " + ",\n            ".join(ctor_exprs) + "\n        )")

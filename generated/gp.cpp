@@ -151,8 +151,8 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Ax2, sol::automagic_flags::none>("gp_Ax2")
         .add_constructors(
             []() { return gp_Ax2(); },
-            [](const gp_Pnt & P, const gp_Dir & N, const gp_Dir & Vx) { return gp_Ax2(P, N, Vx); },
-            [](const gp_Pnt & P, const gp_Dir & V) { return gp_Ax2(P, V); }
+            [](const gp_Pnt & P, const gp_Dir & V) { return gp_Ax2(P, V); },
+            [](const gp_Pnt & P, const gp_Dir & N, const gp_Dir & Vx) { return gp_Ax2(P, N, Vx); }
         )
         .add_member_function("SetAxis", [](gp_Ax2& self, const gp_Ax1 & A1) { self.SetAxis(A1); })
         .add_member_function("SetDirection", [](gp_Ax2& self, const gp_Dir & V) { self.SetDirection(V); })
@@ -232,11 +232,11 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Ax22d, sol::automagic_flags::none>("gp_Ax22d")
         .add_constructors(
             []() { return gp_Ax22d(); },
-            [](const gp_Pnt2d & theP, const gp_Dir2d & theVx, const gp_Dir2d & theVy) { return gp_Ax22d(theP, theVx, theVy); },
-            [](const gp_Pnt2d & theP, const gp_Dir2d & theV) { return gp_Ax22d(theP, theV); },
-            [](const gp_Pnt2d & theP, const gp_Dir2d & theV, const Standard_Boolean theIsSense) { return gp_Ax22d(theP, theV, theIsSense); },
             [](const gp_Ax2d & theA) { return gp_Ax22d(theA); },
-            [](const gp_Ax2d & theA, const Standard_Boolean theIsSense) { return gp_Ax22d(theA, theIsSense); }
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theV) { return gp_Ax22d(theP, theV); },
+            [](const gp_Ax2d & theA, const Standard_Boolean theIsSense) { return gp_Ax22d(theA, theIsSense); },
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theVx, const gp_Dir2d & theVy) { return gp_Ax22d(theP, theVx, theVy); },
+            [](const gp_Pnt2d & theP, const gp_Dir2d & theV, const Standard_Boolean theIsSense) { return gp_Ax22d(theP, theV, theIsSense); }
         )
         .add_member_function("SetAxis", [](gp_Ax22d& self, const gp_Ax22d & theA1) { self.SetAxis(theA1); })
         .add_member_function("SetXAxis", [](gp_Ax22d& self, const gp_Ax2d & theA1) { self.SetXAxis(theA1); })
@@ -385,8 +385,8 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_constructors(
             []() { return gp_Ax3(); },
             [](const gp_Ax2 & theA) { return gp_Ax3(theA); },
-            [](const gp_Pnt & theP, const gp_Dir & theN, const gp_Dir & theVx) { return gp_Ax3(theP, theN, theVx); },
-            [](const gp_Pnt & theP, const gp_Dir & theV) { return gp_Ax3(theP, theV); }
+            [](const gp_Pnt & theP, const gp_Dir & theV) { return gp_Ax3(theP, theV); },
+            [](const gp_Pnt & theP, const gp_Dir & theN, const gp_Dir & theVx) { return gp_Ax3(theP, theN, theVx); }
         )
         .add_member_function("XReverse", [](gp_Ax3& self) { self.XReverse(); })
         .add_member_function("YReverse", [](gp_Ax3& self) { self.YReverse(); })
@@ -566,16 +566,16 @@ void register_gp(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2d & theXAxis, sol::object theRadius, const Standard_Boolean theIsSense) { return gp_Circ2d(theXAxis, occt_plugin::to_real(theRadius), theIsSense); }
+            [](const gp_Ax22d & theAxis, sol::object theRadius) { return gp_Circ2d(theAxis, occt_plugin::to_real(theRadius)); }
 #else
-            [](const gp_Ax2d & theXAxis, const Standard_Real theRadius, const Standard_Boolean theIsSense) { return gp_Circ2d(theXAxis, theRadius, theIsSense); }
+            [](const gp_Ax22d & theAxis, const Standard_Real theRadius) { return gp_Circ2d(theAxis, theRadius); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax22d & theAxis, sol::object theRadius) { return gp_Circ2d(theAxis, occt_plugin::to_real(theRadius)); }
+            [](const gp_Ax2d & theXAxis, sol::object theRadius, const Standard_Boolean theIsSense) { return gp_Circ2d(theXAxis, occt_plugin::to_real(theRadius), theIsSense); }
 #else
-            [](const gp_Ax22d & theAxis, const Standard_Real theRadius) { return gp_Circ2d(theAxis, theRadius); }
+            [](const gp_Ax2d & theXAxis, const Standard_Real theRadius, const Standard_Boolean theIsSense) { return gp_Circ2d(theXAxis, theRadius, theIsSense); }
 #endif
         
         )
@@ -1153,16 +1153,16 @@ void register_gp(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
+            [](const gp_Ax22d & theA, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Elips2d(theA, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
 #else
-            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, theMajorRadius, theMinorRadius, theIsSense); }
+            [](const gp_Ax22d & theA, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Elips2d(theA, theMajorRadius, theMinorRadius); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax22d & theA, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Elips2d(theA, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
 #else
-            [](const gp_Ax22d & theA, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Elips2d(theA, theMajorRadius, theMinorRadius); }
+            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius, const Standard_Boolean theIsSense) { return gp_Elips2d(theMajorAxis, theMajorRadius, theMinorRadius, theIsSense); }
 #endif
         
         )
@@ -1471,16 +1471,16 @@ void register_gp(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Hypr2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
+            [](const gp_Ax22d & theA, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Hypr2d(theA, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
 #else
-            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius, const Standard_Boolean theIsSense) { return gp_Hypr2d(theMajorAxis, theMajorRadius, theMinorRadius, theIsSense); }
+            [](const gp_Ax22d & theA, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Hypr2d(theA, theMajorRadius, theMinorRadius); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax22d & theA, sol::object theMajorRadius, sol::object theMinorRadius) { return gp_Hypr2d(theA, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius)); }
+            [](const gp_Ax2d & theMajorAxis, sol::object theMajorRadius, sol::object theMinorRadius, const Standard_Boolean theIsSense) { return gp_Hypr2d(theMajorAxis, occt_plugin::to_real(theMajorRadius), occt_plugin::to_real(theMinorRadius), theIsSense); }
 #else
-            [](const gp_Ax22d & theA, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius) { return gp_Hypr2d(theA, theMajorRadius, theMinorRadius); }
+            [](const gp_Ax2d & theMajorAxis, const Standard_Real theMajorRadius, const Standard_Real theMinorRadius, const Standard_Boolean theIsSense) { return gp_Hypr2d(theMajorAxis, theMajorRadius, theMinorRadius, theIsSense); }
 #endif
         
         )
@@ -1735,14 +1735,14 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Mat, sol::automagic_flags::none>("gp_Mat")
         .add_constructors(
             []() { return gp_Mat(); },
+            [](const gp_XYZ & theCol1, const gp_XYZ & theCol2, const gp_XYZ & theCol3) { return gp_Mat(theCol1, theCol2, theCol3); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](sol::object theA11, sol::object theA12, sol::object theA13, sol::object theA21, sol::object theA22, sol::object theA23, sol::object theA31, sol::object theA32, sol::object theA33) { return gp_Mat(occt_plugin::to_real(theA11), occt_plugin::to_real(theA12), occt_plugin::to_real(theA13), occt_plugin::to_real(theA21), occt_plugin::to_real(theA22), occt_plugin::to_real(theA23), occt_plugin::to_real(theA31), occt_plugin::to_real(theA32), occt_plugin::to_real(theA33)); }
 #else
             [](const Standard_Real theA11, const Standard_Real theA12, const Standard_Real theA13, const Standard_Real theA21, const Standard_Real theA22, const Standard_Real theA23, const Standard_Real theA31, const Standard_Real theA32, const Standard_Real theA33) { return gp_Mat(theA11, theA12, theA13, theA21, theA22, theA23, theA31, theA32, theA33); }
 #endif
-        ,
-            [](const gp_XYZ & theCol1, const gp_XYZ & theCol2, const gp_XYZ & theCol3) { return gp_Mat(theCol1, theCol2, theCol3); }
+        
         )
         .add_member_function("SetCol", [](gp_Mat& self, const Standard_Integer theCol, const gp_XYZ & theValue) { self.SetCol(theCol, theValue); })
         .add_member_function("SetCols", [](gp_Mat& self, const gp_XYZ & theCol1, const gp_XYZ & theCol2, const gp_XYZ & theCol3) { self.SetCols(theCol1, theCol2, theCol3); })
@@ -1936,14 +1936,14 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Parab, sol::automagic_flags::none>("gp_Parab")
         .add_constructors(
             []() { return gp_Parab(); },
+            [](const gp_Ax1 & theD, const gp_Pnt & theF) { return gp_Parab(theD, theF); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & theA2, sol::object theFocal) { return gp_Parab(theA2, occt_plugin::to_real(theFocal)); }
 #else
             [](const gp_Ax2 & theA2, const Standard_Real theFocal) { return gp_Parab(theA2, theFocal); }
 #endif
-        ,
-            [](const gp_Ax1 & theD, const gp_Pnt & theF) { return gp_Parab(theD, theF); }
+        
         )
         .add_member_function("SetAxis", [](gp_Parab& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
         .add_member_function("SetFocal", 
@@ -2015,6 +2015,7 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Parab2d, sol::automagic_flags::none>("gp_Parab2d")
         .add_constructors(
             []() { return gp_Parab2d(); },
+            [](const gp_Ax2d & theDirectrix, const gp_Pnt2d & theFocus) { return gp_Parab2d(theDirectrix, theFocus); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2d & theMirrorAxis, sol::object theFocalLength) { return gp_Parab2d(theMirrorAxis, occt_plugin::to_real(theFocalLength)); }
@@ -2024,20 +2025,19 @@ void register_gp(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2d & theMirrorAxis, sol::object theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, occt_plugin::to_real(theFocalLength), theSense); }
-#else
-            [](const gp_Ax2d & theMirrorAxis, const Standard_Real theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, theFocalLength, theSense); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax22d & theAxes, sol::object theFocalLength) { return gp_Parab2d(theAxes, occt_plugin::to_real(theFocalLength)); }
 #else
             [](const gp_Ax22d & theAxes, const Standard_Real theFocalLength) { return gp_Parab2d(theAxes, theFocalLength); }
 #endif
         ,
-            [](const gp_Ax2d & theDirectrix, const gp_Pnt2d & theFocus) { return gp_Parab2d(theDirectrix, theFocus); },
-            [](const gp_Ax2d & theDirectrix, const gp_Pnt2d & theFocus, const Standard_Boolean theSense) { return gp_Parab2d(theDirectrix, theFocus, theSense); }
+            [](const gp_Ax2d & theDirectrix, const gp_Pnt2d & theFocus, const Standard_Boolean theSense) { return gp_Parab2d(theDirectrix, theFocus, theSense); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2d & theMirrorAxis, sol::object theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, occt_plugin::to_real(theFocalLength), theSense); }
+#else
+            [](const gp_Ax2d & theMirrorAxis, const Standard_Real theFocalLength, const Standard_Boolean theSense) { return gp_Parab2d(theMirrorAxis, theFocalLength, theSense); }
+#endif
+        
         )
         .add_member_function("SetFocal", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -2254,8 +2254,8 @@ void register_gp(grunk::plugin_namespace& ns)
         )
         .add_member_function("SetXYZ", [](gp_Pnt& self, const gp_XYZ & theCoord) { self.SetXYZ(theCoord); })
         .add_member_function("Coord", sol::overload(
-            [](gp_Pnt const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); },
-            [](gp_Pnt const& self) -> const gp_XYZ & { return self.Coord(); }
+            [](gp_Pnt const& self) -> const gp_XYZ & { return self.Coord(); },
+            [](gp_Pnt const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); }
         ))
         .add_member_function("X", [](gp_Pnt const& self) -> Standard_Real { return self.X(); })
         .add_member_function("Y", [](gp_Pnt const& self) -> Standard_Real { return self.Y(); })
@@ -2363,8 +2363,8 @@ void register_gp(grunk::plugin_namespace& ns)
         )
         .add_member_function("SetXY", [](gp_Pnt2d& self, const gp_XY & theCoord) { self.SetXY(theCoord); })
         .add_member_function("Coord", sol::overload(
-            [](gp_Pnt2d const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); },
-            [](gp_Pnt2d const& self) -> const gp_XY & { return self.Coord(); }
+            [](gp_Pnt2d const& self) -> const gp_XY & { return self.Coord(); },
+            [](gp_Pnt2d const& self, const Standard_Integer theIndex) -> Standard_Real { return self.Coord(theIndex); }
         ))
         .add_member_function("X", [](gp_Pnt2d const& self) -> Standard_Real { return self.X(); })
         .add_member_function("Y", [](gp_Pnt2d const& self) -> Standard_Real { return self.Y(); })
@@ -2428,15 +2428,8 @@ void register_gp(grunk::plugin_namespace& ns)
     ns.register_type<gp_Quaternion, sol::automagic_flags::none>("gp_Quaternion")
         .add_constructors(
             []() { return gp_Quaternion(); },
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object theX, sol::object theY, sol::object theZ, sol::object theW) { return gp_Quaternion(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ), occt_plugin::to_real(theW)); }
-#else
-            [](const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ, const Standard_Real theW) { return gp_Quaternion(theX, theY, theZ, theW); }
-#endif
-        ,
+            [](const gp_Mat & theMat) { return gp_Quaternion(theMat); },
             [](const gp_Vec & theVecFrom, const gp_Vec & theVecTo) { return gp_Quaternion(theVecFrom, theVecTo); },
-            [](const gp_Vec & theVecFrom, const gp_Vec & theVecTo, const gp_Vec & theHelpCrossVec) { return gp_Quaternion(theVecFrom, theVecTo, theHelpCrossVec); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Vec & theAxis, sol::object theAngle) { return gp_Quaternion(theAxis, occt_plugin::to_real(theAngle)); }
@@ -2444,7 +2437,14 @@ void register_gp(grunk::plugin_namespace& ns)
             [](const gp_Vec & theAxis, const Standard_Real theAngle) { return gp_Quaternion(theAxis, theAngle); }
 #endif
         ,
-            [](const gp_Mat & theMat) { return gp_Quaternion(theMat); }
+            [](const gp_Vec & theVecFrom, const gp_Vec & theVecTo, const gp_Vec & theHelpCrossVec) { return gp_Quaternion(theVecFrom, theVecTo, theHelpCrossVec); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theX, sol::object theY, sol::object theZ, sol::object theW) { return gp_Quaternion(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ), occt_plugin::to_real(theW)); }
+#else
+            [](const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ, const Standard_Real theW) { return gp_Quaternion(theX, theY, theZ, theW); }
+#endif
+        
         )
         .add_member_function("IsEqual", [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> Standard_Boolean { return self.IsEqual(theOther); })
         .add_member_function("SetRotation", sol::overload(
@@ -2468,14 +2468,14 @@ void register_gp(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Set", sol::overload(
+            [](gp_Quaternion& self, const gp_Quaternion & theQuaternion) { self.Set(theQuaternion); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Quaternion& self, sol::object theX, sol::object theY, sol::object theZ, sol::object theW) { self.Set(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ), occt_plugin::to_real(theW)); }
 #else
             [](gp_Quaternion& self, const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ, const Standard_Real theW) { self.Set(theX, theY, theZ, theW); }
 #endif
-        ,
-            [](gp_Quaternion& self, const gp_Quaternion & theQuaternion) { self.Set(theQuaternion); }
+        
         ))
         .add_member_function("X", [](gp_Quaternion const& self) -> Standard_Real { return self.X(); })
         .add_member_function("Y", [](gp_Quaternion const& self) -> Standard_Real { return self.Y(); })
@@ -2503,9 +2503,9 @@ void register_gp(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function(sol::meta_function::multiplication, sol::overload(
-            [](gp_Quaternion const& self, const Standard_Real theScale) -> gp_Quaternion { return self * theScale; },
             [](gp_Quaternion const& self, const gp_Quaternion & theOther) -> gp_Quaternion { return self * theOther; },
-            [](gp_Quaternion const& self, const gp_Vec & theVec) -> gp_Vec { return self * theVec; }
+            [](gp_Quaternion const& self, const gp_Vec & theVec) -> gp_Vec { return self * theVec; },
+            [](gp_Quaternion const& self, const Standard_Real theScale) -> gp_Quaternion { return self * theScale; }
         ))
         .add_member_function("StabilizeLength", [](gp_Quaternion& self) { self.StabilizeLength(); })
         .add_member_function("Normalize", [](gp_Quaternion& self) { self.Normalize(); })
@@ -2716,14 +2716,14 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_Trsf& self, const gp_Ax2 & theA2) { self.SetMirror(theA2); }
         ))
         .add_member_function("SetRotation", sol::overload(
+            [](gp_Trsf& self, const gp_Quaternion & theR) { self.SetRotation(theR); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_Trsf& self, const gp_Ax1 & theA1, sol::object theAng) { self.SetRotation(theA1, occt_plugin::to_real(theAng)); }
 #else
             [](gp_Trsf& self, const gp_Ax1 & theA1, const Standard_Real theAng) { self.SetRotation(theA1, theAng); }
 #endif
-        ,
-            [](gp_Trsf& self, const gp_Quaternion & theR) { self.SetRotation(theR); }
+        
         ))
         .add_member_function("SetRotationPart", [](gp_Trsf& self, const gp_Quaternion & theR) { self.SetRotationPart(theR); })
         .add_member_function("SetScale", 
@@ -2735,8 +2735,8 @@ void register_gp(grunk::plugin_namespace& ns)
         )
         .add_member_function("SetDisplacement", [](gp_Trsf& self, const gp_Ax3 & theFromSystem1, const gp_Ax3 & theToSystem2) { self.SetDisplacement(theFromSystem1, theToSystem2); })
         .add_member_function("SetTransformation", sol::overload(
-            [](gp_Trsf& self, const gp_Ax3 & theFromSystem1, const gp_Ax3 & theToSystem2) { self.SetTransformation(theFromSystem1, theToSystem2); },
             [](gp_Trsf& self, const gp_Ax3 & theToSystem) { self.SetTransformation(theToSystem); },
+            [](gp_Trsf& self, const gp_Ax3 & theFromSystem1, const gp_Ax3 & theToSystem2) { self.SetTransformation(theFromSystem1, theToSystem2); },
             [](gp_Trsf& self, const gp_Quaternion & R, const gp_Vec & theT) { self.SetTransformation(R, theT); }
         ))
         .add_member_function("SetTranslation", sol::overload(
@@ -2800,8 +2800,8 @@ void register_gp(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("SetTransformation", sol::overload(
-            [](gp_Trsf2d& self, const gp_Ax2d & theFromSystem1, const gp_Ax2d & theToSystem2) { self.SetTransformation(theFromSystem1, theToSystem2); },
-            [](gp_Trsf2d& self, const gp_Ax2d & theToSystem) { self.SetTransformation(theToSystem); }
+            [](gp_Trsf2d& self, const gp_Ax2d & theToSystem) { self.SetTransformation(theToSystem); },
+            [](gp_Trsf2d& self, const gp_Ax2d & theFromSystem1, const gp_Ax2d & theToSystem2) { self.SetTransformation(theFromSystem1, theToSystem2); }
         ))
         .add_member_function("SetTranslation", sol::overload(
             [](gp_Trsf2d& self, const gp_Vec2d & theV) { self.SetTranslation(theV); },
@@ -2855,14 +2855,14 @@ void register_gp(grunk::plugin_namespace& ns)
             []() { return gp_Vec(); },
             [](const gp_Dir & theV) { return gp_Vec(theV); },
             [](const gp_XYZ & theCoord) { return gp_Vec(theCoord); },
+            [](const gp_Pnt & theP1, const gp_Pnt & theP2) { return gp_Vec(theP1, theP2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](sol::object theXv, sol::object theYv, sol::object theZv) { return gp_Vec(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv), occt_plugin::to_real(theZv)); }
 #else
             [](const Standard_Real theXv, const Standard_Real theYv, const Standard_Real theZv) { return gp_Vec(theXv, theYv, theZv); }
 #endif
-        ,
-            [](const gp_Pnt & theP1, const gp_Pnt & theP2) { return gp_Vec(theP1, theP2); }
+        
         )
         .add_member_function("SetCoord", sol::overload(
             
@@ -2960,8 +2960,8 @@ void register_gp(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function(sol::meta_function::multiplication, sol::overload(
-            [](gp_Vec const& self, const Standard_Real theScalar) -> gp_Vec { return self * theScalar; },
-            [](gp_Vec const& self, const gp_Vec & theOther) -> Standard_Real { return self * theOther; }
+            [](gp_Vec const& self, const gp_Vec & theOther) -> Standard_Real { return self * theOther; },
+            [](gp_Vec const& self, const Standard_Real theScalar) -> gp_Vec { return self * theScalar; }
         ))
         .add_member_function("Divide", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -2992,25 +2992,12 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Reversed", [](gp_Vec const& self) -> gp_Vec { return self.Reversed(); })
         .add_member_function(sol::meta_function::unary_minus, [](gp_Vec const& self) -> gp_Vec { return -self; })
         .add_member_function("SetLinearForm", sol::overload(
+            [](gp_Vec& self, const gp_Vec & theV1, const gp_Vec & theV2) { self.SetLinearForm(theV1, theV2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, sol::object theA2, const gp_Vec & theV2, sol::object theA3, const gp_Vec & theV3, const gp_Vec & theV4) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, occt_plugin::to_real(theA3), theV3, theV4); }
+            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, const gp_Vec & theV2) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, theV2); }
 #else
-            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const Standard_Real theA2, const gp_Vec & theV2, const Standard_Real theA3, const gp_Vec & theV3, const gp_Vec & theV4) { self.SetLinearForm(theA1, theV1, theA2, theV2, theA3, theV3, theV4); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, sol::object theA2, const gp_Vec & theV2, sol::object theA3, const gp_Vec & theV3) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, occt_plugin::to_real(theA3), theV3); }
-#else
-            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const Standard_Real theA2, const gp_Vec & theV2, const Standard_Real theA3, const gp_Vec & theV3) { self.SetLinearForm(theA1, theV1, theA2, theV2, theA3, theV3); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, sol::object theA2, const gp_Vec & theV2, const gp_Vec & theV3) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, theV3); }
-#else
-            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const Standard_Real theA2, const gp_Vec & theV2, const gp_Vec & theV3) { self.SetLinearForm(theA1, theV1, theA2, theV2, theV3); }
+            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const gp_Vec & theV2) { self.SetLinearForm(theA1, theV1, theV2); }
 #endif
         ,
             
@@ -3022,12 +3009,25 @@ void register_gp(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, const gp_Vec & theV2) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, theV2); }
+            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, sol::object theA2, const gp_Vec & theV2, const gp_Vec & theV3) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, theV3); }
 #else
-            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const gp_Vec & theV2) { self.SetLinearForm(theA1, theV1, theV2); }
+            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const Standard_Real theA2, const gp_Vec & theV2, const gp_Vec & theV3) { self.SetLinearForm(theA1, theV1, theA2, theV2, theV3); }
 #endif
         ,
-            [](gp_Vec& self, const gp_Vec & theV1, const gp_Vec & theV2) { self.SetLinearForm(theV1, theV2); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, sol::object theA2, const gp_Vec & theV2, sol::object theA3, const gp_Vec & theV3) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, occt_plugin::to_real(theA3), theV3); }
+#else
+            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const Standard_Real theA2, const gp_Vec & theV2, const Standard_Real theA3, const gp_Vec & theV3) { self.SetLinearForm(theA1, theV1, theA2, theV2, theA3, theV3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_Vec& self, sol::object theA1, const gp_Vec & theV1, sol::object theA2, const gp_Vec & theV2, sol::object theA3, const gp_Vec & theV3, const gp_Vec & theV4) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, occt_plugin::to_real(theA3), theV3, theV4); }
+#else
+            [](gp_Vec& self, const Standard_Real theA1, const gp_Vec & theV1, const Standard_Real theA2, const gp_Vec & theV2, const Standard_Real theA3, const gp_Vec & theV3, const gp_Vec & theV4) { self.SetLinearForm(theA1, theV1, theA2, theV2, theA3, theV3, theV4); }
+#endif
+        
         ))
         .add_member_function("Mirror", sol::overload(
             [](gp_Vec& self, const gp_Vec & theV) { self.Mirror(theV); },
@@ -3074,14 +3074,14 @@ void register_gp(grunk::plugin_namespace& ns)
             []() { return gp_Vec2d(); },
             [](const gp_Dir2d & theV) { return gp_Vec2d(theV); },
             [](const gp_XY & theCoord) { return gp_Vec2d(theCoord); },
+            [](const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { return gp_Vec2d(theP1, theP2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](sol::object theXv, sol::object theYv) { return gp_Vec2d(occt_plugin::to_real(theXv), occt_plugin::to_real(theYv)); }
 #else
             [](const Standard_Real theXv, const Standard_Real theYv) { return gp_Vec2d(theXv, theYv); }
 #endif
-        ,
-            [](const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) { return gp_Vec2d(theP1, theP2); }
+        
         )
         .add_member_function("SetCoord", sol::overload(
             
@@ -3199,11 +3199,12 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Subtracted", [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> gp_Vec2d { return self.Subtracted(theRight); })
         .add_member_function(sol::meta_function::subtraction, [](gp_Vec2d const& self, const gp_Vec2d & theRight) -> gp_Vec2d { return self - theRight; })
         .add_member_function("SetLinearForm", sol::overload(
+            [](gp_Vec2d& self, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(theV1, theV2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Vec2d& self, sol::object theA1, const gp_Vec2d & theV1, sol::object theA2, const gp_Vec2d & theV2, const gp_Vec2d & theV3) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, theV3); }
+            [](gp_Vec2d& self, sol::object theA1, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, theV2); }
 #else
-            [](gp_Vec2d& self, const Standard_Real theA1, const gp_Vec2d & theV1, const Standard_Real theA2, const gp_Vec2d & theV2, const gp_Vec2d & theV3) { self.SetLinearForm(theA1, theV1, theA2, theV2, theV3); }
+            [](gp_Vec2d& self, const Standard_Real theA1, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(theA1, theV1, theV2); }
 #endif
         ,
             
@@ -3215,12 +3216,11 @@ void register_gp(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_Vec2d& self, sol::object theA1, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, theV2); }
+            [](gp_Vec2d& self, sol::object theA1, const gp_Vec2d & theV1, sol::object theA2, const gp_Vec2d & theV2, const gp_Vec2d & theV3) { self.SetLinearForm(occt_plugin::to_real(theA1), theV1, occt_plugin::to_real(theA2), theV2, theV3); }
 #else
-            [](gp_Vec2d& self, const Standard_Real theA1, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(theA1, theV1, theV2); }
+            [](gp_Vec2d& self, const Standard_Real theA1, const gp_Vec2d & theV1, const Standard_Real theA2, const gp_Vec2d & theV2, const gp_Vec2d & theV3) { self.SetLinearForm(theA1, theV1, theA2, theV2, theV3); }
 #endif
-        ,
-            [](gp_Vec2d& self, const gp_Vec2d & theV1, const gp_Vec2d & theV2) { self.SetLinearForm(theV1, theV2); }
+        
         ))
         .add_member_function("Mirror", sol::overload(
             [](gp_Vec2d& self, const gp_Vec2d & theV) { self.Mirror(theV); },
@@ -3337,30 +3337,30 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Dot", [](gp_XY const& self, const gp_XY & theOther) -> Standard_Real { return self.Dot(theOther); })
         .add_member_function(sol::meta_function::multiplication, sol::overload(
             [](gp_XY const& self, const gp_XY & theOther) -> Standard_Real { return self * theOther; },
-            [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self * theScalar; },
-            [](gp_XY const& self, const gp_Mat2d & theMatrix) -> gp_XY { return self * theMatrix; }
+            [](gp_XY const& self, const gp_Mat2d & theMatrix) -> gp_XY { return self * theMatrix; },
+            [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self * theScalar; }
         ))
         .add_member_function("Multiply", sol::overload(
+            [](gp_XY& self, const gp_XY & theOther) { self.Multiply(theOther); },
+            [](gp_XY& self, const gp_Mat2d & theMatrix) { self.Multiply(theMatrix); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_XY& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
 #else
             [](gp_XY& self, const Standard_Real theScalar) { self.Multiply(theScalar); }
 #endif
-        ,
-            [](gp_XY& self, const gp_XY & theOther) { self.Multiply(theOther); },
-            [](gp_XY& self, const gp_Mat2d & theMatrix) { self.Multiply(theMatrix); }
+        
         ))
         .add_member_function("Multiplied", sol::overload(
+            [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Multiplied(theOther); },
+            [](gp_XY const& self, const gp_Mat2d & theMatrix) -> gp_XY { return self.Multiplied(theMatrix); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_XY const& self, sol::object theScalar) -> gp_XY { return self.Multiplied(occt_plugin::to_real(theScalar)); }
 #else
             [](gp_XY const& self, const Standard_Real theScalar) -> gp_XY { return self.Multiplied(theScalar); }
 #endif
-        ,
-            [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Multiplied(theOther); },
-            [](gp_XY const& self, const gp_Mat2d & theMatrix) -> gp_XY { return self.Multiplied(theMatrix); }
+        
         ))
         .add_member_function("Normalize", [](gp_XY& self) { self.Normalize(); })
         .add_member_function("Normalized", [](gp_XY const& self) -> gp_XY { return self.Normalized(); })
@@ -3368,6 +3368,14 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Reversed", [](gp_XY const& self) -> gp_XY { return self.Reversed(); })
         .add_member_function(sol::meta_function::unary_minus, [](gp_XY const& self) -> gp_XY { return -self; })
         .add_member_function("SetLinearForm", sol::overload(
+            [](gp_XY& self, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(theXY1, theXY2); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XY& self, sol::object theA1, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXY1, theXY2); }
+#else
+            [](gp_XY& self, const Standard_Real theA1, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(theA1, theXY1, theXY2); }
+#endif
+        ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_XY& self, sol::object theA1, const gp_XY & theXY1, sol::object theA2, const gp_XY & theXY2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXY1, occt_plugin::to_real(theA2), theXY2); }
@@ -3381,15 +3389,7 @@ void register_gp(grunk::plugin_namespace& ns)
 #else
             [](gp_XY& self, const Standard_Real theA1, const gp_XY & theXY1, const Standard_Real theA2, const gp_XY & theXY2, const gp_XY & theXY3) { self.SetLinearForm(theA1, theXY1, theA2, theXY2, theXY3); }
 #endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_XY& self, sol::object theA1, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXY1, theXY2); }
-#else
-            [](gp_XY& self, const Standard_Real theA1, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(theA1, theXY1, theXY2); }
-#endif
-        ,
-            [](gp_XY& self, const gp_XY & theXY1, const gp_XY & theXY2) { self.SetLinearForm(theXY1, theXY2); }
+        
         ))
         .add_member_function("Subtract", [](gp_XY& self, const gp_XY & theOther) { self.Subtract(theOther); })
         .add_member_function("Subtracted", [](gp_XY const& self, const gp_XY & theOther) -> gp_XY { return self.Subtracted(theOther); })
@@ -3408,16 +3408,16 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("SetCoord", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_XYZ& self, sol::object theX, sol::object theY, sol::object theZ) { self.SetCoord(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ)); }
+            [](gp_XYZ& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
 #else
-            [](gp_XYZ& self, const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ) { self.SetCoord(theX, theY, theZ); }
+            [](gp_XYZ& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_XYZ& self, const Standard_Integer theIndex, sol::object theXi) { self.SetCoord(theIndex, occt_plugin::to_real(theXi)); }
+            [](gp_XYZ& self, sol::object theX, sol::object theY, sol::object theZ) { self.SetCoord(occt_plugin::to_real(theX), occt_plugin::to_real(theY), occt_plugin::to_real(theZ)); }
 #else
-            [](gp_XYZ& self, const Standard_Integer theIndex, const Standard_Real theXi) { self.SetCoord(theIndex, theXi); }
+            [](gp_XYZ& self, const Standard_Real theX, const Standard_Real theY, const Standard_Real theZ) { self.SetCoord(theX, theY, theZ); }
 #endif
         
         ))
@@ -3482,31 +3482,31 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Dot", [](gp_XYZ const& self, const gp_XYZ & theOther) -> Standard_Real { return self.Dot(theOther); })
         .add_member_function(sol::meta_function::multiplication, sol::overload(
             [](gp_XYZ const& self, const gp_XYZ & theOther) -> Standard_Real { return self * theOther; },
-            [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self * theScalar; },
-            [](gp_XYZ const& self, const gp_Mat & theMatrix) -> gp_XYZ { return self * theMatrix; }
+            [](gp_XYZ const& self, const gp_Mat & theMatrix) -> gp_XYZ { return self * theMatrix; },
+            [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self * theScalar; }
         ))
         .add_member_function("DotCross", [](gp_XYZ const& self, const gp_XYZ & theCoord1, const gp_XYZ & theCoord2) -> Standard_Real { return self.DotCross(theCoord1, theCoord2); })
         .add_member_function("Multiply", sol::overload(
+            [](gp_XYZ& self, const gp_XYZ & theOther) { self.Multiply(theOther); },
+            [](gp_XYZ& self, const gp_Mat & theMatrix) { self.Multiply(theMatrix); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_XYZ& self, sol::object theScalar) { self.Multiply(occt_plugin::to_real(theScalar)); }
 #else
             [](gp_XYZ& self, const Standard_Real theScalar) { self.Multiply(theScalar); }
 #endif
-        ,
-            [](gp_XYZ& self, const gp_XYZ & theOther) { self.Multiply(theOther); },
-            [](gp_XYZ& self, const gp_Mat & theMatrix) { self.Multiply(theMatrix); }
+        
         ))
         .add_member_function("Multiplied", sol::overload(
+            [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Multiplied(theOther); },
+            [](gp_XYZ const& self, const gp_Mat & theMatrix) -> gp_XYZ { return self.Multiplied(theMatrix); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_XYZ const& self, sol::object theScalar) -> gp_XYZ { return self.Multiplied(occt_plugin::to_real(theScalar)); }
 #else
             [](gp_XYZ const& self, const Standard_Real theScalar) -> gp_XYZ { return self.Multiplied(theScalar); }
 #endif
-        ,
-            [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Multiplied(theOther); },
-            [](gp_XYZ const& self, const gp_Mat & theMatrix) -> gp_XYZ { return self.Multiplied(theMatrix); }
+        
         ))
         .add_member_function("Normalize", [](gp_XYZ& self) { self.Normalize(); })
         .add_member_function("Normalized", [](gp_XYZ const& self) -> gp_XYZ { return self.Normalized(); })
@@ -3516,25 +3516,12 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Subtracted", [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self.Subtracted(theOther); })
         .add_member_function(sol::meta_function::subtraction, [](gp_XYZ const& self, const gp_XYZ & theOther) -> gp_XYZ { return self - theOther; })
         .add_member_function("SetLinearForm", sol::overload(
+            [](gp_XYZ& self, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(theXYZ1, theXYZ2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, sol::object theA3, const gp_XYZ & theXYZ3, const gp_XYZ & theXYZ4) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, occt_plugin::to_real(theA3), theXYZ3, theXYZ4); }
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, theXYZ2); }
 #else
-            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const Standard_Real theA3, const gp_XYZ & theXYZ3, const gp_XYZ & theXYZ4) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theA3, theXYZ3, theXYZ4); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, sol::object theA3, const gp_XYZ & theXYZ3) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, occt_plugin::to_real(theA3), theXYZ3); }
-#else
-            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const Standard_Real theA3, const gp_XYZ & theXYZ3) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theA3, theXYZ3); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, const gp_XYZ & theXYZ3) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, theXYZ3); }
-#else
-            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const gp_XYZ & theXYZ3) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theXYZ3); }
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(theA1, theXYZ1, theXYZ2); }
 #endif
         ,
             
@@ -3546,42 +3533,55 @@ void register_gp(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, theXYZ2); }
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, const gp_XYZ & theXYZ3) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, theXYZ3); }
 #else
-            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(theA1, theXYZ1, theXYZ2); }
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const gp_XYZ & theXYZ3) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theXYZ3); }
 #endif
         ,
-            [](gp_XYZ& self, const gp_XYZ & theXYZ1, const gp_XYZ & theXYZ2) { self.SetLinearForm(theXYZ1, theXYZ2); }
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, sol::object theA3, const gp_XYZ & theXYZ3) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, occt_plugin::to_real(theA3), theXYZ3); }
+#else
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const Standard_Real theA3, const gp_XYZ & theXYZ3) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theA3, theXYZ3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](gp_XYZ& self, sol::object theA1, const gp_XYZ & theXYZ1, sol::object theA2, const gp_XYZ & theXYZ2, sol::object theA3, const gp_XYZ & theXYZ3, const gp_XYZ & theXYZ4) { self.SetLinearForm(occt_plugin::to_real(theA1), theXYZ1, occt_plugin::to_real(theA2), theXYZ2, occt_plugin::to_real(theA3), theXYZ3, theXYZ4); }
+#else
+            [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const Standard_Real theA3, const gp_XYZ & theXYZ3, const gp_XYZ & theXYZ4) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theA3, theXYZ3, theXYZ4); }
+#endif
+        
         ));
     ns.register_function("gp_QuaternionNLerp_Interpolate", sol::overload(
-        
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, sol::object theT) -> gp_Quaternion { return gp_QuaternionNLerp::Interpolate(theQStart, theQEnd, occt_plugin::to_real(theT)); }
-#else
-            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, Standard_Real theT) -> gp_Quaternion { return gp_QuaternionNLerp::Interpolate(theQStart, theQEnd, theT); }
-#endif
-        ,
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](gp_QuaternionNLerp const& self, sol::object theT, gp_Quaternion & theResultQ) { self.Interpolate(occt_plugin::to_real(theT), theResultQ); }
 #else
             [](gp_QuaternionNLerp const& self, Standard_Real theT, gp_Quaternion & theResultQ) { self.Interpolate(theT, theResultQ); }
 #endif
+        ,
+        
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, sol::object theT) -> gp_Quaternion { return gp_QuaternionNLerp::Interpolate(theQStart, theQEnd, occt_plugin::to_real(theT)); }
+#else
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, Standard_Real theT) -> gp_Quaternion { return gp_QuaternionNLerp::Interpolate(theQStart, theQEnd, theT); }
+#endif
         
     ));
     ns.register_function("gp_QuaternionSLerp_Interpolate", sol::overload(
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, sol::object theT) -> gp_Quaternion { return gp_QuaternionSLerp::Interpolate(theQStart, theQEnd, occt_plugin::to_real(theT)); }
+            [](gp_QuaternionSLerp const& self, sol::object theT, gp_Quaternion & theResultQ) { self.Interpolate(occt_plugin::to_real(theT), theResultQ); }
 #else
-            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, Standard_Real theT) -> gp_Quaternion { return gp_QuaternionSLerp::Interpolate(theQStart, theQEnd, theT); }
+            [](gp_QuaternionSLerp const& self, Standard_Real theT, gp_Quaternion & theResultQ) { self.Interpolate(theT, theResultQ); }
 #endif
         ,
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](gp_QuaternionSLerp const& self, sol::object theT, gp_Quaternion & theResultQ) { self.Interpolate(occt_plugin::to_real(theT), theResultQ); }
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, sol::object theT) -> gp_Quaternion { return gp_QuaternionSLerp::Interpolate(theQStart, theQEnd, occt_plugin::to_real(theT)); }
 #else
-            [](gp_QuaternionSLerp const& self, Standard_Real theT, gp_Quaternion & theResultQ) { self.Interpolate(theT, theResultQ); }
+            [](const gp_Quaternion & theQStart, const gp_Quaternion & theQEnd, Standard_Real theT) -> gp_Quaternion { return gp_QuaternionSLerp::Interpolate(theQStart, theQEnd, theT); }
 #endif
         
     ));

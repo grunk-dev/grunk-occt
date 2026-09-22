@@ -122,8 +122,7 @@ The `ad` environment is Linux-only for now and entirely separate from `default` 
 the stock `occt` package, and vice versa. See `DESIGN.md` for the underlying design (why AD is a
 build option rather than a separate project, the `Standard_Real` dual-emission convention that makes
 one source tree serve both variants) and known limitations (a `dlopen`/SONAME hazard if a consuming
-process loads both variants at once, and one known geometry difference between adOCCT and stock OCCT
-that affects `tank_model.grr.yml` specifically under AD).
+process loads both variants at once).
 
 ## Project structure
 

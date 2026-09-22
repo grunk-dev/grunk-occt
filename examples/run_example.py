@@ -110,24 +110,7 @@ def main() -> None:
 
     run_recipe(state, EXAMPLES_DIR / "cavity_model.grr.yml", "cavity_h", 60.0)
     run_recipe(state, EXAMPLES_DIR / "cavity_model_v2.grr.yml", "R1", 180.0)
-    try:
-        run_recipe(state, EXAMPLES_DIR / "tank_model.grr.yml", "radius", 1.5)
-    except RuntimeError as exc:
-        if adtl_plugin_path is None:
-            raise
-        # Known, understood issue specific to the AD-enabled occt_plugin (see
-        # ../README.md's "Known issue" note): one of tank_model.grr.yml's own
-        # dome side-wedge boolean intersections (BRepAlgoAPI_Common/Cut) comes
-        # back empty under adOCCT specifically, where the plain build's own
-        # boolean op doesn't - a real numerical/algorithmic difference in the
-        # third-party adOCCT fork, not a bug in grunk-occt's own binding code
-        # (occt_helpers.compound's own IsNull() check, added once this was
-        # root-caused, is what turns what used to be an outright segfault -
-        # TopoDS_Builder::Add dereferencing a null TShape with no check of its
-        # own - into this catchable error instead). Reported, not swallowed
-        # silently, so it stays visible without blocking the AD derivative
-        # check below, which is unaffected.
-        print(f"  KNOWN ISSUE under AD, not a crash: {exc}")
+    run_recipe(state, EXAMPLES_DIR / "tank_model.grr.yml", "radius", 1.5)
     run_bspline_curve(state, has_ad=adtl_plugin_path is not None)
 
 

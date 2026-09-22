@@ -129,6 +129,7 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
         )
         .add_member_function("Add", sol::overload(
             [](BRepFilletAPI_MakeFillet& self, const TopoDS_Edge & E) { self.Add(E); },
+            [](BRepFilletAPI_MakeFillet& self, std::vector<gp_Pnt2d> const& UandR, const TopoDS_Edge & E) { self.Add(occt_plugin::to_array1(UandR), E); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepFilletAPI_MakeFillet& self, sol::object Radius, const TopoDS_Edge & E) { self.Add(occt_plugin::to_real(Radius), E); }
@@ -142,10 +143,10 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
 #else
             [](BRepFilletAPI_MakeFillet& self, const Standard_Real R1, const Standard_Real R2, const TopoDS_Edge & E) { self.Add(R1, R2, E); }
 #endif
-        ,
-            [](BRepFilletAPI_MakeFillet& self, std::vector<gp_Pnt2d> const& UandR, const TopoDS_Edge & E) { self.Add(occt_plugin::to_array1(UandR), E); }
+        
         ))
         .add_member_function("SetRadius", sol::overload(
+            [](BRepFilletAPI_MakeFillet& self, std::vector<gp_Pnt2d> const& UandR, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(occt_plugin::to_array1(UandR), IC, IinC); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepFilletAPI_MakeFillet& self, sol::object Radius, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(occt_plugin::to_real(Radius), IC, IinC); }
@@ -153,14 +154,6 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
             [](BRepFilletAPI_MakeFillet& self, const Standard_Real Radius, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(Radius, IC, IinC); }
 #endif
         ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepFilletAPI_MakeFillet& self, sol::object R1, sol::object R2, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(occt_plugin::to_real(R1), occt_plugin::to_real(R2), IC, IinC); }
-#else
-            [](BRepFilletAPI_MakeFillet& self, const Standard_Real R1, const Standard_Real R2, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(R1, R2, IC, IinC); }
-#endif
-        ,
-            [](BRepFilletAPI_MakeFillet& self, std::vector<gp_Pnt2d> const& UandR, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(occt_plugin::to_array1(UandR), IC, IinC); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepFilletAPI_MakeFillet& self, sol::object Radius, const Standard_Integer IC, const TopoDS_Edge & E) { self.SetRadius(occt_plugin::to_real(Radius), IC, E); }
@@ -173,6 +166,13 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
             [](BRepFilletAPI_MakeFillet& self, sol::object Radius, const Standard_Integer IC, const TopoDS_Vertex & V) { self.SetRadius(occt_plugin::to_real(Radius), IC, V); }
 #else
             [](BRepFilletAPI_MakeFillet& self, const Standard_Real Radius, const Standard_Integer IC, const TopoDS_Vertex & V) { self.SetRadius(Radius, IC, V); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepFilletAPI_MakeFillet& self, sol::object R1, sol::object R2, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(occt_plugin::to_real(R1), occt_plugin::to_real(R2), IC, IinC); }
+#else
+            [](BRepFilletAPI_MakeFillet& self, const Standard_Real R1, const Standard_Real R2, const Standard_Integer IC, const Standard_Integer IinC) { self.SetRadius(R1, R2, IC, IinC); }
 #endif
         
         ))
@@ -258,16 +258,16 @@ void register_brepfilletapi(grunk::plugin_namespace& ns)
         .add_member_function("ModifyChamfer", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E1, const TopoDS_Edge & E2, sol::object D1, sol::object D2) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E1, E2, occt_plugin::to_real(D1), occt_plugin::to_real(D2)); }
+            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E, sol::object D, sol::object Ang) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E, occt_plugin::to_real(D), occt_plugin::to_real(Ang)); }
 #else
-            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E1, const TopoDS_Edge & E2, const Standard_Real D1, const Standard_Real D2) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E1, E2, D1, D2); }
+            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E, const Standard_Real D, const Standard_Real Ang) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E, D, Ang); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E, sol::object D, sol::object Ang) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E, occt_plugin::to_real(D), occt_plugin::to_real(Ang)); }
+            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E1, const TopoDS_Edge & E2, sol::object D1, sol::object D2) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E1, E2, occt_plugin::to_real(D1), occt_plugin::to_real(D2)); }
 #else
-            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E, const Standard_Real D, const Standard_Real Ang) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E, D, Ang); }
+            [](BRepFilletAPI_MakeFillet2d& self, const TopoDS_Edge & Chamfer, const TopoDS_Edge & E1, const TopoDS_Edge & E2, const Standard_Real D1, const Standard_Real D2) -> TopoDS_Edge { return self.ModifyChamfer(Chamfer, E1, E2, D1, D2); }
 #endif
         
         ))

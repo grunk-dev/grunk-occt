@@ -146,9 +146,26 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
     ns.register_type<BRepBuilderAPI_MakeEdge, sol::automagic_flags::none>("BRepBuilderAPI_MakeEdge")
         .add_constructors(
             []() { return std::make_unique<BRepBuilderAPI_MakeEdge>(); },
+            [](const gp_Lin & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
+            [](const gp_Circ & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
+            [](const gp_Elips & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
+            [](const gp_Hypr & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
+            [](const gp_Parab & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
+            [](const opencascade::handle<Geom_Curve> & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(V1, V2); },
             [](const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(P1, P2); },
-            [](const gp_Lin & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
+            [](const gp_Lin & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
+            [](const gp_Lin & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
+            [](const gp_Circ & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
+            [](const gp_Circ & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
+            [](const gp_Elips & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
+            [](const gp_Elips & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
+            [](const gp_Hypr & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
+            [](const gp_Hypr & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
+            [](const gp_Parab & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
+            [](const gp_Parab & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
+            [](const opencascade::handle<Geom_Curve> & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
+            [](const opencascade::handle<Geom_Curve> & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Lin & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -156,9 +173,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Lin & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Lin & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
-            [](const gp_Lin & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
-            [](const gp_Circ & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Circ & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -166,9 +180,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Circ & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Circ & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
-            [](const gp_Circ & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
-            [](const gp_Elips & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Elips & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -176,9 +187,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Elips & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Elips & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
-            [](const gp_Elips & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
-            [](const gp_Hypr & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Hypr & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -186,9 +194,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Hypr & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Hypr & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
-            [](const gp_Hypr & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
-            [](const gp_Parab & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Parab & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -196,9 +201,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Parab & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Parab & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
-            [](const gp_Parab & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
-            [](const opencascade::handle<Geom_Curve> & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const opencascade::handle<Geom_Curve> & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -206,8 +208,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const opencascade::handle<Geom_Curve> & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
 #endif
         ,
-            [](const opencascade::handle<Geom_Curve> & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
-            [](const opencascade::handle<Geom_Curve> & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const opencascade::handle<Geom_Curve> & L, const gp_Pnt & P1, const gp_Pnt & P2, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -225,6 +225,8 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         )
         .add_member_function("Init", sol::overload(
             [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C) { self.Init(C); },
+            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const gp_Pnt & P1, const gp_Pnt & P2) { self.Init(C, P1, P2); },
+            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { self.Init(C, V1, V2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, sol::object p1, sol::object p2) { self.Init(C, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -232,8 +234,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const Standard_Real p1, const Standard_Real p2) { self.Init(C, p1, p2); }
 #endif
         ,
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const gp_Pnt & P1, const gp_Pnt & P2) { self.Init(C, P1, P2); },
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { self.Init(C, V1, V2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const gp_Pnt & P1, const gp_Pnt & P2, sol::object p1, sol::object p2) { self.Init(C, P1, P2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -257,9 +257,23 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepBuilderAPI_MakeEdge2d, sol::automagic_flags::none>("BRepBuilderAPI_MakeEdge2d")
         .add_constructors(
+            [](const gp_Lin2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
+            [](const gp_Circ2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
+            [](const gp_Elips2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
+            [](const gp_Hypr2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
+            [](const gp_Parab2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
             [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(V1, V2); },
             [](const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(P1, P2); },
-            [](const gp_Lin2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
+            [](const gp_Lin2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
+            [](const gp_Lin2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
+            [](const gp_Circ2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
+            [](const gp_Circ2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
+            [](const gp_Elips2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
+            [](const gp_Elips2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
+            [](const gp_Hypr2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
+            [](const gp_Hypr2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
+            [](const gp_Parab2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
+            [](const gp_Parab2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Lin2d & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -267,9 +281,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Lin2d & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Lin2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
-            [](const gp_Lin2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
-            [](const gp_Circ2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Circ2d & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -277,9 +288,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Circ2d & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Circ2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
-            [](const gp_Circ2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
-            [](const gp_Elips2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Elips2d & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -287,9 +295,6 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Elips2d & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Elips2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
-            [](const gp_Elips2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
-            [](const gp_Hypr2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Hypr2d & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -297,18 +302,13 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Hypr2d & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, p1, p2); }
 #endif
         ,
-            [](const gp_Hypr2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
-            [](const gp_Hypr2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); },
-            [](const gp_Parab2d & L) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Parab2d & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
 #else
             [](const gp_Parab2d & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, p1, p2); }
 #endif
-        ,
-            [](const gp_Parab2d & L, const gp_Pnt2d & P1, const gp_Pnt2d & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, P1, P2); },
-            [](const gp_Parab2d & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge2d>(L, V1, V2); }
+        
         )
         .add_member_function("IsDone", [](BRepBuilderAPI_MakeEdge2d const& self) -> Standard_Boolean { return self.IsDone(); })
         .add_member_function("Error", [](BRepBuilderAPI_MakeEdge2d const& self) -> BRepBuilderAPI_EdgeError { return self.Error(); })
@@ -325,6 +325,15 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Cone & C) { return std::make_unique<BRepBuilderAPI_MakeFace>(C); },
             [](const gp_Sphere & S) { return std::make_unique<BRepBuilderAPI_MakeFace>(S); },
             [](const gp_Torus & C) { return std::make_unique<BRepBuilderAPI_MakeFace>(C); },
+            [](const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(W); },
+            [](const TopoDS_Wire & W, const Standard_Boolean OnlyPlane) { return std::make_unique<BRepBuilderAPI_MakeFace>(W, OnlyPlane); },
+            [](const gp_Pln & P, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(P, W); },
+            [](const gp_Cylinder & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
+            [](const gp_Cone & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
+            [](const gp_Sphere & S, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W); },
+            [](const gp_Torus & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
+            [](const opencascade::handle<Geom_Surface> & S, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W); },
+            [](const TopoDS_Face & F, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(F, W); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const opencascade::handle<Geom_Surface> & S, sol::object TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, occt_plugin::to_real(TolDegen)); }
@@ -332,6 +341,12 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const opencascade::handle<Geom_Surface> & S, const Standard_Real TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, TolDegen); }
 #endif
         ,
+            [](const gp_Pln & P, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(P, W, Inside); },
+            [](const gp_Cylinder & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
+            [](const gp_Cone & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
+            [](const gp_Sphere & S, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W, Inside); },
+            [](const gp_Torus & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
+            [](const opencascade::handle<Geom_Surface> & S, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W, Inside); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Pln & P, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax) { return std::make_unique<BRepBuilderAPI_MakeFace>(P, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
@@ -373,22 +388,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
 #else
             [](const opencascade::handle<Geom_Surface> & S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, UMin, UMax, VMin, VMax, TolDegen); }
 #endif
-        ,
-            [](const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(W); },
-            [](const TopoDS_Wire & W, const Standard_Boolean OnlyPlane) { return std::make_unique<BRepBuilderAPI_MakeFace>(W, OnlyPlane); },
-            [](const gp_Pln & P, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(P, W); },
-            [](const gp_Pln & P, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(P, W, Inside); },
-            [](const gp_Cylinder & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
-            [](const gp_Cylinder & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
-            [](const gp_Cone & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
-            [](const gp_Cone & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
-            [](const gp_Sphere & S, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W); },
-            [](const gp_Sphere & S, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W, Inside); },
-            [](const gp_Torus & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
-            [](const gp_Torus & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
-            [](const opencascade::handle<Geom_Surface> & S, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W); },
-            [](const opencascade::handle<Geom_Surface> & S, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W, Inside); },
-            [](const TopoDS_Face & F, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(F, W); }
+        
         )
         .add_member_function("Init", sol::overload(
             [](BRepBuilderAPI_MakeFace& self, const TopoDS_Face & F) { self.Init(F); },
@@ -416,14 +416,14 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         .add_constructors(
             []() { return std::make_unique<BRepBuilderAPI_MakePolygon>(); },
             [](const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakePolygon>(P1, P2); },
+            [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakePolygon>(V1, V2); },
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return std::make_unique<BRepBuilderAPI_MakePolygon>(P1, P2, P3); },
+            [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const TopoDS_Vertex & V3) { return std::make_unique<BRepBuilderAPI_MakePolygon>(V1, V2, V3); },
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3, const Standard_Boolean Close) { return std::make_unique<BRepBuilderAPI_MakePolygon>(P1, P2, P3, Close); },
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3, const gp_Pnt & P4) { return std::make_unique<BRepBuilderAPI_MakePolygon>(P1, P2, P3, P4); },
-            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3, const gp_Pnt & P4, const Standard_Boolean Close) { return std::make_unique<BRepBuilderAPI_MakePolygon>(P1, P2, P3, P4, Close); },
-            [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakePolygon>(V1, V2); },
-            [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const TopoDS_Vertex & V3) { return std::make_unique<BRepBuilderAPI_MakePolygon>(V1, V2, V3); },
             [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const TopoDS_Vertex & V3, const Standard_Boolean Close) { return std::make_unique<BRepBuilderAPI_MakePolygon>(V1, V2, V3, Close); },
             [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const TopoDS_Vertex & V3, const TopoDS_Vertex & V4) { return std::make_unique<BRepBuilderAPI_MakePolygon>(V1, V2, V3, V4); },
+            [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3, const gp_Pnt & P4, const Standard_Boolean Close) { return std::make_unique<BRepBuilderAPI_MakePolygon>(P1, P2, P3, P4, Close); },
             [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const TopoDS_Vertex & V3, const TopoDS_Vertex & V4, const Standard_Boolean Close) { return std::make_unique<BRepBuilderAPI_MakePolygon>(V1, V2, V3, V4, Close); }
         )
         .add_member_function("Add", sol::overload(
@@ -497,10 +497,10 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             []() { return std::make_unique<BRepBuilderAPI_MakeSolid>(); },
             [](const TopoDS_CompSolid & S) { return std::make_unique<BRepBuilderAPI_MakeSolid>(S); },
             [](const TopoDS_Shell & S) { return std::make_unique<BRepBuilderAPI_MakeSolid>(S); },
-            [](const TopoDS_Shell & S1, const TopoDS_Shell & S2) { return std::make_unique<BRepBuilderAPI_MakeSolid>(S1, S2); },
-            [](const TopoDS_Shell & S1, const TopoDS_Shell & S2, const TopoDS_Shell & S3) { return std::make_unique<BRepBuilderAPI_MakeSolid>(S1, S2, S3); },
             [](const TopoDS_Solid & So) { return std::make_unique<BRepBuilderAPI_MakeSolid>(So); },
-            [](const TopoDS_Solid & So, const TopoDS_Shell & S) { return std::make_unique<BRepBuilderAPI_MakeSolid>(So, S); }
+            [](const TopoDS_Shell & S1, const TopoDS_Shell & S2) { return std::make_unique<BRepBuilderAPI_MakeSolid>(S1, S2); },
+            [](const TopoDS_Solid & So, const TopoDS_Shell & S) { return std::make_unique<BRepBuilderAPI_MakeSolid>(So, S); },
+            [](const TopoDS_Shell & S1, const TopoDS_Shell & S2, const TopoDS_Shell & S3) { return std::make_unique<BRepBuilderAPI_MakeSolid>(S1, S2, S3); }
         )
         .add_member_function("Add", [](BRepBuilderAPI_MakeSolid& self, const TopoDS_Shell & S) { self.Add(S); })
         .add_member_function("IsDone", [](BRepBuilderAPI_MakeSolid const& self) -> Standard_Boolean { return self.IsDone(); })
@@ -517,11 +517,11 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         .add_constructors(
             []() { return std::make_unique<BRepBuilderAPI_MakeWire>(); },
             [](const TopoDS_Edge & E) { return std::make_unique<BRepBuilderAPI_MakeWire>(E); },
-            [](const TopoDS_Edge & E1, const TopoDS_Edge & E2) { return std::make_unique<BRepBuilderAPI_MakeWire>(E1, E2); },
-            [](const TopoDS_Edge & E1, const TopoDS_Edge & E2, const TopoDS_Edge & E3) { return std::make_unique<BRepBuilderAPI_MakeWire>(E1, E2, E3); },
-            [](const TopoDS_Edge & E1, const TopoDS_Edge & E2, const TopoDS_Edge & E3, const TopoDS_Edge & E4) { return std::make_unique<BRepBuilderAPI_MakeWire>(E1, E2, E3, E4); },
             [](const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeWire>(W); },
-            [](const TopoDS_Wire & W, const TopoDS_Edge & E) { return std::make_unique<BRepBuilderAPI_MakeWire>(W, E); }
+            [](const TopoDS_Edge & E1, const TopoDS_Edge & E2) { return std::make_unique<BRepBuilderAPI_MakeWire>(E1, E2); },
+            [](const TopoDS_Wire & W, const TopoDS_Edge & E) { return std::make_unique<BRepBuilderAPI_MakeWire>(W, E); },
+            [](const TopoDS_Edge & E1, const TopoDS_Edge & E2, const TopoDS_Edge & E3) { return std::make_unique<BRepBuilderAPI_MakeWire>(E1, E2, E3); },
+            [](const TopoDS_Edge & E1, const TopoDS_Edge & E2, const TopoDS_Edge & E3, const TopoDS_Edge & E4) { return std::make_unique<BRepBuilderAPI_MakeWire>(E1, E2, E3, E4); }
         )
         .add_member_function("Add", sol::overload(
             [](BRepBuilderAPI_MakeWire& self, const TopoDS_Edge & E) { self.Add(E); },

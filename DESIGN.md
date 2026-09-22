@@ -1451,3 +1451,89 @@ grunk" steps (mirroring the pre-existing ADOL-C/adOCCT pattern in `build-and-tes
 `scripts/install_grunk.cmake` so a cache hit skips straight past rebuilding grunk from source), and
 `build-and-test-ad`'s existing cache step now covers `.deps/grunk-ad` alongside `.deps/adolc`/
 `.deps/adocct`.
+
+## sol2 overload-resolution ambiguity under `GRUNK_OCCT_WITH_ADOLC` - the real `tank_model.grr.yml` AD bug
+
+**Fixed, not just worked around**: `examples/tank_model.grr.yml` used to fail under the AD-enabled
+`occt_plugin` - one of the dome's side-wedge boolean intersections
+(`BRepAlgoAPI_Common`/`BRepAlgoAPI_Cut`) came back empty (`IsDone() == false`, not merely an empty-
+but-successful result) where the plain build's own boolean op didn't. This was assumed, in earlier
+investigation (before this session), to be a genuine adOCCT numerical/tolerance difference -
+plausible on its face (boolean operations are exactly the kind of algorithm sensitive to tiny
+floating-point differences), but wrong. The real cause has nothing to do with adOCCT's own
+arithmetic at all.
+
+**Root cause**: a sol2 constructor/method overload-resolution ambiguity, specific to
+`GRUNK_OCCT_WITH_ADOLC` builds. Every `Standard_Real` parameter's emitted C++ type becomes
+`sol::object` under this macro (the AD dual-emission pattern - see "`Standard_Real` / AD-portability
+rule" above), a deliberate, necessary choice: `sol::object` is what lets a single lambda accept
+either a plain Lua number or an already-AD-tracked value (`occt_plugin::to_real()` tells them apart
+at runtime). The problem: `sol::object` also matches *any* Lua value, including a completely
+unrelated registered usertype. sol2 tries an overload set's candidates in the order they were
+registered and commits to the first one whose parameter count and per-parameter type checks
+succeed - and a `sol::object` parameter's type check always succeeds, for anything. So an all-real
+overload of some arity (e.g. `BRepPrimAPI_MakeSphere(Standard_Real R, Standard_Real angle1,
+Standard_Real angle2)`, three `sol::object` parameters under AD) could silently shadow a
+same-arity, genuinely more specific one (`BRepPrimAPI_MakeSphere(gp_Ax2 const&, Standard_Real R,
+Standard_Real angle)`) that was only ever meant to apply when the first argument really is an axis -
+whichever was registered first wins, regardless of what was actually passed.
+
+The code generator (`codegen/generate.py`) had no awareness of this hazard: overloads were emitted
+in whatever order `collect_class_callables`' own libclang cursor-walk encountered them, i.e.
+declaration order in the OCCT header - and OCCT itself, unsurprisingly, tends to declare the "just
+numbers" constructor before the "positioned by an axis/point" ones. `examples/tank_model.grr.yml`'s
+own `dome` sub-recipe's `spherical_segment` calls
+`occt.BRepPrimAPI_MakeSphere.new(ax_1, radius, angle1)` (a 3-argument call meaning "axis, radius,
+angle") - under AD, this was being silently routed to the 3-`sol::object` `(R, angle1, angle2)`
+overload instead, with `R = to_real(ax_1)` (an axis, converted to a number via
+`sol::object::as<double>()` on a non-numeric userdata - undefined/implementation-defined, not a
+clean failure), `angle1 = to_real(radius)`, `angle2 = to_real(angle1)`. The resulting sphere is a
+real, valid, non-null `TopoDS_Shape` (so `wedge:IsNull()` alone never caught it) - just the *wrong*
+one, with nothing resembling the intended geometry. Intersecting two such wrongly-constructed wedges
+is what actually produced `IsDone() == false`.
+
+**How this was actually found** (worth recording - the debugging path, not just the answer): a
+scratch, uncommitted standalone C++ program linking adOCCT directly, reproducing the exact same
+wedge construction with the exact same numeric inputs, *succeeded* - immediately ruling out adOCCT's
+own algorithm and the exact input values (confirmed bit-identical via hex-formatted output at every
+step) as the cause. A scratch Lua-callable self-test function, registered directly in
+`occt_plugin.cpp` and doing the identical construction in raw C++ (no sol2 constructor overload
+resolution involved at all), *also* succeeded when called from Lua - narrowing the fault to
+specifically going through a *registered, overloaded* sol2 constructor. Temporary `fprintf`
+instrumentation added directly to each candidate `BRepPrimAPI_MakeSphere` overload's lambda body
+(reverted before this fix was committed - see git history if the exact experiment matters later)
+confirmed directly which overload actually ran: the 3-`sol::object` one, not the `gp_Ax2`-taking
+one, for a call whose first argument plainly *was* a `gp_Ax2`. Manually reordering just that one
+constructor's overload registration in the generated file (moving the axis-taking one first) fixed
+it outright, which is what turned "a hypothesis" into "a confirmed, minimal, reproducible root
+cause" before touching the generator itself.
+
+**The fix**: `ambiguity_safe_overload_order()` in `codegen/generate.py`, applied at every point an
+overload set gets turned into a `sol::overload(...)`/`.add_constructors(...)` expression
+(constructors, instance methods, static methods/free functions - operators too, though no operator
+overload set has actually hit this in practice). A stable sort, keyed on `(arity, count of "real"
+kinds)` - within each argument-count group (sol2 already dispatches on count first, so different
+counts never compete), a signature with fewer `Standard_Real`-turned-`sol::object` parameters (i.e.
+more parameters sol2 can genuinely type-check against a concrete usertype) is tried before one with
+more. Applied unconditionally, not just under `GRUNK_OCCT_WITH_ADOLC` - in the plain build,
+`Standard_Real` is genuinely `double`, so sol2 can already disambiguate every one of these cases by
+real type-checking regardless of order, making the reorder a no-op there rather than something that
+needs its own separate, conditional code path.
+
+**Scope**: not a one-off `BRepPrimAPI_MakeSphere` quirk. Regenerating with this fix touched 11 of
+the 15 generated modules (378 changed lines total, confirmed via diff to be pure reordering - zero
+content changes, same lambdas, same bodies, only registration order) - `BRepPrimAPI_MakeCone`'s own
+4-argument overloads (`(R1, R2, H, angle)` vs `(gp_Ax2 const&, R1, R2, H)`) had the exact same
+latent ambiguity, and `gp.cpp` alone had 238 changed lines. This was a real, previously-undiscovered
+bug across a large fraction of the AD-enabled binding surface - not something Step 10's own #285/
+#288 workaround-removal verification could ever have caught (that only exercised the *default*,
+non-AD environment's test suite; the AD environment's own 43 tests happened to never hit an affected
+overload set with an ambiguous argument at the ambiguous position).
+
+**Verified**: `pixi run -e default test` (42/42) and `pixi run -e ad test` (43/43) both still pass
+after regeneration - confirming the reordering really is behaviorally inert everywhere it isn't
+needed. `examples/tank_model.grr.yml` now runs to completion under the AD environment with **no**
+fallback/error path taken at all (`pixi run -e ad run_examples` - no "KNOWN ISSUE" message, since
+that whole code path was removed from `run_example.py`; `occt_helpers.lua`'s own `compound()`
+`IsNull()` guard - general defensive code, not specific to this bug - never triggers for this
+recipe anymore either).

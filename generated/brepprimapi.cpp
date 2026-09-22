@@ -32,6 +32,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
     ns.register_type<BRepPrimAPI_MakeBox, sol::automagic_flags::none>("BRepPrimAPI_MakeBox")
         .add_constructors(
             []() { return std::make_unique<BRepPrimAPI_MakeBox>(); },
+            [](const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepPrimAPI_MakeBox>(P1, P2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](sol::object dx, sol::object dy, sol::object dz) { return std::make_unique<BRepPrimAPI_MakeBox>(occt_plugin::to_real(dx), occt_plugin::to_real(dy), occt_plugin::to_real(dz)); }
@@ -46,7 +47,6 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](const gp_Pnt & P, const Standard_Real dx, const Standard_Real dy, const Standard_Real dz) { return std::make_unique<BRepPrimAPI_MakeBox>(P, dx, dy, dz); }
 #endif
         ,
-            [](const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepPrimAPI_MakeBox>(P1, P2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & Axes, sol::object dx, sol::object dy, sol::object dz) { return std::make_unique<BRepPrimAPI_MakeBox>(Axes, occt_plugin::to_real(dx), occt_plugin::to_real(dy), occt_plugin::to_real(dz)); }
@@ -56,6 +56,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         
         )
         .add_member_function("Init", sol::overload(
+            [](BRepPrimAPI_MakeBox& self, const gp_Pnt & thePnt1, const gp_Pnt & thePnt2) { self.Init(thePnt1, thePnt2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepPrimAPI_MakeBox& self, sol::object theDX, sol::object theDY, sol::object theDZ) { self.Init(occt_plugin::to_real(theDX), occt_plugin::to_real(theDY), occt_plugin::to_real(theDZ)); }
@@ -70,7 +71,6 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](BRepPrimAPI_MakeBox& self, const gp_Pnt & thePnt, const Standard_Real theDX, const Standard_Real theDY, const Standard_Real theDZ) { self.Init(thePnt, theDX, theDY, theDZ); }
 #endif
         ,
-            [](BRepPrimAPI_MakeBox& self, const gp_Pnt & thePnt1, const gp_Pnt & thePnt2) { self.Init(thePnt1, thePnt2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](BRepPrimAPI_MakeBox& self, const gp_Ax2 & theAxes, sol::object theDX, sol::object theDY, sol::object theDZ) { self.Init(theAxes, occt_plugin::to_real(theDX), occt_plugin::to_real(theDY), occt_plugin::to_real(theDZ)); }
@@ -103,16 +103,16 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R1, sol::object R2, sol::object H, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeCone>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(H), occt_plugin::to_real(angle)); }
+            [](const gp_Ax2 & Axes, sol::object R1, sol::object R2, sol::object H) { return std::make_unique<BRepPrimAPI_MakeCone>(Axes, occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(H)); }
 #else
-            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real H, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeCone>(R1, R2, H, angle); }
+            [](const gp_Ax2 & Axes, const Standard_Real R1, const Standard_Real R2, const Standard_Real H) { return std::make_unique<BRepPrimAPI_MakeCone>(Axes, R1, R2, H); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2 & Axes, sol::object R1, sol::object R2, sol::object H) { return std::make_unique<BRepPrimAPI_MakeCone>(Axes, occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(H)); }
+            [](sol::object R1, sol::object R2, sol::object H, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeCone>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(H), occt_plugin::to_real(angle)); }
 #else
-            [](const gp_Ax2 & Axes, const Standard_Real R1, const Standard_Real R2, const Standard_Real H) { return std::make_unique<BRepPrimAPI_MakeCone>(Axes, R1, R2, H); }
+            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real H, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeCone>(R1, R2, H, angle); }
 #endif
         ,
             
@@ -135,16 +135,16 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R, sol::object H, sol::object Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(occt_plugin::to_real(R), occt_plugin::to_real(H), occt_plugin::to_real(Angle)); }
+            [](const gp_Ax2 & Axes, sol::object R, sol::object H) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, occt_plugin::to_real(R), occt_plugin::to_real(H)); }
 #else
-            [](const Standard_Real R, const Standard_Real H, const Standard_Real Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(R, H, Angle); }
+            [](const gp_Ax2 & Axes, const Standard_Real R, const Standard_Real H) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, R, H); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2 & Axes, sol::object R, sol::object H) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, occt_plugin::to_real(R), occt_plugin::to_real(H)); }
+            [](sol::object R, sol::object H, sol::object Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(occt_plugin::to_real(R), occt_plugin::to_real(H), occt_plugin::to_real(Angle)); }
 #else
-            [](const gp_Ax2 & Axes, const Standard_Real R, const Standard_Real H) { return std::make_unique<BRepPrimAPI_MakeCylinder>(Axes, R, H); }
+            [](const Standard_Real R, const Standard_Real H, const Standard_Real Angle) { return std::make_unique<BRepPrimAPI_MakeCylinder>(R, H, Angle); }
 #endif
         ,
             
@@ -175,10 +175,10 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
     ns.register_type<BRepPrimAPI_MakePrism, sol::automagic_flags::none>("BRepPrimAPI_MakePrism")
         .add_constructors(
             [](const TopoDS_Shape & S, const gp_Vec & V) { return std::make_unique<BRepPrimAPI_MakePrism>(S, V); },
-            [](const TopoDS_Shape & S, const gp_Vec & V, const Standard_Boolean Copy) { return std::make_unique<BRepPrimAPI_MakePrism>(S, V, Copy); },
-            [](const TopoDS_Shape & S, const gp_Vec & V, const Standard_Boolean Copy, const Standard_Boolean Canonize) { return std::make_unique<BRepPrimAPI_MakePrism>(S, V, Copy, Canonize); },
             [](const TopoDS_Shape & S, const gp_Dir & D) { return std::make_unique<BRepPrimAPI_MakePrism>(S, D); },
+            [](const TopoDS_Shape & S, const gp_Vec & V, const Standard_Boolean Copy) { return std::make_unique<BRepPrimAPI_MakePrism>(S, V, Copy); },
             [](const TopoDS_Shape & S, const gp_Dir & D, const Standard_Boolean Inf) { return std::make_unique<BRepPrimAPI_MakePrism>(S, D, Inf); },
+            [](const TopoDS_Shape & S, const gp_Vec & V, const Standard_Boolean Copy, const Standard_Boolean Canonize) { return std::make_unique<BRepPrimAPI_MakePrism>(S, V, Copy, Canonize); },
             [](const TopoDS_Shape & S, const gp_Dir & D, const Standard_Boolean Inf, const Standard_Boolean Copy) { return std::make_unique<BRepPrimAPI_MakePrism>(S, D, Inf, Copy); },
             [](const TopoDS_Shape & S, const gp_Dir & D, const Standard_Boolean Inf, const Standard_Boolean Copy, const Standard_Boolean Canonize) { return std::make_unique<BRepPrimAPI_MakePrism>(S, D, Inf, Copy, Canonize); }
         )
@@ -198,6 +198,8 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         .add_bases<BRepPrimAPI_MakeSweep, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeRevol, sol::automagic_flags::none>("BRepPrimAPI_MakeRevol")
         .add_constructors(
+            [](const TopoDS_Shape & S, const gp_Ax1 & A) { return std::make_unique<BRepPrimAPI_MakeRevol>(S, A); },
+            [](const TopoDS_Shape & S, const gp_Ax1 & A, const Standard_Boolean Copy) { return std::make_unique<BRepPrimAPI_MakeRevol>(S, A, Copy); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const TopoDS_Shape & S, const gp_Ax1 & A, sol::object D) { return std::make_unique<BRepPrimAPI_MakeRevol>(S, A, occt_plugin::to_real(D)); }
@@ -211,9 +213,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
 #else
             [](const TopoDS_Shape & S, const gp_Ax1 & A, const Standard_Real D, const Standard_Boolean Copy) { return std::make_unique<BRepPrimAPI_MakeRevol>(S, A, D, Copy); }
 #endif
-        ,
-            [](const TopoDS_Shape & S, const gp_Ax1 & A) { return std::make_unique<BRepPrimAPI_MakeRevol>(S, A); },
-            [](const TopoDS_Shape & S, const gp_Ax1 & A, const Standard_Boolean Copy) { return std::make_unique<BRepPrimAPI_MakeRevol>(S, A, Copy); }
+        
         )
         .add_member_function("Build", sol::overload(
             [](BRepPrimAPI_MakeRevol& self) { self.Build(); },
@@ -233,11 +233,19 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
     ns.register_type<BRepPrimAPI_MakeRevolution, sol::automagic_flags::none>("BRepPrimAPI_MakeRevolution")
         .add_constructors(
             [](const opencascade::handle<Geom_Curve> & Meridian) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian); },
+            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const opencascade::handle<Geom_Curve> & Meridian, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(angle)); }
 #else
             [](const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, angle); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(angle)); }
+#else
+            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, angle); }
 #endif
         ,
             
@@ -249,24 +257,16 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & Meridian, sol::object VMin, sol::object VMax, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(angle)); }
-#else
-            [](const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, VMin, VMax, angle); }
-#endif
-        ,
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian); },
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(angle)); }
-#else
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, angle); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, sol::object VMin, sol::object VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
 #else
             [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real VMin, const Standard_Real VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, VMin, VMax); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const opencascade::handle<Geom_Curve> & Meridian, sol::object VMin, sol::object VMax, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(angle)); }
+#else
+            [](const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, VMin, VMax, angle); }
 #endif
         ,
             
@@ -289,51 +289,9 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(occt_plugin::to_real(R), occt_plugin::to_real(angle)); }
-#else
-            [](const Standard_Real R, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(R, angle); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
-#else
-            [](const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(R, angle1, angle2); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R, sol::object angle1, sol::object angle2, sol::object angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2), occt_plugin::to_real(angle3)); }
-#else
-            [](const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2, const Standard_Real angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(R, angle1, angle2, angle3); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Pnt & Center, sol::object R) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, occt_plugin::to_real(R)); }
 #else
             [](const gp_Pnt & Center, const Standard_Real R) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, R); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Pnt & Center, sol::object R, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, occt_plugin::to_real(R), occt_plugin::to_real(angle)); }
-#else
-            [](const gp_Pnt & Center, const Standard_Real R, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, R, angle); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Pnt & Center, sol::object R, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
-#else
-            [](const gp_Pnt & Center, const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, R, angle1, angle2); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Pnt & Center, sol::object R, sol::object angle1, sol::object angle2, sol::object angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2), occt_plugin::to_real(angle3)); }
-#else
-            [](const gp_Pnt & Center, const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2, const Standard_Real angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, R, angle1, angle2, angle3); }
 #endif
         ,
             
@@ -345,6 +303,20 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object R, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(occt_plugin::to_real(R), occt_plugin::to_real(angle)); }
+#else
+            [](const Standard_Real R, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(R, angle); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Pnt & Center, sol::object R, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, occt_plugin::to_real(R), occt_plugin::to_real(angle)); }
+#else
+            [](const gp_Pnt & Center, const Standard_Real R, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, R, angle); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & Axis, sol::object R, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(Axis, occt_plugin::to_real(R), occt_plugin::to_real(angle)); }
 #else
             [](const gp_Ax2 & Axis, const Standard_Real R, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeSphere>(Axis, R, angle); }
@@ -352,9 +324,37 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object R, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
+#else
+            [](const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(R, angle1, angle2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Pnt & Center, sol::object R, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
+#else
+            [](const gp_Pnt & Center, const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, R, angle1, angle2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & Axis, sol::object R, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(Axis, occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
 #else
             [](const gp_Ax2 & Axis, const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeSphere>(Axis, R, angle1, angle2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object R, sol::object angle1, sol::object angle2, sol::object angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2), occt_plugin::to_real(angle3)); }
+#else
+            [](const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2, const Standard_Real angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(R, angle1, angle2, angle3); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Pnt & Center, sol::object R, sol::object angle1, sol::object angle2, sol::object angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, occt_plugin::to_real(R), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2), occt_plugin::to_real(angle3)); }
+#else
+            [](const gp_Pnt & Center, const Standard_Real R, const Standard_Real angle1, const Standard_Real angle2, const Standard_Real angle3) { return std::make_unique<BRepPrimAPI_MakeSphere>(Center, R, angle1, angle2, angle3); }
 #endif
         ,
             
@@ -381,30 +381,16 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R1, sol::object R2, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(angle)); }
-#else
-            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(R1, R2, angle); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R1, sol::object R2, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeTorus>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
-#else
-            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeTorus>(R1, R2, angle1, angle2); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](sol::object R1, sol::object R2, sol::object angle1, sol::object angle2, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2), occt_plugin::to_real(angle)); }
-#else
-            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real angle1, const Standard_Real angle2, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(R1, R2, angle1, angle2, angle); }
-#endif
-        ,
-            
-#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & Axes, sol::object R1, sol::object R2) { return std::make_unique<BRepPrimAPI_MakeTorus>(Axes, occt_plugin::to_real(R1), occt_plugin::to_real(R2)); }
 #else
             [](const gp_Ax2 & Axes, const Standard_Real R1, const Standard_Real R2) { return std::make_unique<BRepPrimAPI_MakeTorus>(Axes, R1, R2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object R1, sol::object R2, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(angle)); }
+#else
+            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(R1, R2, angle); }
 #endif
         ,
             
@@ -416,9 +402,23 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object R1, sol::object R2, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeTorus>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
+#else
+            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeTorus>(R1, R2, angle1, angle2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Ax2 & Axes, sol::object R1, sol::object R2, sol::object angle1, sol::object angle2) { return std::make_unique<BRepPrimAPI_MakeTorus>(Axes, occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2)); }
 #else
             [](const gp_Ax2 & Axes, const Standard_Real R1, const Standard_Real R2, const Standard_Real angle1, const Standard_Real angle2) { return std::make_unique<BRepPrimAPI_MakeTorus>(Axes, R1, R2, angle1, angle2); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object R1, sol::object R2, sol::object angle1, sol::object angle2, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(occt_plugin::to_real(R1), occt_plugin::to_real(R2), occt_plugin::to_real(angle1), occt_plugin::to_real(angle2), occt_plugin::to_real(angle)); }
+#else
+            [](const Standard_Real R1, const Standard_Real R2, const Standard_Real angle1, const Standard_Real angle2, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeTorus>(R1, R2, angle1, angle2, angle); }
 #endif
         ,
             

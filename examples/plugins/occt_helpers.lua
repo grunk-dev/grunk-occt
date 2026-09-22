@@ -121,14 +121,18 @@ end
 -- hard way: TopoDS_Builder::Add's own OCCT implementation unconditionally
 -- dereferences the component's own TShape (aComponent.TShape()->Free(...), its
 -- very first statement) with no null check at all, so handing it a null/empty
--- shape - e.g. a BRepAlgoAPI_Cut/Common whose own boolean operation happened to
--- produce an empty result for the particular geometry involved, a legitimate,
--- non-exceptional OCCT outcome, not a bug in the caller - segfaults the whole
--- process instead of raising a catchable error. Confirmed via gdb against a real
--- reproduction (an AD-enabled build's own BRepAlgoAPI_Common producing an empty
--- result for one of tank_model.grr.yml's own dome side-wedge intersections,
--- where the plain build's own boolean op happens not to) - not an AD-specific
--- risk in general, just the first input that ever actually hit it.
+-- shape - e.g. a BRepAlgoAPI_Cut/Common whose own boolean operation legitimately
+-- produced an empty result for the particular geometry involved, not a bug in
+-- the caller - segfaults the whole process instead of raising a catchable error.
+-- Confirmed via gdb against a real reproduction, at the time an AD-enabled
+-- build's own BRepAlgoAPI_Common producing an empty result for one of
+-- tank_model.grr.yml's own dome side-wedge intersections, where the plain build
+-- didn't - that specific case was later root-caused to a real bug (a sol2
+-- overload-resolution ambiguity under GRUNK_OCCT_WITH_ADOLC, fixed at the code
+-- generator - see grunk-occt's own DESIGN.md) and no longer happens, but the
+-- underlying TopoDS_Builder::Add hazard this guards against is general (any
+-- boolean op can legitimately return an empty shape for the right geometry),
+-- not specific to that one bug or to AD builds.
 function compound(...)
     local shapes = {...}
     local c = occt.TopoDS_Compound.new()
