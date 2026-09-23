@@ -2,37 +2,11 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-# Fashioned after adOCCT's own tests-ad/src/bspline_curve.cpp (dlr-sp/adOCCT,
-# TestGeomBSplineCurveByParameterId.SensitivityWrtPoleCoordinateXYZ) - the same
-# 5-pole, degree-2 B-spline curve (explicit knots/multiplicities - a genuine
-# Geom_BSplineCurve, not an interpolation curve or a Bezier curve), evaluated at
-# u=0.5. One pole's own X coordinate (p2_x) is the design parameter being
-# differentiated - matches the reference test's own independent_idx=0 case.
-#
-# Works unmodified against *either* occt_plugin variant (see ../README.md's
-# "Building with AD support"): seed_point (below) only takes the AD-seeding
-# branch if the `adtl` global table exists at all - i.e. only if grunk-adolc's
-# own plugin is also loaded into this grunk::state, which only ever happens for
-# the AD-enabled variant (see run_example.py's own comment on how it decides
-# which plugins to load, and why it verifies the derivative via finite
-# differences rather than a hardcoded expected value - this curve has no simple
-# closed form). Against the plain occt_plugin, mid_x_value/mid_y_value/
-# mid_z_value (the primal curve position) come out identically; mid_x_deriv/
-# mid_y_deriv/mid_z_deriv (d(position)/d(p2_x)) are only ever meaningfully
-# nonzero under AD - primal_value/ad_derivative below read them back the same
-# way regardless of build, so steps: itself never needs its own AD/non-AD
-# branch, only the two module functions that actually touch adtl do.
 uses:
   grunk: 0.5.0
   occt: 0.1.0
 modules:
   me: |
-    -- x:setADValue(...) is a mutating call - has to run inside a module (an
-    -- eagerly-executed Lua function body), not a bare `steps:` statement, or its
-    -- own DAG node might never be scheduled under grunk's lazy evaluation - the
-    -- same hazard grunk-adolc's own tests/test_recipe.cpp first found (see
-    -- ../DESIGN.md's "Reusing one shared Standard_Real/adtl::adouble
-    -- registration, not two").
     function seed_point(x, y, z)
         if adtl ~= nil then
             local xa = adtl.adouble.new(x)
@@ -42,12 +16,6 @@ modules:
         return occt.gp_Pnt.new(x, y, z)
     end
 
-    -- mid:X()/mid:Y()/mid:Z() (steps: below) are Standard_Real-valued -
-    -- Standard_Adouble under AD (a real, if AD-inert, value whenever this
-    -- particular coordinate wasn't itself seeded - see occt_ad_support.hpp),
-    -- plain double otherwise. Both cases need reading back the same way from
-    -- Lua, without steps: itself needing to know which build it's running
-    -- under.
     function primal_value(v)
         if adtl ~= nil then
             return v:getValue()
@@ -73,14 +41,6 @@ steps: |
   p5 = occt.gp_Pnt.new(0.0, 4.0, 0.0)
 
   poles = occt.gp_Pnt.as_vec(p1, p2, p3, p4, p5)
-  -- occt.real_vec/occt.int_vec (src/vector_extras.hpp), not a plain Lua table
-  -- literal - sol2 only auto-converts a bare table argument to std::vector<T>
-  -- for the *first* such parameter in a given call; Geom_BSplineCurve's own
-  -- constructor has two (Knots and Multiplicities), and a table literal for the
-  -- second one fails with "expected userdata, received table" - confirmed via a
-  -- minimal, unrelated-to-this-project sol2 repro. occt.gp_Pnt.as_vec (Poles,
-  -- above) doesn't hit this at all - it always returns real vector userdata,
-  -- never accepts a raw table for the *element* type here anyway.
   knots = occt.real_vec(0.0, 1.0, 2.0, 3.0)
   mults = occt.int_vec(3, 1, 1, 3)
   degree = 2
