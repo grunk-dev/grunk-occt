@@ -20,7 +20,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 list(APPEND CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
 
-# occt_plugin (and, in the GRUNK_OCCT_ENABLE_AD branch below, adtl_plugin) links
+# occt_plugin (and, in the GRUNK_OCCT_ENABLE_AD branch below, adolc_plugin) links
 # grunk's own SHARED libraries (grunk_recipe/grunk_plugin) dynamically, rather than
 # each statically embedding its own private copy - see scripts/install_grunk.cmake's
 # own comment for why this matters (one physical set of grunk libraries shared by
@@ -29,7 +29,7 @@ list(APPEND CMAKE_PREFIX_PATH "$ENV{CONDA_PREFIX}")
 # copies). CMAKE_INSTALL_RPATH_USE_LINK_PATH bakes in the absolute install location
 # of every library actually linked - including wherever find_package(grunk) below
 # resolves to (.deps/grunk by default, see pixi.toml's install_grunk task) - into
-# occt_plugin's/adtl_plugin's own installed RPATH, so they find grunk's shared
+# occt_plugin's/adolc_plugin's own installed RPATH, so they find grunk's shared
 # libraries at runtime without needing LD_LIBRARY_PATH. No effect on Windows -
 # RPATH doesn't exist there; see grunk's own CMakeLists.txt for the platform-DLL-
 # co-location alternative used there instead.
@@ -123,23 +123,29 @@ if(GRUNK_OCCT_ENABLE_AD)
     # adtl::adouble (== Standard_Adouble, under adOCCT) as a native sol2 usertype -
     # see DESIGN.md's "Reusing one shared Standard_Real/adtl::adouble registration,
     # not two" for why occt_plugin itself never registers this type. Builds
-    # grunk-adolc's own `adtl_plugin` target; the test harness below loads it
+    # grunk-adolc's own `adolc_plugin` target; the test harness below loads it
     # alongside occt_plugin. Only ever populated when GRUNK_OCCT_ENABLE_AD is ON -
-    # adtl_plugin needs the exact same ADOL-C install occt_plugin was just pointed
+    # adolc_plugin needs the exact same ADOL-C install occt_plugin was just pointed
     # at above (both must resolve to the same compiled adtl::adouble/Standard_Real
     # type), and has no reason to exist in a plain, non-AD build at all.
     #
     # Bumped from dd7dac1 to 233516a (Step 8: packaging, see DESIGN.md) to pick up
-    # grunk-adolc's own install(TARGETS adtl_plugin ...) - this is what makes
-    # `pixi run -e ad install` below finally install adtl_plugin alongside
+    # grunk-adolc's own install(TARGETS adolc_plugin ...) - this is what makes
+    # `pixi run -e ad install` below finally install adolc_plugin alongside
     # occt_plugin, not just build it (see this file's own add_dependencies
-    # (occt_plugin adtl_plugin) further down, and DESIGN.md's "Step 8: packaging"
+    # (occt_plugin adolc_plugin) further down, and DESIGN.md's "Step 8: packaging"
     # for the full story of why that install used to be silently incomplete).
+    # Bumped again, 233516a -> 18b4482, once grunk-adolc's own codegen
+    # centralization + `adtl` -> `adolc` plugin identity rename (its own
+    # generate.py moved into grunk.codegen, and its own registered name/target
+    # changed from `adtl_plugin`/"adtl" to `adolc_plugin`/"adolc") landed there -
+    # this pin must track that rename too, or this build keeps fetching the
+    # pre-rename source and the target name below would be wrong.
     include(FetchContent)
 
     FetchContent_Declare(grunk-adolc
         GIT_REPOSITORY https://github.com/grunk-dev/grunk-adolc.git
-        GIT_TAG 233516a71e40cf55926f949f7b3a79432d710f9b
+        GIT_TAG 18b4482765fcf5a6b0d3d9d0c482f2977ba110cf
     )
 
     FetchContent_GetProperties(grunk-adolc)
@@ -172,15 +178,15 @@ if(GRUNK_OCCT_ENABLE_AD)
         # own cmake_install.cmake from ever being `include()`d by the parent's own
         # install script - confirmed empirically (grep for "grunk-adolc" in
         # build-ad/cmake_install.cmake found nothing with EXCLUDE_FROM_ALL, despite
-        # adtl_plugin's own cmake_install.cmake, one directory down, correctly
-        # having its own install(TARGETS adtl_plugin ...) rule). An explicit
-        # add_dependencies(occt_plugin adtl_plugin) further down was the first,
-        # insufficient fix attempt - it made adtl_plugin *build* correctly but not
+        # adolc_plugin's own cmake_install.cmake, one directory down, correctly
+        # having its own install(TARGETS adolc_plugin ...) rule). An explicit
+        # add_dependencies(occt_plugin adolc_plugin) further down was the first,
+        # insufficient fix attempt - it made adolc_plugin *build* correctly but not
         # *install*, since that's a wholly separate mechanism from EXCLUDE_FROM_ALL.
         # Safe to drop EXCLUDE_FROM_ALL entirely here (unlike `grunk`'s own
         # add_subdirectory, which pulls in far more than this project needs):
         # GRUNK_ADOLC_TESTS is already forced OFF just above, so grunk-adolc's own
-        # CMakeLists.txt defines no other target besides adtl_plugin itself in this
+        # CMakeLists.txt defines no other target besides adolc_plugin itself in this
         # configuration - nothing extra ends up in `all` as a result.
         add_subdirectory(${grunk-adolc_SOURCE_DIR} ${grunk-adolc_BINARY_DIR})
     endif()
@@ -304,20 +310,20 @@ if(GRUNK_OCCT_ENABLE_AD)
     # Activates every generated module's own #ifdef GRUNK_OCCT_WITH_ADOLC dual-
     # emission overload (see src/occt_ad_support.hpp's own to_real()) - the actual
     # Standard_Real/Standard_Adouble (== adtl::adouble) registration itself comes
-    # from grunk-adolc's own plugin (adtl_plugin, built above), not from anything
+    # from grunk-adolc's own plugin (adolc_plugin, built above), not from anything
     # here; see DESIGN.md's "Reusing one shared Standard_Real/adtl::adouble
-    # registration, not two". Without adtl_plugin actually loaded into the same
+    # registration, not two". Without adolc_plugin actually loaded into the same
     # grunk::state occt_plugin is, is<Standard_Real>() below could never be true for
     # anything and every derivative would silently read 0.
     target_compile_definitions(occt_plugin PRIVATE GRUNK_OCCT_WITH_ADOLC)
     target_link_libraries(occt_plugin PRIVATE PkgConfig::ADOLC)
 
-    # adtl_plugin is *not* a link dependency of occt_plugin (the two .so's are
+    # adolc_plugin is *not* a link dependency of occt_plugin (the two .so's are
     # independent - a consuming application loads both separately at runtime, see
     # e.g. tests/test_gp.cpp's own SetUpTestSuite) - no add_dependencies needed
     # here for it to get built by a plain `cmake --build .`/`install`: the
     # FetchContent block above no longer adds it with EXCLUDE_FROM_ALL, so
-    # adtl_plugin is already an unconditional part of the default `all` target
+    # adolc_plugin is already an unconditional part of the default `all` target
     # under this option, same as occt_plugin itself.
 endif()
 # MSVC only: the unity file's own object now has more COFF sections than the
@@ -356,9 +362,9 @@ endif()
 # SHARED target - Linux/macOS put the loadable library under LIBRARY, Windows
 # under RUNTIME (the .dll) with its import .lib under ARCHIVE (generated
 # alongside a SHARED target even though nothing links against it here).
-# Under GRUNK_OCCT_ENABLE_AD, `cmake --install` also installs adtl_plugin - not
+# Under GRUNK_OCCT_ENABLE_AD, `cmake --install` also installs adolc_plugin - not
 # declared here, grunk-adolc's own CMakeLists.txt (FetchContent'd above) already
-# has its own install(TARGETS adtl_plugin ...), inherited automatically once its
+# has its own install(TARGETS adolc_plugin ...), inherited automatically once its
 # add_subdirectory runs above.
 install(TARGETS occt_plugin
     LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -397,7 +403,7 @@ if(GRUNK_OCCT_TESTS)
     )
     if(GRUNK_OCCT_ENABLE_AD)
         # AD validation milestone (Step 7, see DESIGN.md) - a closed-form derivative
-        # check, only meaningful (and only compiles cleanly, since adtl.adouble/
+        # check, only meaningful (and only compiles cleanly, since adolc.adouble/
         # occt.Standard_Real only round-trips AD state under this build) when
         # occt_plugin was actually built against adOCCT.
         list(APPEND OCCT_TEST_SOURCES tests/test_ad.cpp)
@@ -436,16 +442,16 @@ if(GRUNK_OCCT_TESTS)
         target_link_libraries(runUnitTests PRIVATE PkgConfig::ADOLC)
 
         # Every fixture's own SetUpTestSuite (see e.g. tests/test_gp.cpp) loads
-        # grunk-adolc's own adtl_plugin into the same grunk::state as occt_plugin,
+        # grunk-adolc's own adolc_plugin into the same grunk::state as occt_plugin,
         # guarded by this same macro (occt_plugin's own generated code already sees
         # it via its own target_compile_definitions above - this is the test
         # executable's copy of the same flag) - see DESIGN.md's "Reusing one shared
         # Standard_Real/adtl::adouble registration, not two".
         target_compile_definitions(runUnitTests PRIVATE
             GRUNK_OCCT_WITH_ADOLC
-            ADTL_PLUGIN_SO_PATH="$<TARGET_FILE:adtl_plugin>"
+            ADTL_PLUGIN_SO_PATH="$<TARGET_FILE:adolc_plugin>"
         )
-        add_dependencies(runUnitTests adtl_plugin)
+        add_dependencies(runUnitTests adolc_plugin)
     endif()
     add_dependencies(runUnitTests occt_plugin)
 

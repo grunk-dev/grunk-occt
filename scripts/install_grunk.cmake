@@ -20,7 +20,7 @@
 # "grunk". Needed because this repo has *two* pixi environments (default and ad),
 # each its own conda environment with its own Lua/yaml-cpp builds - sharing one
 # .deps/grunk between them would mean whichever environment runs this script first
-# "wins", and the other silently links occt_plugin/adtl_plugin against a grunk built
+# "wins", and the other silently links occt_plugin/adolc_plugin against a grunk built
 # against a *different* environment's Lua/yaml-cpp than the one it's actually
 # running in (confirmed the hard way: CMake's own "cannot generate a safe runtime
 # search path... cycle in the constraint graph" warning, from .deps/grunk's baked-in
@@ -29,7 +29,7 @@
 # CMakeLists.txt used to FetchContent+add_subdirectory grunk's source directly,
 # statically linking its compiled libraries into occt_plugin - replaced with this
 # bootstrap + find_package(grunk REQUIRED) so occt_plugin (and, via its own
-# FetchContent of grunk-adolc's source for the AD build, adtl_plugin too) instead
+# FetchContent of grunk-adolc's source for the AD build, adolc_plugin too) instead
 # dynamically links grunk's own SHARED libraries (grunk's own CMakeLists.txt builds
 # grunk_recipe/grunk_plugin as SHARED - see its own top-level CMakeLists.txt
 # comment). A plugin that statically embeds its own private copy of grunk, loaded

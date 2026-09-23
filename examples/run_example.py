@@ -13,7 +13,7 @@ this single self-contained script is simpler for the small recipes here.
 Also runs bspline_curve.grr.yml (see its own top comment) - unlike
 cavity/tank-model, this one is the same recipe file for both occt_plugin variants
 (../README.md's "Building with AD support"): given only libocct_plugin.so, it just
-checks the primal curve position looks sane; given libadtl_plugin.so too (grunk-
+checks the primal curve position looks sane; given libadolc_plugin.so too (grunk-
 adolc's own plugin, only ever built alongside an AD-enabled occt_plugin), it also
 verifies the AD derivative bspline_curve.grr.yml computes against a finite-
 difference approximation computed by re-evaluating the very same recipe with its
@@ -26,7 +26,7 @@ from the grunk repo) rather than C++, since most grunk users script recipes from
 Python.
 
 Usage:
-    python run_example.py /path/to/libocct_plugin.so [/path/to/libadtl_plugin.so]
+    python run_example.py /path/to/libocct_plugin.so [/path/to/libadolc_plugin.so]
 """
 
 import sys
@@ -62,7 +62,7 @@ def run_bspline_curve(state: grunk.state, has_ad: bool) -> None:
     print(f"  primal position at u=0.5: ({mx0:.6f}, {my0:.6f}, {mz0:.6f})")
 
     if not has_ad:
-        print("  (no libadtl_plugin.so given - skipping derivative check)")
+        print("  (no libadolc_plugin.so given - skipping derivative check)")
         return
 
     dx = recipe.get_output("mid_x_deriv").value().as_float()
@@ -91,17 +91,17 @@ def run_bspline_curve(state: grunk.state, has_ad: bool) -> None:
 
 def main() -> None:
     if len(sys.argv) not in (2, 3):
-        sys.exit(f"usage: {sys.argv[0]} /path/to/libocct_plugin.so [/path/to/libadtl_plugin.so]")
+        sys.exit(f"usage: {sys.argv[0]} /path/to/libocct_plugin.so [/path/to/libadolc_plugin.so]")
     occt_plugin_path = sys.argv[1]
-    adtl_plugin_path = sys.argv[2] if len(sys.argv) == 3 else None
+    adolc_plugin_path = sys.argv[2] if len(sys.argv) == 3 else None
 
     state = grunk.state()
-    if adtl_plugin_path is not None:
+    if adolc_plugin_path is not None:
         # Loaded before occt_plugin here, but load order between the two doesn't
         # actually matter (see ../src/occt_plugin.cpp's own register_occt()
         # comment) - only that both are loaded before any AD-enabled OCCT Lua
         # code runs, which state.read() below is the first thing to do.
-        grunk.plugin.load_native(state, adtl_plugin_path)
+        grunk.plugin.load_native(state, adolc_plugin_path)
     grunk.plugin.load_native(state, occt_plugin_path)
     state.load_lua_plugin_file(
         grunk.PluginInfo("occt_helpers", "1.0.0"),
@@ -111,7 +111,7 @@ def main() -> None:
     run_recipe(state, EXAMPLES_DIR / "cavity_model.grr.yml", "cavity_h", 60.0)
     run_recipe(state, EXAMPLES_DIR / "cavity_model_v2.grr.yml", "R1", 180.0)
     run_recipe(state, EXAMPLES_DIR / "tank_model.grr.yml", "radius", 1.5)
-    run_bspline_curve(state, has_ad=adtl_plugin_path is not None)
+    run_bspline_curve(state, has_ad=adolc_plugin_path is not None)
 
 
 if __name__ == "__main__":

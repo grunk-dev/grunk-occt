@@ -266,18 +266,18 @@ build = { cmd = "cmake --build build-ad --parallel", description = "Build the AD
 
 test = { cmd = "ctest --test-dir build-ad --output-on-failure", depends-on = ["build"], description = "Run the AD-enabled test harness (tests/test_ad.cpp - a closed-form derivative check)." }
 
-# Installs *both* occt_plugin and adtl_plugin (grunk-adolc's own install(TARGETS
-# adtl_plugin ...), inherited via its FetchContent add_subdirectory - see
+# Installs *both* occt_plugin and adolc_plugin (grunk-adolc's own install(TARGETS
+# adolc_plugin ...), inherited via its FetchContent add_subdirectory - see
 # CMakeLists.txt's own comment on the GRUNK_OCCT_ENABLE_AD branch's install()).
-install = { cmd = "cmake --install build-ad", depends-on = ["build"], description = "Install occt_plugin and adtl_plugin into build-ad/install (CMAKE_INSTALL_PREFIX, set by the configure task) - run `cmake --install build-ad --prefix <path>` directly for a different location." }
+install = { cmd = "cmake --install build-ad", depends-on = ["build"], description = "Install occt_plugin and adolc_plugin into build-ad/install (CMAKE_INSTALL_PREFIX, set by the configure task) - run `cmake --install build-ad --prefix <path>` directly for a different location." }
 
 # Same examples/run_example.py the default environment's own run_examples task
 # uses (see [target.linux-64.tasks] above) - the *second* argument (grunk-adolc's
-# own adtl_plugin, built alongside occt_plugin here - see CMakeLists.txt's own
+# own adolc_plugin, built alongside occt_plugin here - see CMakeLists.txt's own
 # GRUNK_OCCT_ENABLE_AD FetchContent block) is what makes run_example.py verify
 # examples/bspline_curve.grr.yml's own AD derivative against finite differences,
 # not just check the primal curve position - see that script's own top comment.
-run_examples = { cmd = "python examples/run_example.py build-ad/libocct_plugin.so build-ad/_deps/grunk-adolc-build/libadtl_plugin.so", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md), including the AD derivative check." }
+run_examples = { cmd = "python examples/run_example.py build-ad/libocct_plugin.so build-ad/_deps/grunk-adolc-build/libadolc_plugin.so", depends-on = ["build"], description = "Run the example recipes under examples/ (see examples/README.md), including the AD derivative check." }
 
 [feature.ad.tasks.all]
 depends-on = ["configure", "build", "test", "run_examples"]

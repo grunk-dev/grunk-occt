@@ -59,12 +59,12 @@ inline Standard_Real to_real(sol::object o)
     //    occt_plugin.cpp) registers Standard_Adouble as its *own* sol2 usertype,
     //    with .add_bases<adtl::adouble>() so Lua code can pass one where the other
     //    is expected. grunk-adolc's own plugin still owns adtl::adouble's own
-    //    registration (constructors, arithmetic, adtl.sin/cos/...) - this only adds
+    //    registration (constructors, arithmetic, adolc.sin/cos/...) - this only adds
     //    the OCCT-specific derived type on top, the same way any other OCCT
     //    Transient/Handle base chain is registered.
     // 2. This function has to accept *both* an already-Standard_Real-typed value
     //    (e.g. one that round-tripped through another OCCT call) and a plain
-    //    adtl::adouble one (e.g. fresh from adtl.adouble.new(...) or adtl.sin(...)
+    //    adtl::adouble one (e.g. fresh from adolc.adouble.new(...) or adolc.sin(...)
     //    - grunk-adolc's own functions only ever produce adtl::adouble, never
     //    Standard_Adouble, since grunk-adolc has no OCCT dependency to know that
     //    type exists at all) - constructing Standard_Real(adtl::adouble) preserves

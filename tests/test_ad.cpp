@@ -17,7 +17,7 @@
 // why: the recipe/YAML layer isn't exercised by any AD test in this repo yet). The
 // one difference: occt.Standard_Real (== Standard_Adouble under this build) needs an
 // actual AD-tracked value to seed a direction into, which a plain Lua number can't
-// carry - that value is adtl.adouble, grunk-adolc's own plugin (loaded below,
+// carry - that value is adolc.adouble, grunk-adolc's own plugin (loaded below,
 // alongside occt_plugin - see ../DESIGN.md's "Reusing one shared Standard_Real/
 // adtl::adouble registration, not two"), not a distinct occt.Standard_Real usertype
 // of this project's own (an earlier design had one; superseded, see that same
@@ -75,7 +75,7 @@ TEST_F(BezierAdTest, DerivativeMatchesClosedFormBernsteinWeight)
 {
     auto env = state_->create_env();
     auto res = env.eval(R"(
-        X0 = adtl.adouble.new(1.0)
+        X0 = adolc.adouble.new(1.0)
         X0:setADValue(0, 1.0)
 
         p0 = occt.gp_Pnt.new(X0, 0.0, 0.0)

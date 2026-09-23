@@ -8,8 +8,8 @@ uses:
 modules:
   me: |
     function seed_point(x, y, z)
-        if adtl ~= nil then
-            local xa = adtl.adouble.new(x)
+        if adolc ~= nil then
+            local xa = adolc.adouble.new(x)
             xa:setADValue(0, 1.0)
             return occt.gp_Pnt.new(xa, y, z)
         end
@@ -17,14 +17,14 @@ modules:
     end
 
     function primal_value(v)
-        if adtl ~= nil then
+        if adolc ~= nil then
             return v:getValue()
         end
         return v
     end
 
     function ad_derivative(v)
-        if adtl ~= nil then
+        if adolc ~= nil then
             return v:getADValue(0)
         end
         return 0.0

@@ -110,7 +110,7 @@ pixi run -e ad install_adolc    # build/install ADOL-C (idempotent)
 pixi run -e ad install_adocct   # build/install adOCCT against it (idempotent)
 pixi run -e ad build
 pixi run -e ad test             # includes a closed-form derivative check
-pixi run -e ad install          # -> build-ad/install/lib/{libocct_plugin.so,libadtl_plugin.so}
+pixi run -e ad install          # -> build-ad/install/lib/{libocct_plugin.so,libadolc_plugin.so}
 ```
 
 (`.deps/grunk-ad`, not `.deps/grunk` - the `ad` environment has its own conda environment, and so

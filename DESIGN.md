@@ -1537,3 +1537,35 @@ fallback/error path taken at all (`pixi run -e ad run_examples` - no "KNOWN ISSU
 that whole code path was removed from `run_example.py`; `occt_helpers.lua`'s own `compound()`
 `IsNull()` guard - general defensive code, not specific to this bug - never triggers for this
 recipe anymore either).
+
+## Code generator centralized into `grunk.codegen`; grunk-adolc's plugin identity renamed `adtl` → `adolc`
+
+Two changes landed together in `grunk-adolc`, both rippling into this repo's own `GRUNK_OCCT_ENABLE_AD`
+build:
+
+1. **Codegen centralization**: `codegen/generate.py` (this repo's own copy, previously duplicated
+   verbatim into `grunk-adolc`) moved into the `grunk` repo itself as `grunk.codegen`, installed as
+   part of the `grunk` package and invoked via the `grunk` console script's `codegen` subcommand
+   (`grunk codegen --config codegen/config.yml --include-dir ... --output-dir generated`) - see this
+   repo's own `CMakeLists.txt`'s `generate_code` target and `grunk`'s own
+   `python/grunk/codegen/README.md`. `codegen/config.yml` stays here unchanged (per-plugin data), plus
+   a new `helper_namespace: occt_plugin` key the now-shared generator needs (replacing a previously
+   hardcoded `"occt_plugin"` literal in `emit_lambda`).
+2. **`grunk-adolc`'s own plugin identity renamed** from `adtl` to `adolc` (`GRUNK_PLUGIN_INFO`, the
+   Lua-facing `adtl.*` table, its CMake target/`.so`) - see `grunk-adolc`'s own `DESIGN.md`, "Plugin
+   identity renamed from `adtl` to `adolc`", for the full rationale. Rippled into this repo in three
+   places: the `FetchContent_Declare(grunk-adolc ...)` `GIT_TAG` pin (bumped to the commit with both
+   changes; the target it vendors is now `adolc_plugin`, not `adtl_plugin` - every reference to it in
+   this file's own `GRUNK_OCCT_ENABLE_AD` branch, `add_dependencies`, and `install()` updated to
+   match), `tests/test_ad.cpp`'s own embedded Lua (`adtl.adouble.new(...)` → `adolc.adouble.new(...)`),
+   and `examples/bspline_curve.grr.yml`'s own `me.seed_point`/`primal_value`/`ad_derivative` module
+   functions (`if adtl ~= nil` → `if adolc ~= nil`, same for the one `adtl.adouble.new(...)` call).
+   `src/occt_ad_support.hpp`'s own comments describing the Lua-facing naming convention were updated
+   to match; `adtl::adouble` (the C++ type, ADOL-C's own upstream namespace) is *not* renamed anywhere
+   - only this plugin's own registration/Lua identity changed. Historical narrative elsewhere in this
+   file (the AD-validation-milestone sections above, "Step 8: packaging", etc.) still says `adtl`
+   throughout, deliberately - accurate to what was true at each of those points in this repo's history.
+
+**Verified**: `pixi run -e default test` (50/50), `pixi run -e ad test` (51/51, including
+`test_ad.cpp`'s own `BezierAdTest`), and both environments' `generate_code` task (`git diff
+generated/` empty in both) all pass against the new pins.
