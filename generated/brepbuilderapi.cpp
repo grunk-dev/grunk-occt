@@ -8,6 +8,7 @@
 
 #include "brepbuilderapi.hpp"
 
+#include <BRepBuilderAPI.hxx>
 #include <BRepBuilderAPI_Collect.hxx>
 #include <BRepBuilderAPI_Command.hxx>
 #include <BRepBuilderAPI_Copy.hxx>
@@ -34,6 +35,7 @@
 #include <BRepBuilderAPI_Transform.hxx>
 #include <BRepBuilderAPI_TransitionMode.hxx>
 #include <BRepBuilderAPI_WireError.hxx>
+#include <Geom_Plane.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Vertex.hxx>
 #include <TopoDS_Edge.hxx>
@@ -68,6 +70,7 @@
 
 void register_brepbuilderapi(grunk::plugin_namespace& ns)
 {
+    ns.register_type<BRepBuilderAPI, sol::automagic_flags::none>("BRepBuilderAPI");
     ns.register_type<BRepBuilderAPI_Collect, sol::automagic_flags::none>("BRepBuilderAPI_Collect")
         .add_constructors(
             []() { return BRepBuilderAPI_Collect(); }
@@ -130,7 +133,8 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
 #endif
         
         ))
-        .add_member_function("Found", [](BRepBuilderAPI_FindPlane const& self) -> Standard_Boolean { return self.Found(); });
+        .add_member_function("Found", [](BRepBuilderAPI_FindPlane const& self) -> Standard_Boolean { return self.Found(); })
+        .add_member_function("Plane", [](BRepBuilderAPI_FindPlane const& self) -> opencascade::handle<Geom_Plane> { return self.Plane(); });
     ns.register_type<BRepBuilderAPI_GTransform, sol::automagic_flags::none>("BRepBuilderAPI_GTransform")
         .add_constructors(
             [](const gp_GTrsf & T) { return std::make_unique<BRepBuilderAPI_GTransform>(T); },
@@ -733,5 +737,18 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             "BRepBuilderAPI_DisconnectedWire", BRepBuilderAPI_DisconnectedWire,
             "BRepBuilderAPI_NonManifoldWire", BRepBuilderAPI_NonManifoldWire
         );
-
+    ns.register_function("BRepBuilderAPI_Plane", sol::overload(
+        []() -> opencascade::handle<Geom_Plane> { return BRepBuilderAPI::Plane(); },
+        [](const opencascade::handle<Geom_Plane> & P) { BRepBuilderAPI::Plane(P); }
+    ));
+    ns.register_function("BRepBuilderAPI_Precision", sol::overload(
+        []() -> Standard_Real { return BRepBuilderAPI::Precision(); },
+        
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object P) { BRepBuilderAPI::Precision(occt_plugin::to_real(P)); }
+#else
+            [](const Standard_Real P) { BRepBuilderAPI::Precision(P); }
+#endif
+        
+    ));
 }

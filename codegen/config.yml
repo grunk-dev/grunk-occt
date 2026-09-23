@@ -38,8 +38,8 @@
 # ever appears after adding a new module - it means that module returns some other
 # module's Handle(X) type too.
 #
-# brep/brepfilletapi joined this group for exactly that reason (Step 6.5 coverage
-# audit): registering Geom_Surface (geom module, for Geom_BSplineSurface's own
+# brep/brepfilletapi joined this group for exactly that reason: registering
+# Geom_Surface (geom module, for Geom_BSplineSurface's own
 # ExchangeUV) newly type-accepted BRep_Tool::Surface (brep) and
 # BRepFilletAPI_MakeFillet::ComputedSurface (brepfilletapi), both of which return
 # Handle(Geom_Surface) - previously rejected outright (Geom_Surface wasn't a
@@ -58,37 +58,35 @@ modules:
     headers:
       - gp_*.hxx
     blacklist:
-      # Step 2 checkpoint (see DESIGN.md/migration plan): deliberately blacklisted to
-      # prove the mechanism works end to end, not because it's actually unwrappable -
-      # BaryCenter is real, accepted by the type filter, and not needed by any target
-      # recipe today.
+      # Deliberately blacklisted rather than actually unwrappable - BaryCenter is
+      # real, accepted by the type filter, and not needed by any target recipe
+      # today.
       - gp_Pnt::BaryCenter
       # A gp_Vec/gp_Vec2d constructed from a null-magnitude direction throws this
       # exception type (Standard_DomainError-derived) - not a geometric value type
-      # in its own right, and re-deriving this fresh (Step 6 policy) rather than
-      # just carrying legacy grocc's own identical blacklist entry forward: it has
+      # in its own right. Re-derived fresh rather than just carrying legacy
+      # grocc's own identical blacklist entry forward: it has
       # no accepted constructor of its own (its only one takes no arguments and
       # would need real exception-object construction semantics this generator
       # doesn't model), so it would register as an empty, useless type either way.
       - gp_VectorWithNullMagnitude
 
   - name: geom
-    # Step 3 validation module (see DESIGN.md/migration plan): Standard_Transient/
-    # Handle(T) detection + add_bases<...>() for inheritance chains, on something
-    # Transient-derived but array-free (Geom_Line). Order matters here: base classes
-    # first, so the generated .cpp registers Geom_Geometry before Geom_Curve before
+    # Standard_Transient/Handle(T) detection + add_bases<...>() for inheritance
+    # chains, exercised here on something Transient-derived but array-free
+    # (Geom_Line). Order matters for readability here: base classes first, so the
+    # generated .cpp registers Geom_Geometry before Geom_Curve before
     # Geom_Line/Geom_BoundedCurve/Geom_BezierCurve (natural reading order, though
     # sol2's add_bases doesn't strictly require it).
     #
-    # Geom_BoundedCurve/Geom_BezierCurve are the Step 5 validation case (collections -
-    # see DESIGN.md/migration plan): the generator registers Geom_BezierCurve itself
-    # generically, including its own constructors - both take a TColgp_Array1OfPnt
-    # const&, accepted via the generator's NCollection_Array1<X> parameter support
-    # (see codegen/README.md's "NCollection_Array1/2 support"), converting through
-    # src/collections.hpp's to_array1<gp_Pnt>() and never exposing that OCCT array
-    # type to Lua directly.
+    # Geom_BoundedCurve/Geom_BezierCurve exercise collection support: the
+    # generator registers Geom_BezierCurve itself generically, including its own
+    # constructors - both take a TColgp_Array1OfPnt const&, accepted via the
+    # generator's NCollection_Array1<X> parameter support (see codegen/README.md's
+    # "NCollection_Array1/2 support"), converting through src/collections.hpp's
+    # to_array1<gp_Pnt>() and never exposing that OCCT array type to Lua directly.
     #
-    # Geom_TrimmedCurve/Geom_Conic/Geom_Circle are Step 6's "gc" module's own
+    # Geom_TrimmedCurve/Geom_Conic/Geom_Circle are the "gc" module's own
     # prerequisites (GC_MakeSegment::Value() returns Handle(Geom_TrimmedCurve),
     # GC_MakeCircle::Value() returns Handle(Geom_Circle)) - genuine Geom_* classes
     # in the same inheritance family as everything else here, registered here
@@ -99,50 +97,41 @@ modules:
     # Handle(X) reference: see CMakeLists.txt's unity-build note and DESIGN.md's
     # "Handle(X) return type requires being in the same translation unit as X" for
     # why that would otherwise be a real, confirmed compile error.
+    #
+    # Widened from a hand-picked header list to the full Geom_*.hxx wildcard plus
+    # GeomConvert.hxx, matching legacy grocc's own config.yml.in - found by
+    # directly diffing the class lists both generators actually produce
+    # (legacy-grocc/generated/Geom.cpp vs. this module's own output), not by
+    # re-reading either config. ~23 real analytic-geometry classes (Geom_Plane,
+    # Geom_CylindricalSurface, Geom_Ellipse, Geom_Hyperbola, Geom_Parabola, the
+    # Geom_Axis1Placement/Axis2Placement/AxisPlacement family,
+    # Geom_Transformation, Geom_OffsetCurve/OffsetSurface, ...) were never
+    # reachable from Lua at all - not because of any deliberate exclusion, nobody
+    # had needed them yet. GeomConvert (curve/surface-to-BSpline conversion
+    # utilities - SplitBSplineCurve/Surface, CurveToBSplineCurve,
+    # SurfaceToBSplineSurface) is a genuinely useful static "namespace class",
+    # same shape as BRepTools/TopoDS - legacy grocc wrapped it explicitly, this
+    # module never had it at all. GeomConvert::ConcatG1/ConcatC1 (mutable
+    # TColGeom_Array1OfBSplineCurve&/TColStd_HArray1OfInteger& out-params) stay
+    # rejected - genuinely unsupported by this generator, not a regression.
+    #
+    # The original hand-picked list (Geom_Geometry/Curve/Line/BoundedCurve/
+    # BezierCurve/BSplineCurve/TrimmedCurve/Conic/Circle/Surface/BoundedSurface/
+    # BSplineSurface/BezierSurface) is a strict subset of what the wildcard now
+    # produces - every one of those earlier, validation-driven additions is still
+    # covered, this only adds more, never removes anything.
     headers:
-      - Geom_Geometry.hxx
-      - Geom_Curve.hxx
-      - Geom_Line.hxx
-      - Geom_BoundedCurve.hxx
-      - Geom_BezierCurve.hxx
-      # A genuine B-spline (explicit knots/multiplicities), not an interpolation
-      # curve (GeomAPI_PointsToBSpline, geomapi module) or a Bezier curve above -
-      # added for the examples/bspline_curve.grr.yml AD example, "fashioned out
-      # of" adOCCT's own tests-ad/src/bspline_curve.cpp. Its own
-      # (TColgp_Array1OfPnt const&, TColStd_Array1OfReal const&,
-      # TColStd_Array1OfInteger const&, Standard_Integer) constructor is exactly
-      # what exercises to_real_array1 (src/collections.hpp) under AD - a real
-      # (TColStd_Array1OfReal), not just points, array parameter.
-      - Geom_BSplineCurve.hxx
-      - Geom_TrimmedCurve.hxx
-      - Geom_Conic.hxx
-      - Geom_Circle.hxx
-      # Geom_Surface/Geom_BoundedSurface base classes, then Geom_BSplineSurface/
-      # Geom_BezierSurface - the surface-side counterparts of Geom_Curve/
-      # Geom_BoundedCurve/Geom_BSplineCurve/Geom_BezierCurve above, added for
-      # ../../DESIGN.md's "Step 6.5 coverage audit": legacy grocc's own
-      # fused_wing_fuselage.grr/solid_fuselage.grr/solid_wing.grr need
-      # Geom_BSplineSurface::ExchangeUV, wing_body.grr.yml needs
-      # Handle(Geom_BezierSurface) (constructed from a 2D grid of poles - the same
-      # to_array2/to_real_array2 flat-vector-plus-dims convention
-      # GeomAPI_PointsToBSplineSurface's own Interpolate already exercises, see
-      # tests/test_geomapi.cpp). Neither surface class was reachable from Lua
-      # before this - GeomAPI_PointsToBSplineSurface::Surface() returns
-      # Handle(Geom_BSplineSurface), but nothing needed to call a method on the
-      # result until now, so the unregistered type never came up.
-      - Geom_Surface.hxx
-      - Geom_BoundedSurface.hxx
-      - Geom_BSplineSurface.hxx
-      - Geom_BezierSurface.hxx
-    # extra_includes: needed once the gp module's own wildcard expansion (Step 6)
+      - Geom_*.hxx
+      - GeomConvert.hxx
+    # extra_includes: needed once the gp module's own wildcard expansion
     # registered gp_Lin/gp_Circ/gp_Ax2 - several Geom_* methods return/take them by
     # value (Geom_Line::Lin, Geom_Circle::Circ, Geom_Conic::SetAxis/Position, ...),
     # newly accepted now that those types are registered, but this module's own
     # headers only forward-declare them (e.g. Geom_Line.hxx's `class gp_Lin;`) -
     # same reasoning as bnd/brep/breptools/toploc's own extra_includes. gp_GTrsf2d
-    # is the same story for Geom_Surface::ParametricTransformation (Step 6.5
-    # coverage audit, added alongside Geom_Surface itself) - gp_Mat2d.hxx (already
-    # transitively included) only forward-declares it (`friend class gp_GTrsf2d;`).
+    # is the same story for Geom_Surface::ParametricTransformation - gp_Mat2d.hxx
+    # (already transitively included) only forward-declares it (`friend class
+    # gp_GTrsf2d;`).
     extra_includes:
       - gp_Lin.hxx
       - gp_Circ.hxx
@@ -153,9 +142,10 @@ modules:
     # Message_ProgressRange appears as a defaulted parameter across a large swath of
     # OCCT's own API (BRepTools::Write, BRepAlgoAPI_Cut's own constructor, ...).
     # Originally registered because the generator couldn't expand default arguments
-    # at all (every parameter had to come from Lua, defaulted or not) - since Step
-    # 6.5's default-argument expansion (see codegen/README.md and DESIGN.md), most
-    # of those call sites now also have a shorter overload that omits it entirely
+    # at all (every parameter had to come from Lua, defaulted or not) - since the
+    # generator gained default-argument expansion (see codegen/README.md and
+    # DESIGN.md), most of those call sites now also have a shorter overload that
+    # omits it entirely
     # and lets C++ apply the real default. Still worth keeping registered: it's a
     # real, useful escape hatch for the (rarer) call sites that genuinely want to
     # pass a real progress range explicitly (or where a *non-trailing* defaulted
@@ -167,8 +157,8 @@ modules:
   - name: topods
     # TopoDS_Shape is a plain VALUE type (not Standard_Transient-derived) - its leaf
     # subtypes (Face/Edge/Vertex/...) add no data, just type identity, via ordinary
-    # (non-Handle) single inheritance. The same add_bases<...>() mechanism Step 3
-    # built for Handle(T)/Transient inheritance turns out to generalize directly to
+    # (non-Handle) single inheritance. The same add_bases<...>() mechanism built
+    # for Handle(T)/Transient inheritance turns out to generalize directly to
     # this case too (see DESIGN.md) - legacy grocc's manual "TopoDS_Shape gets extra
     # upcast constructors from every leaf type" workaround (custom_init.cpp) is not
     # needed here: a TopoDS_Face-typed value upcast-converts to a
@@ -194,14 +184,13 @@ modules:
     # BRepBuilderAPI_Command's IsDone() and BRepBuilderAPI_MakeShape's Shape() are
     # what every BRepPrimAPI_Make*/BRepAlgoAPI_* algorithm class below actually
     # inherits and needs - registered here once, reached via add_bases from each of
-    # them (same base-class-method-reuse pattern as Step 3's Geom_Curve::Value).
+    # them (same base-class-method-reuse pattern as Geom_Curve::Value).
     #
-    # Step 6.5 (see DESIGN.md/migration plan): widened from the Step 4b hand-picked
-    # pair to the whole module (BRepBuilderAPI_*.hxx), matching legacy grocc's own
-    # config.yml.in wildcard - needed to unlock MakeEdge/MakeWire/MakePolygon/
-    # MakeFace/Transform for the ported example recipes (examples/). Re-derives
-    # legacy's own two blacklist entries fresh per Step 6 policy rather than
-    # carrying them forward uncritically:
+    # Widened from a hand-picked pair to the whole module (BRepBuilderAPI_*.hxx),
+    # matching legacy grocc's own config.yml.in wildcard - needed to unlock
+    # MakeEdge/MakeWire/MakePolygon/MakeFace/Transform for the ported example
+    # recipes (examples/). Re-derives legacy's own two blacklist entries fresh
+    # rather than carrying them forward uncritically:
     #   - BRepBuilderAPI_FastSewing: a protected nested class (legacy's own comment:
     #     "protected nested classes should not be considered by code generator") -
     #     confirmed still a real generator gap (this generator's own class-discovery
@@ -209,7 +198,17 @@ modules:
     #     the way it does for members - out of scope to fix here).
     #   - BRepBuilderAPI_BndBoxTreeSelector: needs Bnd_BoundSortBox/NCollection_UBTree
     #     internals, none registered - confirmed still unusable, kept blacklisted.
+    #
+    # Also includes the bare BRepBuilderAPI.hxx (the module's own static
+    # "namespace class", same shape as BRepTools/TopoDS - default working-plane/
+    # precision accessors), added after comparing this module's own generated
+    # class list against legacy grocc's: the BRepBuilderAPI_*.hxx glob below never
+    # matched it (no underscore after "BRepBuilderAPI" in the filename), an
+    # easy-to-miss gap legacy grocc's own config.yml.in happened to avoid since its
+    # equivalent glob (BRepBuilderAPI*.hxx, no underscore) is looser and matches
+    # both.
     headers:
+      - BRepBuilderAPI.hxx
       - BRepBuilderAPI_*.hxx
     # These four headers don't even parse standalone - each instantiates
     # NCollection_CellFilter<gp_XY> or NCollection_UBTree (BndBoxTreeSelector) without
@@ -226,12 +225,15 @@ modules:
       - BRepBuilderAPI_VertexInspector.hxx
       - BRepBuilderAPI_FastSewing.hxx
       - BRepBuilderAPI_BndBoxTreeSelector.hxx
-    # extra_includes: the TopoDS_* entries are original (Step 4b); the gp_* ones
+    # extra_includes: the TopoDS_* entries are original; the gp_* ones
     # were added once a standalone-per-module build (not the old always-unity
     # build) actually compiled this module on its own and found each one only
     # forward-declared by whichever BRepBuilderAPI_*.hxx header takes it by
-    # reference - see DESIGN.md's "Translation-unit grouping".
+    # reference - see DESIGN.md's "Translation-unit grouping". Geom_Plane.hxx is
+    # the same story for BRepBuilderAPI::Plane() - BRepBuilderAPI.hxx only
+    # forward-declares it.
     extra_includes:
+      - Geom_Plane.hxx
       - TopoDS_Shape.hxx
       - TopoDS_Vertex.hxx
       - TopoDS_Edge.hxx
@@ -258,15 +260,15 @@ modules:
       - gp_Torus.hxx
 
   - name: brepprimapi
-    # Step 4b validation module: reproduces legacy grocc's test_simple_boolean_op.cpp
-    # (box, cylinder, cut). Widened to the whole module (Step 6.5, see DESIGN.md) -
-    # matches legacy grocc's own wildcard, needed to unlock MakeRevol/MakeHalfSpace/
-    # MakeSphere/MakePrism for the ported example recipes.
+    # Reproduces legacy grocc's test_simple_boolean_op.cpp (box, cylinder, cut).
+    # Widened to the whole module (see DESIGN.md) - matches legacy grocc's own
+    # wildcard, needed to unlock MakeRevol/MakeHalfSpace/MakeSphere/MakePrism for
+    # the ported example recipes.
     headers:
       - BRepPrimAPI_*.hxx
 
   - name: brepalgoapi
-    # Widened to the whole module (Step 6.5, see DESIGN.md) - matches legacy grocc's
+    # Widened to the whole module (see DESIGN.md) - matches legacy grocc's
     # own wildcard, needed to unlock Fuse/Common for the ported example recipes.
     # extra_includes: some BRepAlgoAPI_*.hxx header only forward-declares gp_Pln (a
     # reference parameter needs no more from its own point of view) - same class of
@@ -279,13 +281,11 @@ modules:
       - gp_Pln.hxx
 
   - name: bnd
-    # Step 6 module expansion sweep (see DESIGN.md/migration plan) - the first new
-    # module beyond Steps 0-5's validation set:
     #   - Bnd_Box is a plain value type (no Standard_Transient/Handle, no explicit
     #     destructor -> "value" ctor mode) bounded by gp_Pnt/gp_Dir/gp_Trsf (gp
     #     module) and itself (Add(Bnd_Box const&)); IsOut(gp_Lin const&)/
-    #     IsOut(gp_Pln const&) are accepted now that gp's own wildcard (Step 6.5)
-    #     registers gp_Lin/gp_Pln too - see this module's own extra_includes below,
+    #     IsOut(gp_Pln const&) are accepted now that gp's own wildcard registers
+    #     gp_Lin/gp_Pln too - see this module's own extra_includes below,
     #     needed once these two overloads started being generated: Bnd_Box.hxx only
     #     forward-declares gp_Lin/gp_Pln (a reference parameter needs no more from
     #     its own point of view), same class of gap as BRepBndLib.hxx's own
@@ -293,31 +293,52 @@ modules:
     #   - BRepBndLib is a static-only "namespace class" (see codegen/README.md's
     #     "Static-only 'namespace classes'") whose Add(shape, box&, ...) mutates the
     #     existing Bnd_Box userdata passed in - the same already-supported
-    #     non-const-reference-to-a-registered-object out-param pattern Step 3's
+    #     non-const-reference-to-a-registered-object out-param pattern
     #     Geom_Curve::D0 established (codegen/README.md's "Non-const-reference
-    #     ('out') parameters"). AddOBB (Bnd_OBB, unregistered) is rejected - out of
-    #     scope for this module.
-    # extra_includes (new config field, see codegen/README.md's "extra_includes"):
+    #     ('out') parameters").
+    # extra_includes (see codegen/README.md's "extra_includes"):
     # BRepBndLib.hxx only forward-declares `class TopoDS_Shape;` (a reference
     # parameter needs no more from BRepBndLib.hxx's own point of view) - but sol2's
     # usertype binding for Add(shape, ...) needs TopoDS_Shape's *complete*
     # definition in this translation unit (generated/bnd.cpp), regardless of it
     # already being fully defined and registered elsewhere (generated/topods.cpp) -
     # found the hard way as a real "invalid use of incomplete type" compile error.
-    # No blacklist entries: re-derived fresh per Step 6's policy rather than carried
-    # over from legacy grocc's config.yml.in (whose only Bnd-module blacklist entry,
-    # "Handle_", was the systematic dual-registration exclusion Step 0.5 already
-    # flagged as obsolete under the new Handle(T) approach).
+    #
+    # Widened from Bnd_Box.hxx alone to the full Bnd_*.hxx wildcard, matching
+    # legacy grocc's own config.yml.in and every other module here's own
+    # widened-to-the-whole-module treatment - found by directly diffing this
+    # module's own generated class list against legacy grocc's. Adds Bnd_Box2d
+    # (the 2D counterpart), Bnd_OBB (oriented bounding box - now registers, unlike
+    # before), Bnd_Sphere/Bnd_B2d/B2f/B3d/B3f (simpler bounding primitives),
+    # Bnd_Range (1D interval), Bnd_Tools (a static "namespace class", same shape as
+    # BRepBndLib itself), and Bnd_HArray1OfBox/Bnd_HArray1OfSphere (handle-wrapped
+    # arrays built on the already-supported NCollection_Array1<X> mechanism, not
+    # the old TCol*_H*-style handle arrays that stay unregistered - see this
+    # repo's own "No NCollection type is ever exposed to Lua directly" policy,
+    # DESIGN.md's "Collections" section). Bnd_BoundSortBox/BoundSortBox2d/
+    # HArray1OfBox2d stay unregistered on their own merits (NCollection_UBTree
+    # internals / Bnd_Box2d not itself array1-eligible respectively), not because
+    # the wildcard failed to reach them.
     headers:
-      - Bnd_Box.hxx
+      - Bnd_*.hxx
       - BRepBndLib.hxx
+    blacklist:
+      # Bnd_OBB::GetVertex(gp_Pnt theP[8]) takes a fixed-size C array, a parameter
+      # shape this generator has no support for at all (not a pointer/reference to
+      # a single object, not an NCollection_Array1/2, not a std::vector) - its own
+      # parameter-kind detection mistakenly treats it as callable with zero
+      # arguments instead of rejecting it outright, which would otherwise silently
+      # emit a broken zero-arg overload (a real compile error: OCCT's own
+      # GetVertex has no such overload). Blacklisted until the generator gains
+      # real C-array parameter support.
+      - Bnd_OBB::GetVertex
     extra_includes:
       - TopoDS_Shape.hxx
       - gp_Lin.hxx
       - gp_Pln.hxx
 
   - name: brep
-    # Step 6 module expansion sweep, second module. BRep_Builder constructs
+    # BRep_Builder constructs
     # topology; BRep_Tool inspects it - the two halves legacy grocc's own config
     # grouped as one "BRep" module. Both classes have a MUCH larger real API than
     # what's accepted here - most overloads take Geom_Surface/Geom2d_Curve/Poly_*/
@@ -340,7 +361,7 @@ modules:
     #     IsClosed(edge, face), Parameter(vertex, edge[, face]), HasContinuity
     #     (edge, face, face).
     #   - BRep_Builder extends TopoDS_Builder (add_bases<TopoDS_Builder>() gets
-    #     emitted). Step 6.5 correction (see DESIGN.md): TopoDS_Builder was
+    #     emitted). Correction (see DESIGN.md): TopoDS_Builder was
     #     originally left unregistered on the assumption that "nothing it declares
     #     is needed from Lua" - wrong, found while porting the example recipes
     #     (examples/): TopoDS_Builder::MakeCompound/MakeCompSolid/MakeWire/
@@ -359,7 +380,7 @@ modules:
     # definitions, same reasoning as bnd's own extra_includes above.
     # No blacklist entries - nothing accepted here needs excluding. BRep_Tool::
     # Surface returns Handle(Geom_Surface) - see translation_units's own comment
-    # above (Step 6.5 coverage audit) for why this module needed to join the
+    # above for why this module needed to join the
     # [gc, geom, geomapi] translation-unit group once Geom_Surface itself became
     # a registered type.
     headers:
@@ -378,29 +399,32 @@ modules:
       - TopoDS_Compound.hxx
 
   - name: breptools
-    # Step 6 module expansion sweep, third module. BRepTools is a static-only
+    # BRepTools is a static-only
     # "namespace class" (see codegen/README.md's "Static-only 'namespace classes'")
     # with a much larger real API than what's accepted - most overloads need
     # mutable Standard_Real&/Standard_Boolean& out-params (unsupported - no Lua-side
     # identity for a bare number/bool to mutate in place, same rule as everywhere
     # else), Standard_OStream&/Standard_CString (Write/Read/Dump - also why these
     # never collide with src/shape_io.hpp's own hand-written export_brep, which
-    # exists for exactly this gap), or unregistered types (Bnd_Box2d,
-    # TopTools_IndexedMapOfShape/ListOfShape, Handle(OSD_FileSystem),
+    # exists for exactly this gap), or unregistered types
+    # (TopTools_IndexedMapOfShape/ListOfShape, Handle(OSD_FileSystem),
     # TopAbs_Orientation, Handle(Geom2d_Curve)/Handle(Geom_Surface)). What's left is
     # still real, useful functionality: Update (9 overloads, one per TopoDS_* type),
     # UpdateFaceUVPoints, Clean/CleanGeometry/RemoveUnusedPCurves, Triangulation
     # (verifies deflection), Compare (Vertex/Edge overloads), OuterWire,
-    # IsReallyClosed, and RemoveInternals (mutates the TopoDS_Shape passed in - same
-    # non-const-reference-to-a-registered-object out-param pattern as everywhere
-    # else in this module sweep).
-    # extra_includes: BRepTools.hxx forward-declares every TopoDS_* type it uses
-    # (by reference only, from its own header's point of view) - sol2's usertype
-    # binding needs their complete definitions, same reasoning as bnd/brep above.
+    # IsReallyClosed, UVBounds (now that Bnd_Box2d is registered too - see the bnd
+    # module's own widened Bnd_*.hxx coverage), and RemoveInternals (mutates the
+    # TopoDS_Shape passed in - same non-const-reference-to-a-registered-object
+    # out-param pattern as everywhere else in this module sweep).
+    # extra_includes: BRepTools.hxx forward-declares every TopoDS_* type it uses,
+    # and Bnd_Box2d, by reference only, from its own header's point of view -
+    # sol2's usertype binding needs their complete definitions, same reasoning as
+    # bnd/brep above.
     # No blacklist entries.
     headers:
       - BRepTools.hxx
     extra_includes:
+      - Bnd_Box2d.hxx
       - TopoDS_Shape.hxx
       - TopoDS_Vertex.hxx
       - TopoDS_Edge.hxx
@@ -412,10 +436,10 @@ modules:
       - TopoDS_Compound.hxx
 
   - name: toploc
-    # Step 6 module expansion sweep, fourth module. TopLoc_Location is a plain
+    # TopLoc_Location is a plain
     # value type (no explicit destructor -> "value" ctor mode) representing a
     # composite coordinate-system transform - buildable from a gp_Trsf (already
-    # registered by the gp module since Step 1). Only TopLoc_Location.hxx is
+    # registered by the gp module). Only TopLoc_Location.hxx is
     # registered, not the whole legacy TopLoc_*.hxx glob: TopLoc_Datum3D/
     # ItemLocation/SListOfItemLocation/MapOfLocation/IndexedMapOfLocation/
     # MapIteratorOfMapOfLocation are TopLoc_Location's own internal implementation
@@ -436,7 +460,7 @@ modules:
       - TopLoc_Location.hxx
 
   - name: gc
-    # Step 6 module expansion sweep, fifth module. GC_MakeSegment/GC_MakeCircle are
+    # GC_MakeSegment/GC_MakeCircle are
     # two of the legacy "GC" module's construction-algorithm classes (see legacy
     # grocc's config.yml.in) - value types (no explicit destructor), both extending
     # GC_Root (registered here too, so add_bases<GC_Root>() dispatch can actually
@@ -469,10 +493,10 @@ modules:
     # ever proved gc.cpp compiles *concatenated with everything else*, including
     # gp.cpp's own #include <gp_Cylinder.hxx> etc. - not that it compiles standalone.
     #
-    # Step 6.5 (see DESIGN.md/migration plan): widened from the two hand-picked
-    # classes above to the whole module (GC_*.hxx) - matches legacy grocc's own
-    # config.yml.in wildcard, needed to unlock GC_MakeArcOfCircle for the ported
-    # example recipes (examples/).
+    # Widened from the two hand-picked classes above to the whole module
+    # (GC_*.hxx, see DESIGN.md) - matches legacy grocc's own config.yml.in
+    # wildcard, needed to unlock GC_MakeArcOfCircle for the ported example
+    # recipes (examples/).
     # No blacklist entries.
     headers:
       - GC_*.hxx
@@ -487,10 +511,10 @@ modules:
       - gp_Pln.hxx
 
   - name: brepoffsetapi
-    # Step 6 module expansion sweep, sixth module. Legacy grocc's own config.yml.in
+    # Legacy grocc's own config.yml.in
     # wildcarded this whole module (BRepOffsetAPI_*.hxx) with one blacklist entry
     # (BRepOffsetAPI_FindContigousEdges - a Windows link error, undefined symbol
-    # NbEdges); re-derived fresh per Step 6 policy rather than carried forward
+    # NbEdges); re-derived fresh rather than carried forward
     # uncritically - see DESIGN.md for what actually got accepted/rejected and
     # whether that same entry is still warranted here (a real OCCT bug in that
     # class, not a toolchain/generator artifact, so it likely still applies, but
@@ -501,11 +525,11 @@ modules:
       - BRepOffsetAPI_FindContigousEdges
 
   - name: geomapi
-    # Step 6 module expansion sweep, seventh module. Legacy grocc's own
+    # Legacy grocc's own
     # config.yml.in wildcarded this whole module (GeomAPI_*.hxx) too, with one
     # blacklist entry (GeomAPI_Interpolate::ClearTangents - a Windows link error,
     # legacy's own comment notes the definition seems to be missing from OCCT's own
-    # GeomAPI_Interpolate.cxx); re-derived fresh per Step 6 policy rather than
+    # GeomAPI_Interpolate.cxx); re-derived fresh rather than
     # carried forward uncritically - see DESIGN.md for whether it's still warranted
     # here (a real OCCT library gap, not a toolchain/generator artifact, so likely
     # still applies, but confirmed rather than assumed).
@@ -528,9 +552,9 @@ modules:
       - GeomAPI_ProjectPointOnSurf
 
   - name: brepfilletapi
-    # Step 6 module expansion sweep, ninth module. Legacy grocc's own config.yml.in
+    # Legacy grocc's own config.yml.in
     # wildcarded this whole module (BRepFilletAPI_*.hxx) with no blacklist entries
-    # at all - re-derived fresh per Step 6 policy (i.e. verified rather than just
+    # at all - re-derived fresh (verified rather than just
     # carried forward, per this repo's own stated practice), and confirmed to still
     # need none.
     headers:

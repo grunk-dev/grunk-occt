@@ -8,7 +8,23 @@
 
 #include "bnd.hpp"
 
+#include <Bnd_Array1OfBox.hxx>
+#include <Bnd_Array1OfBox2d.hxx>
+#include <Bnd_Array1OfSphere.hxx>
+#include <Bnd_B2d.hxx>
+#include <Bnd_B2f.hxx>
+#include <Bnd_B3d.hxx>
+#include <Bnd_B3f.hxx>
+#include <Bnd_BoundSortBox.hxx>
 #include <Bnd_Box.hxx>
+#include <Bnd_Box2d.hxx>
+#include <Bnd_HArray1OfBox.hxx>
+#include <Bnd_HArray1OfBox2d.hxx>
+#include <Bnd_HArray1OfSphere.hxx>
+#include <Bnd_OBB.hxx>
+#include <Bnd_Range.hxx>
+#include <Bnd_Sphere.hxx>
+#include <Bnd_Tools.hxx>
 #include <BRepBndLib.hxx>
 #include <TopoDS_Shape.hxx>
 #include <gp_Lin.hxx>
@@ -16,12 +32,246 @@
 
 #include <memory>
 
+#include "../src/collections.hpp"
+#include <vector>
 #include "../src/occt_ad_support.hpp"
 
 
 
 void register_bnd(grunk::plugin_namespace& ns)
 {
+    ns.register_type<Bnd_B2d, sol::automagic_flags::none>("Bnd_B2d")
+        .add_constructors(
+            []() { return Bnd_B2d(); },
+            [](const gp_XY & theCenter, const gp_XY & theHSize) { return Bnd_B2d(theCenter, theHSize); }
+        )
+        .add_member_function("IsVoid", [](Bnd_B2d const& self) -> Standard_Boolean { return self.IsVoid(); })
+        .add_member_function("Clear", [](Bnd_B2d& self) { self.Clear(); })
+        .add_member_function("Add", sol::overload(
+            [](Bnd_B2d& self, const gp_XY & thePnt) { self.Add(thePnt); },
+            [](Bnd_B2d& self, const gp_Pnt2d & thePnt) { self.Add(thePnt); },
+            [](Bnd_B2d& self, const Bnd_B2d & theBox) { self.Add(theBox); }
+        ))
+        .add_member_function("CornerMin", [](Bnd_B2d const& self) -> gp_XY { return self.CornerMin(); })
+        .add_member_function("CornerMax", [](Bnd_B2d const& self) -> gp_XY { return self.CornerMax(); })
+        .add_member_function("SquareExtent", [](Bnd_B2d const& self) -> Standard_Real { return self.SquareExtent(); })
+        .add_member_function("Enlarge", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B2d& self, sol::object theDiff) { self.Enlarge(occt_plugin::to_real(theDiff)); }
+#else
+            [](Bnd_B2d& self, const Standard_Real theDiff) { self.Enlarge(theDiff); }
+#endif
+        )
+        .add_member_function("Limit", [](Bnd_B2d& self, const Bnd_B2d & theOtherBox) -> Standard_Boolean { return self.Limit(theOtherBox); })
+        .add_member_function("Transformed", [](Bnd_B2d const& self, const gp_Trsf2d & theTrsf) -> Bnd_B2d { return self.Transformed(theTrsf); })
+        .add_member_function("IsOut", sol::overload(
+            [](Bnd_B2d const& self, const gp_XY & thePnt) -> Standard_Boolean { return self.IsOut(thePnt); },
+            [](Bnd_B2d const& self, const Bnd_B2d & theOtherBox) -> Standard_Boolean { return self.IsOut(theOtherBox); },
+            [](Bnd_B2d const& self, const gp_Ax2d & theLine) -> Standard_Boolean { return self.IsOut(theLine); },
+            [](Bnd_B2d const& self, const Bnd_B2d & theOtherBox, const gp_Trsf2d & theTrsf) -> Standard_Boolean { return self.IsOut(theOtherBox, theTrsf); },
+            [](Bnd_B2d const& self, const gp_XY & theP0, const gp_XY & theP1) -> Standard_Boolean { return self.IsOut(theP0, theP1); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B2d const& self, const gp_XY & theCenter, sol::object theRadius) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius)); }
+#else
+            [](Bnd_B2d const& self, const gp_XY & theCenter, const Standard_Real theRadius) -> Standard_Boolean { return self.IsOut(theCenter, theRadius); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B2d const& self, const gp_XY & theCenter, sol::object theRadius, const Standard_Boolean isCircleHollow) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius), isCircleHollow); }
+#else
+            [](Bnd_B2d const& self, const gp_XY & theCenter, const Standard_Real theRadius, const Standard_Boolean isCircleHollow) -> Standard_Boolean { return self.IsOut(theCenter, theRadius, isCircleHollow); }
+#endif
+        
+        ))
+        .add_member_function("IsIn", sol::overload(
+            [](Bnd_B2d const& self, const Bnd_B2d & theBox) -> Standard_Boolean { return self.IsIn(theBox); },
+            [](Bnd_B2d const& self, const Bnd_B2d & theBox, const gp_Trsf2d & theTrsf) -> Standard_Boolean { return self.IsIn(theBox, theTrsf); }
+        ))
+        .add_member_function("SetCenter", [](Bnd_B2d& self, const gp_XY & theCenter) { self.SetCenter(theCenter); })
+        .add_member_function("SetHSize", [](Bnd_B2d& self, const gp_XY & theHSize) { self.SetHSize(theHSize); });
+    ns.register_type<Bnd_B2f, sol::automagic_flags::none>("Bnd_B2f")
+        .add_constructors(
+            []() { return Bnd_B2f(); },
+            [](const gp_XY & theCenter, const gp_XY & theHSize) { return Bnd_B2f(theCenter, theHSize); }
+        )
+        .add_member_function("IsVoid", [](Bnd_B2f const& self) -> Standard_Boolean { return self.IsVoid(); })
+        .add_member_function("Clear", [](Bnd_B2f& self) { self.Clear(); })
+        .add_member_function("Add", sol::overload(
+            [](Bnd_B2f& self, const gp_XY & thePnt) { self.Add(thePnt); },
+            [](Bnd_B2f& self, const gp_Pnt2d & thePnt) { self.Add(thePnt); },
+            [](Bnd_B2f& self, const Bnd_B2f & theBox) { self.Add(theBox); }
+        ))
+        .add_member_function("CornerMin", [](Bnd_B2f const& self) -> gp_XY { return self.CornerMin(); })
+        .add_member_function("CornerMax", [](Bnd_B2f const& self) -> gp_XY { return self.CornerMax(); })
+        .add_member_function("SquareExtent", [](Bnd_B2f const& self) -> Standard_Real { return self.SquareExtent(); })
+        .add_member_function("Enlarge", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B2f& self, sol::object theDiff) { self.Enlarge(occt_plugin::to_real(theDiff)); }
+#else
+            [](Bnd_B2f& self, const Standard_Real theDiff) { self.Enlarge(theDiff); }
+#endif
+        )
+        .add_member_function("Limit", [](Bnd_B2f& self, const Bnd_B2f & theOtherBox) -> Standard_Boolean { return self.Limit(theOtherBox); })
+        .add_member_function("Transformed", [](Bnd_B2f const& self, const gp_Trsf2d & theTrsf) -> Bnd_B2f { return self.Transformed(theTrsf); })
+        .add_member_function("IsOut", sol::overload(
+            [](Bnd_B2f const& self, const gp_XY & thePnt) -> Standard_Boolean { return self.IsOut(thePnt); },
+            [](Bnd_B2f const& self, const Bnd_B2f & theOtherBox) -> Standard_Boolean { return self.IsOut(theOtherBox); },
+            [](Bnd_B2f const& self, const gp_Ax2d & theLine) -> Standard_Boolean { return self.IsOut(theLine); },
+            [](Bnd_B2f const& self, const Bnd_B2f & theOtherBox, const gp_Trsf2d & theTrsf) -> Standard_Boolean { return self.IsOut(theOtherBox, theTrsf); },
+            [](Bnd_B2f const& self, const gp_XY & theP0, const gp_XY & theP1) -> Standard_Boolean { return self.IsOut(theP0, theP1); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B2f const& self, const gp_XY & theCenter, sol::object theRadius) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius)); }
+#else
+            [](Bnd_B2f const& self, const gp_XY & theCenter, const Standard_Real theRadius) -> Standard_Boolean { return self.IsOut(theCenter, theRadius); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B2f const& self, const gp_XY & theCenter, sol::object theRadius, const Standard_Boolean isCircleHollow) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius), isCircleHollow); }
+#else
+            [](Bnd_B2f const& self, const gp_XY & theCenter, const Standard_Real theRadius, const Standard_Boolean isCircleHollow) -> Standard_Boolean { return self.IsOut(theCenter, theRadius, isCircleHollow); }
+#endif
+        
+        ))
+        .add_member_function("IsIn", sol::overload(
+            [](Bnd_B2f const& self, const Bnd_B2f & theBox) -> Standard_Boolean { return self.IsIn(theBox); },
+            [](Bnd_B2f const& self, const Bnd_B2f & theBox, const gp_Trsf2d & theTrsf) -> Standard_Boolean { return self.IsIn(theBox, theTrsf); }
+        ))
+        .add_member_function("SetCenter", [](Bnd_B2f& self, const gp_XY & theCenter) { self.SetCenter(theCenter); })
+        .add_member_function("SetHSize", [](Bnd_B2f& self, const gp_XY & theHSize) { self.SetHSize(theHSize); });
+    ns.register_type<Bnd_B3d, sol::automagic_flags::none>("Bnd_B3d")
+        .add_constructors(
+            []() { return Bnd_B3d(); },
+            [](const gp_XYZ & theCenter, const gp_XYZ & theHSize) { return Bnd_B3d(theCenter, theHSize); }
+        )
+        .add_member_function("IsVoid", [](Bnd_B3d const& self) -> Standard_Boolean { return self.IsVoid(); })
+        .add_member_function("Clear", [](Bnd_B3d& self) { self.Clear(); })
+        .add_member_function("Add", sol::overload(
+            [](Bnd_B3d& self, const gp_XYZ & thePnt) { self.Add(thePnt); },
+            [](Bnd_B3d& self, const gp_Pnt & thePnt) { self.Add(thePnt); },
+            [](Bnd_B3d& self, const Bnd_B3d & theBox) { self.Add(theBox); }
+        ))
+        .add_member_function("CornerMin", [](Bnd_B3d const& self) -> gp_XYZ { return self.CornerMin(); })
+        .add_member_function("CornerMax", [](Bnd_B3d const& self) -> gp_XYZ { return self.CornerMax(); })
+        .add_member_function("SquareExtent", [](Bnd_B3d const& self) -> Standard_Real { return self.SquareExtent(); })
+        .add_member_function("Enlarge", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3d& self, sol::object theDiff) { self.Enlarge(occt_plugin::to_real(theDiff)); }
+#else
+            [](Bnd_B3d& self, const Standard_Real theDiff) { self.Enlarge(theDiff); }
+#endif
+        )
+        .add_member_function("Limit", [](Bnd_B3d& self, const Bnd_B3d & theOtherBox) -> Standard_Boolean { return self.Limit(theOtherBox); })
+        .add_member_function("Transformed", [](Bnd_B3d const& self, const gp_Trsf & theTrsf) -> Bnd_B3d { return self.Transformed(theTrsf); })
+        .add_member_function("IsOut", sol::overload(
+            [](Bnd_B3d const& self, const gp_XYZ & thePnt) -> Standard_Boolean { return self.IsOut(thePnt); },
+            [](Bnd_B3d const& self, const Bnd_B3d & theOtherBox) -> Standard_Boolean { return self.IsOut(theOtherBox); },
+            [](Bnd_B3d const& self, const gp_Ax1 & theLine) -> Standard_Boolean { return self.IsOut(theLine); },
+            [](Bnd_B3d const& self, const gp_Ax3 & thePlane) -> Standard_Boolean { return self.IsOut(thePlane); },
+            [](Bnd_B3d const& self, const Bnd_B3d & theOtherBox, const gp_Trsf & theTrsf) -> Standard_Boolean { return self.IsOut(theOtherBox, theTrsf); },
+            [](Bnd_B3d const& self, const gp_Ax1 & theLine, const Standard_Boolean isRay) -> Standard_Boolean { return self.IsOut(theLine, isRay); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3d const& self, const gp_XYZ & theCenter, sol::object theRadius) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius)); }
+#else
+            [](Bnd_B3d const& self, const gp_XYZ & theCenter, const Standard_Real theRadius) -> Standard_Boolean { return self.IsOut(theCenter, theRadius); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3d const& self, const gp_XYZ & theCenter, sol::object theRadius, const Standard_Boolean isSphereHollow) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius), isSphereHollow); }
+#else
+            [](Bnd_B3d const& self, const gp_XYZ & theCenter, const Standard_Real theRadius, const Standard_Boolean isSphereHollow) -> Standard_Boolean { return self.IsOut(theCenter, theRadius, isSphereHollow); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3d const& self, const gp_Ax1 & theLine, const Standard_Boolean isRay, sol::object theOverthickness) -> Standard_Boolean { return self.IsOut(theLine, isRay, occt_plugin::to_real(theOverthickness)); }
+#else
+            [](Bnd_B3d const& self, const gp_Ax1 & theLine, const Standard_Boolean isRay, const Standard_Real theOverthickness) -> Standard_Boolean { return self.IsOut(theLine, isRay, theOverthickness); }
+#endif
+        
+        ))
+        .add_member_function("IsIn", sol::overload(
+            [](Bnd_B3d const& self, const Bnd_B3d & theBox) -> Standard_Boolean { return self.IsIn(theBox); },
+            [](Bnd_B3d const& self, const Bnd_B3d & theBox, const gp_Trsf & theTrsf) -> Standard_Boolean { return self.IsIn(theBox, theTrsf); }
+        ))
+        .add_member_function("SetCenter", [](Bnd_B3d& self, const gp_XYZ & theCenter) { self.SetCenter(theCenter); })
+        .add_member_function("SetHSize", [](Bnd_B3d& self, const gp_XYZ & theHSize) { self.SetHSize(theHSize); });
+    ns.register_type<Bnd_B3f, sol::automagic_flags::none>("Bnd_B3f")
+        .add_constructors(
+            []() { return Bnd_B3f(); },
+            [](const gp_XYZ & theCenter, const gp_XYZ & theHSize) { return Bnd_B3f(theCenter, theHSize); }
+        )
+        .add_member_function("IsVoid", [](Bnd_B3f const& self) -> Standard_Boolean { return self.IsVoid(); })
+        .add_member_function("Clear", [](Bnd_B3f& self) { self.Clear(); })
+        .add_member_function("Add", sol::overload(
+            [](Bnd_B3f& self, const gp_XYZ & thePnt) { self.Add(thePnt); },
+            [](Bnd_B3f& self, const gp_Pnt & thePnt) { self.Add(thePnt); },
+            [](Bnd_B3f& self, const Bnd_B3f & theBox) { self.Add(theBox); }
+        ))
+        .add_member_function("CornerMin", [](Bnd_B3f const& self) -> gp_XYZ { return self.CornerMin(); })
+        .add_member_function("CornerMax", [](Bnd_B3f const& self) -> gp_XYZ { return self.CornerMax(); })
+        .add_member_function("SquareExtent", [](Bnd_B3f const& self) -> Standard_Real { return self.SquareExtent(); })
+        .add_member_function("Enlarge", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3f& self, sol::object theDiff) { self.Enlarge(occt_plugin::to_real(theDiff)); }
+#else
+            [](Bnd_B3f& self, const Standard_Real theDiff) { self.Enlarge(theDiff); }
+#endif
+        )
+        .add_member_function("Limit", [](Bnd_B3f& self, const Bnd_B3f & theOtherBox) -> Standard_Boolean { return self.Limit(theOtherBox); })
+        .add_member_function("Transformed", [](Bnd_B3f const& self, const gp_Trsf & theTrsf) -> Bnd_B3f { return self.Transformed(theTrsf); })
+        .add_member_function("IsOut", sol::overload(
+            [](Bnd_B3f const& self, const gp_XYZ & thePnt) -> Standard_Boolean { return self.IsOut(thePnt); },
+            [](Bnd_B3f const& self, const Bnd_B3f & theOtherBox) -> Standard_Boolean { return self.IsOut(theOtherBox); },
+            [](Bnd_B3f const& self, const gp_Ax1 & theLine) -> Standard_Boolean { return self.IsOut(theLine); },
+            [](Bnd_B3f const& self, const gp_Ax3 & thePlane) -> Standard_Boolean { return self.IsOut(thePlane); },
+            [](Bnd_B3f const& self, const Bnd_B3f & theOtherBox, const gp_Trsf & theTrsf) -> Standard_Boolean { return self.IsOut(theOtherBox, theTrsf); },
+            [](Bnd_B3f const& self, const gp_Ax1 & theLine, const Standard_Boolean isRay) -> Standard_Boolean { return self.IsOut(theLine, isRay); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3f const& self, const gp_XYZ & theCenter, sol::object theRadius) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius)); }
+#else
+            [](Bnd_B3f const& self, const gp_XYZ & theCenter, const Standard_Real theRadius) -> Standard_Boolean { return self.IsOut(theCenter, theRadius); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3f const& self, const gp_XYZ & theCenter, sol::object theRadius, const Standard_Boolean isSphereHollow) -> Standard_Boolean { return self.IsOut(theCenter, occt_plugin::to_real(theRadius), isSphereHollow); }
+#else
+            [](Bnd_B3f const& self, const gp_XYZ & theCenter, const Standard_Real theRadius, const Standard_Boolean isSphereHollow) -> Standard_Boolean { return self.IsOut(theCenter, theRadius, isSphereHollow); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_B3f const& self, const gp_Ax1 & theLine, const Standard_Boolean isRay, sol::object theOverthickness) -> Standard_Boolean { return self.IsOut(theLine, isRay, occt_plugin::to_real(theOverthickness)); }
+#else
+            [](Bnd_B3f const& self, const gp_Ax1 & theLine, const Standard_Boolean isRay, const Standard_Real theOverthickness) -> Standard_Boolean { return self.IsOut(theLine, isRay, theOverthickness); }
+#endif
+        
+        ))
+        .add_member_function("IsIn", sol::overload(
+            [](Bnd_B3f const& self, const Bnd_B3f & theBox) -> Standard_Boolean { return self.IsIn(theBox); },
+            [](Bnd_B3f const& self, const Bnd_B3f & theBox, const gp_Trsf & theTrsf) -> Standard_Boolean { return self.IsIn(theBox, theTrsf); }
+        ))
+        .add_member_function("SetCenter", [](Bnd_B3f& self, const gp_XYZ & theCenter) { self.SetCenter(theCenter); })
+        .add_member_function("SetHSize", [](Bnd_B3f& self, const gp_XYZ & theHSize) { self.SetHSize(theHSize); });
+    ns.register_type<Bnd_BoundSortBox, sol::automagic_flags::none>("Bnd_BoundSortBox")
+        .add_constructors(
+            []() { return std::make_unique<Bnd_BoundSortBox>(); }
+        )
+        .add_member_function("Initialize", sol::overload(
+            [](Bnd_BoundSortBox& self, const opencascade::handle<Bnd_HArray1OfBox> & SetOfBox) { self.Initialize(SetOfBox); },
+            [](Bnd_BoundSortBox& self, const Bnd_Box & CompleteBox, const opencascade::handle<Bnd_HArray1OfBox> & SetOfBox) { self.Initialize(CompleteBox, SetOfBox); },
+            [](Bnd_BoundSortBox& self, const Bnd_Box & CompleteBox, const Standard_Integer nbComponents) { self.Initialize(CompleteBox, nbComponents); }
+        ))
+        .add_member_function("Add", [](Bnd_BoundSortBox& self, const Bnd_Box & theBox, const Standard_Integer boxIndex) { self.Add(theBox, boxIndex); })
+        .add_member_function("Dump", [](Bnd_BoundSortBox const& self) { self.Dump(); })
+        .add_member_function("Destroy", [](Bnd_BoundSortBox& self) { self.Destroy(); });
     ns.register_type<Bnd_Box, sol::automagic_flags::none>("Bnd_Box")
         .add_constructors(
             []() { return Bnd_Box(); },
@@ -130,6 +380,270 @@ void register_bnd(grunk::plugin_namespace& ns)
         .add_member_function("SquareExtent", [](Bnd_Box const& self) -> Standard_Real { return self.SquareExtent(); })
         .add_member_function("FinitePart", [](Bnd_Box const& self) -> Bnd_Box { return self.FinitePart(); })
         .add_member_function("HasFinitePart", [](Bnd_Box const& self) -> Standard_Boolean { return self.HasFinitePart(); });
+    ns.register_type<Bnd_Box2d, sol::automagic_flags::none>("Bnd_Box2d")
+        .add_constructors(
+            []() { return Bnd_Box2d(); }
+        )
+        .add_member_function("SetWhole", [](Bnd_Box2d& self) { self.SetWhole(); })
+        .add_member_function("SetVoid", [](Bnd_Box2d& self) { self.SetVoid(); })
+        .add_member_function("Set", sol::overload(
+            [](Bnd_Box2d& self, const gp_Pnt2d & thePnt) { self.Set(thePnt); },
+            [](Bnd_Box2d& self, const gp_Pnt2d & thePnt, const gp_Dir2d & theDir) { self.Set(thePnt, theDir); }
+        ))
+        .add_member_function("Update", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Box2d& self, sol::object X, sol::object Y) { self.Update(occt_plugin::to_real(X), occt_plugin::to_real(Y)); }
+#else
+            [](Bnd_Box2d& self, const Standard_Real X, const Standard_Real Y) { self.Update(X, Y); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Box2d& self, sol::object aXmin, sol::object aYmin, sol::object aXmax, sol::object aYmax) { self.Update(occt_plugin::to_real(aXmin), occt_plugin::to_real(aYmin), occt_plugin::to_real(aXmax), occt_plugin::to_real(aYmax)); }
+#else
+            [](Bnd_Box2d& self, const Standard_Real aXmin, const Standard_Real aYmin, const Standard_Real aXmax, const Standard_Real aYmax) { self.Update(aXmin, aYmin, aXmax, aYmax); }
+#endif
+        
+        ))
+        .add_member_function("GetGap", [](Bnd_Box2d const& self) -> Standard_Real { return self.GetGap(); })
+        .add_member_function("SetGap", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Box2d& self, sol::object Tol) { self.SetGap(occt_plugin::to_real(Tol)); }
+#else
+            [](Bnd_Box2d& self, const Standard_Real Tol) { self.SetGap(Tol); }
+#endif
+        )
+        .add_member_function("Enlarge", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Box2d& self, sol::object theTol) { self.Enlarge(occt_plugin::to_real(theTol)); }
+#else
+            [](Bnd_Box2d& self, const Standard_Real theTol) { self.Enlarge(theTol); }
+#endif
+        )
+        .add_member_function("OpenXmin", [](Bnd_Box2d& self) { self.OpenXmin(); })
+        .add_member_function("OpenXmax", [](Bnd_Box2d& self) { self.OpenXmax(); })
+        .add_member_function("OpenYmin", [](Bnd_Box2d& self) { self.OpenYmin(); })
+        .add_member_function("OpenYmax", [](Bnd_Box2d& self) { self.OpenYmax(); })
+        .add_member_function("IsOpenXmin", [](Bnd_Box2d const& self) -> Standard_Boolean { return self.IsOpenXmin(); })
+        .add_member_function("IsOpenXmax", [](Bnd_Box2d const& self) -> Standard_Boolean { return self.IsOpenXmax(); })
+        .add_member_function("IsOpenYmin", [](Bnd_Box2d const& self) -> Standard_Boolean { return self.IsOpenYmin(); })
+        .add_member_function("IsOpenYmax", [](Bnd_Box2d const& self) -> Standard_Boolean { return self.IsOpenYmax(); })
+        .add_member_function("IsWhole", [](Bnd_Box2d const& self) -> Standard_Boolean { return self.IsWhole(); })
+        .add_member_function("IsVoid", [](Bnd_Box2d const& self) -> Standard_Boolean { return self.IsVoid(); })
+        .add_member_function("Transformed", [](Bnd_Box2d const& self, const gp_Trsf2d & T) -> Bnd_Box2d { return self.Transformed(T); })
+        .add_member_function("Add", sol::overload(
+            [](Bnd_Box2d& self, const Bnd_Box2d & Other) { self.Add(Other); },
+            [](Bnd_Box2d& self, const gp_Pnt2d & thePnt) { self.Add(thePnt); },
+            [](Bnd_Box2d& self, const gp_Dir2d & D) { self.Add(D); },
+            [](Bnd_Box2d& self, const gp_Pnt2d & thePnt, const gp_Dir2d & theDir) { self.Add(thePnt, theDir); }
+        ))
+        .add_member_function("IsOut", sol::overload(
+            [](Bnd_Box2d const& self, const gp_Pnt2d & P) -> Standard_Boolean { return self.IsOut(P); },
+            [](Bnd_Box2d const& self, const gp_Lin2d & theL) -> Standard_Boolean { return self.IsOut(theL); },
+            [](Bnd_Box2d const& self, const Bnd_Box2d & Other) -> Standard_Boolean { return self.IsOut(Other); },
+            [](Bnd_Box2d const& self, const gp_Pnt2d & theP0, const gp_Pnt2d & theP1) -> Standard_Boolean { return self.IsOut(theP0, theP1); },
+            [](Bnd_Box2d const& self, const Bnd_Box2d & theOther, const gp_Trsf2d & theTrsf) -> Standard_Boolean { return self.IsOut(theOther, theTrsf); },
+            [](Bnd_Box2d const& self, const gp_Trsf2d & T1, const Bnd_Box2d & Other, const gp_Trsf2d & T2) -> Standard_Boolean { return self.IsOut(T1, Other, T2); }
+        ))
+        .add_member_function("Dump", [](Bnd_Box2d const& self) { self.Dump(); })
+        .add_member_function("SquareExtent", [](Bnd_Box2d const& self) -> Standard_Real { return self.SquareExtent(); });
+    ns.register_type<Bnd_HArray1OfBox, sol::automagic_flags::none>("Bnd_HArray1OfBox")
+        .add_constructors(
+            []() { return Bnd_HArray1OfBox(); },
+            [](std::vector<Bnd_Box> const& theOther) { return Bnd_HArray1OfBox(occt_plugin::to_array1(theOther)); },
+            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfBox(theLower, theUpper); }
+        )
+        .add_bases<Bnd_Array1OfBox>();
+    ns.register_type<Bnd_HArray1OfBox2d, sol::automagic_flags::none>("Bnd_HArray1OfBox2d")
+        .add_constructors(
+            []() { return Bnd_HArray1OfBox2d(); },
+            [](std::vector<Bnd_Box2d> const& theOther) { return Bnd_HArray1OfBox2d(occt_plugin::to_array1(theOther)); },
+            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfBox2d(theLower, theUpper); }
+        )
+        .add_bases<Bnd_Array1OfBox2d>();
+    ns.register_type<Bnd_HArray1OfSphere, sol::automagic_flags::none>("Bnd_HArray1OfSphere")
+        .add_constructors(
+            []() { return Bnd_HArray1OfSphere(); },
+            [](std::vector<Bnd_Sphere> const& theOther) { return Bnd_HArray1OfSphere(occt_plugin::to_array1(theOther)); },
+            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfSphere(theLower, theUpper); }
+        )
+        .add_bases<Bnd_Array1OfSphere>();
+    ns.register_type<Bnd_OBB, sol::automagic_flags::none>("Bnd_OBB")
+        .add_constructors(
+            []() { return Bnd_OBB(); },
+            [](const Bnd_Box & theBox) { return Bnd_OBB(theBox); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_Pnt & theCenter, const gp_Dir & theXDirection, const gp_Dir & theYDirection, const gp_Dir & theZDirection, sol::object theHXSize, sol::object theHYSize, sol::object theHZSize) { return Bnd_OBB(theCenter, theXDirection, theYDirection, theZDirection, occt_plugin::to_real(theHXSize), occt_plugin::to_real(theHYSize), occt_plugin::to_real(theHZSize)); }
+#else
+            [](const gp_Pnt & theCenter, const gp_Dir & theXDirection, const gp_Dir & theYDirection, const gp_Dir & theZDirection, const Standard_Real theHXSize, const Standard_Real theHYSize, const Standard_Real theHZSize) { return Bnd_OBB(theCenter, theXDirection, theYDirection, theZDirection, theHXSize, theHYSize, theHZSize); }
+#endif
+        
+        )
+        .add_member_function("ReBuild", [](Bnd_OBB& self, std::vector<gp_Pnt> const& theListOfPoints) { self.ReBuild(occt_plugin::to_array1(theListOfPoints)); })
+        .add_member_function("SetCenter", [](Bnd_OBB& self, const gp_Pnt & theCenter) { self.SetCenter(theCenter); })
+        .add_member_function("SetXComponent", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_OBB& self, const gp_Dir & theXDirection, sol::object theHXSize) { self.SetXComponent(theXDirection, occt_plugin::to_real(theHXSize)); }
+#else
+            [](Bnd_OBB& self, const gp_Dir & theXDirection, const Standard_Real theHXSize) { self.SetXComponent(theXDirection, theHXSize); }
+#endif
+        )
+        .add_member_function("SetYComponent", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_OBB& self, const gp_Dir & theYDirection, sol::object theHYSize) { self.SetYComponent(theYDirection, occt_plugin::to_real(theHYSize)); }
+#else
+            [](Bnd_OBB& self, const gp_Dir & theYDirection, const Standard_Real theHYSize) { self.SetYComponent(theYDirection, theHYSize); }
+#endif
+        )
+        .add_member_function("SetZComponent", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_OBB& self, const gp_Dir & theZDirection, sol::object theHZSize) { self.SetZComponent(theZDirection, occt_plugin::to_real(theHZSize)); }
+#else
+            [](Bnd_OBB& self, const gp_Dir & theZDirection, const Standard_Real theHZSize) { self.SetZComponent(theZDirection, theHZSize); }
+#endif
+        )
+        .add_member_function("Position", [](Bnd_OBB const& self) -> gp_Ax3 { return self.Position(); })
+        .add_member_function("Center", [](Bnd_OBB const& self) -> const gp_XYZ & { return self.Center(); })
+        .add_member_function("XDirection", [](Bnd_OBB const& self) -> const gp_XYZ & { return self.XDirection(); })
+        .add_member_function("YDirection", [](Bnd_OBB const& self) -> const gp_XYZ & { return self.YDirection(); })
+        .add_member_function("ZDirection", [](Bnd_OBB const& self) -> const gp_XYZ & { return self.ZDirection(); })
+        .add_member_function("XHSize", [](Bnd_OBB const& self) -> Standard_Real { return self.XHSize(); })
+        .add_member_function("YHSize", [](Bnd_OBB const& self) -> Standard_Real { return self.YHSize(); })
+        .add_member_function("ZHSize", [](Bnd_OBB const& self) -> Standard_Real { return self.ZHSize(); })
+        .add_member_function("IsVoid", [](Bnd_OBB const& self) -> Standard_Boolean { return self.IsVoid(); })
+        .add_member_function("SetVoid", [](Bnd_OBB& self) { self.SetVoid(); })
+        .add_member_function("SetAABox", [](Bnd_OBB& self, const Standard_Boolean & theFlag) { self.SetAABox(theFlag); })
+        .add_member_function("IsAABox", [](Bnd_OBB const& self) -> Standard_Boolean { return self.IsAABox(); })
+        .add_member_function("Enlarge", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_OBB& self, sol::object theGapAdd) { self.Enlarge(occt_plugin::to_real(theGapAdd)); }
+#else
+            [](Bnd_OBB& self, const Standard_Real theGapAdd) { self.Enlarge(theGapAdd); }
+#endif
+        )
+        .add_member_function("SquareExtent", [](Bnd_OBB const& self) -> Standard_Real { return self.SquareExtent(); })
+        .add_member_function("IsOut", sol::overload(
+            [](Bnd_OBB const& self, const Bnd_OBB & theOther) -> Standard_Boolean { return self.IsOut(theOther); },
+            [](Bnd_OBB const& self, const gp_Pnt & theP) -> Standard_Boolean { return self.IsOut(theP); }
+        ))
+        .add_member_function("IsCompletelyInside", [](Bnd_OBB const& self, const Bnd_OBB & theOther) -> Standard_Boolean { return self.IsCompletelyInside(theOther); })
+        .add_member_function("Add", sol::overload(
+            [](Bnd_OBB& self, const Bnd_OBB & theOther) { self.Add(theOther); },
+            [](Bnd_OBB& self, const gp_Pnt & theP) { self.Add(theP); }
+        ));
+    ns.register_type<Bnd_Range, sol::automagic_flags::none>("Bnd_Range")
+        .add_constructors(
+            []() { return Bnd_Range(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](sol::object theMin, sol::object theMax) { return Bnd_Range(occt_plugin::to_real(theMin), occt_plugin::to_real(theMax)); }
+#else
+            [](const Standard_Real theMin, const Standard_Real theMax) { return Bnd_Range(theMin, theMax); }
+#endif
+        
+        )
+        .add_member_function("Common", [](Bnd_Range& self, const Bnd_Range & theOther) { self.Common(theOther); })
+        .add_member_function("Union", [](Bnd_Range& self, const Bnd_Range & theOther) -> Standard_Boolean { return self.Union(theOther); })
+        .add_member_function("IsIntersected", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range const& self, sol::object theVal) -> Standard_Integer { return self.IsIntersected(occt_plugin::to_real(theVal)); }
+#else
+            [](Bnd_Range const& self, const Standard_Real theVal) -> Standard_Integer { return self.IsIntersected(theVal); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range const& self, sol::object theVal, sol::object thePeriod) -> Standard_Integer { return self.IsIntersected(occt_plugin::to_real(theVal), occt_plugin::to_real(thePeriod)); }
+#else
+            [](Bnd_Range const& self, const Standard_Real theVal, const Standard_Real thePeriod) -> Standard_Integer { return self.IsIntersected(theVal, thePeriod); }
+#endif
+        
+        ))
+        .add_member_function("Add", sol::overload(
+            [](Bnd_Range& self, const Bnd_Range & theRange) { self.Add(theRange); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range& self, sol::object theParameter) { self.Add(occt_plugin::to_real(theParameter)); }
+#else
+            [](Bnd_Range& self, const Standard_Real theParameter) { self.Add(theParameter); }
+#endif
+        
+        ))
+        .add_member_function("Delta", [](Bnd_Range const& self) -> Standard_Real { return self.Delta(); })
+        .add_member_function("IsVoid", [](Bnd_Range const& self) -> Standard_Boolean { return self.IsVoid(); })
+        .add_member_function("SetVoid", [](Bnd_Range& self) { self.SetVoid(); })
+        .add_member_function("Enlarge", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range& self, sol::object theDelta) { self.Enlarge(occt_plugin::to_real(theDelta)); }
+#else
+            [](Bnd_Range& self, const Standard_Real theDelta) { self.Enlarge(theDelta); }
+#endif
+        )
+        .add_member_function("Shifted", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range const& self, sol::object theVal) -> Bnd_Range { return self.Shifted(occt_plugin::to_real(theVal)); }
+#else
+            [](Bnd_Range const& self, const Standard_Real theVal) -> Bnd_Range { return self.Shifted(theVal); }
+#endif
+        )
+        .add_member_function("Shift", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range& self, sol::object theVal) { self.Shift(occt_plugin::to_real(theVal)); }
+#else
+            [](Bnd_Range& self, const Standard_Real theVal) { self.Shift(theVal); }
+#endif
+        )
+        .add_member_function("TrimFrom", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range& self, sol::object theValLower) { self.TrimFrom(occt_plugin::to_real(theValLower)); }
+#else
+            [](Bnd_Range& self, const Standard_Real theValLower) { self.TrimFrom(theValLower); }
+#endif
+        )
+        .add_member_function("TrimTo", 
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range& self, sol::object theValUpper) { self.TrimTo(occt_plugin::to_real(theValUpper)); }
+#else
+            [](Bnd_Range& self, const Standard_Real theValUpper) { self.TrimTo(theValUpper); }
+#endif
+        )
+        .add_member_function("IsOut", sol::overload(
+            [](Bnd_Range const& self, const Bnd_Range & theRange) -> Standard_Boolean { return self.IsOut(theRange); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](Bnd_Range const& self, sol::object theValue) -> Standard_Boolean { return self.IsOut(occt_plugin::to_real(theValue)); }
+#else
+            [](Bnd_Range const& self, Standard_Real theValue) -> Standard_Boolean { return self.IsOut(theValue); }
+#endif
+        
+        ))
+        .add_member_function(sol::meta_function::equal_to, [](Bnd_Range const& self, const Bnd_Range & theOther) -> Standard_Boolean { return self == theOther; });
+    ns.register_type<Bnd_Sphere, sol::automagic_flags::none>("Bnd_Sphere")
+        .add_constructors(
+            []() { return Bnd_Sphere(); },
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](const gp_XYZ & theCntr, sol::object theRad, const Standard_Integer theU, const Standard_Integer theV) { return Bnd_Sphere(theCntr, occt_plugin::to_real(theRad), theU, theV); }
+#else
+            [](const gp_XYZ & theCntr, const Standard_Real theRad, const Standard_Integer theU, const Standard_Integer theV) { return Bnd_Sphere(theCntr, theRad, theU, theV); }
+#endif
+        
+        )
+        .add_member_function("U", [](Bnd_Sphere const& self) -> Standard_Integer { return self.U(); })
+        .add_member_function("V", [](Bnd_Sphere const& self) -> Standard_Integer { return self.V(); })
+        .add_member_function("IsValid", [](Bnd_Sphere const& self) -> Standard_Boolean { return self.IsValid(); })
+        .add_member_function("SetValid", [](Bnd_Sphere& self, const Standard_Boolean isValid) { self.SetValid(isValid); })
+        .add_member_function("Center", [](Bnd_Sphere const& self) -> const gp_XYZ & { return self.Center(); })
+        .add_member_function("Radius", [](Bnd_Sphere const& self) -> Standard_Real { return self.Radius(); })
+        .add_member_function("Distance", [](Bnd_Sphere const& self, const gp_XYZ & theNode) -> Standard_Real { return self.Distance(theNode); })
+        .add_member_function("SquareDistance", [](Bnd_Sphere const& self, const gp_XYZ & theNode) -> Standard_Real { return self.SquareDistance(theNode); })
+        .add_member_function("Add", [](Bnd_Sphere& self, const Bnd_Sphere & theOther) { self.Add(theOther); })
+        .add_member_function("IsOut", [](Bnd_Sphere const& self, const Bnd_Sphere & theOther) -> Standard_Boolean { return self.IsOut(theOther); })
+        .add_member_function("SquareExtent", [](Bnd_Sphere const& self) -> Standard_Real { return self.SquareExtent(); });
+    ns.register_type<Bnd_Tools, sol::automagic_flags::none>("Bnd_Tools");
     ns.register_type<BRepBndLib, sol::automagic_flags::none>("BRepBndLib");
     ns.register_function("BRepBndLib_Add", sol::overload(
         [](const TopoDS_Shape & S, Bnd_Box & B) { BRepBndLib::Add(S, B); },
@@ -140,5 +654,11 @@ void register_bnd(grunk::plugin_namespace& ns)
         [](const TopoDS_Shape & S, Bnd_Box & B) { BRepBndLib::AddOptimal(S, B); },
         [](const TopoDS_Shape & S, Bnd_Box & B, const Standard_Boolean useTriangulation) { BRepBndLib::AddOptimal(S, B, useTriangulation); },
         [](const TopoDS_Shape & S, Bnd_Box & B, const Standard_Boolean useTriangulation, const Standard_Boolean useShapeTolerance) { BRepBndLib::AddOptimal(S, B, useTriangulation, useShapeTolerance); }
+    ));
+    ns.register_function("BRepBndLib_AddOBB", sol::overload(
+        [](const TopoDS_Shape & theS, Bnd_OBB & theOBB) { BRepBndLib::AddOBB(theS, theOBB); },
+        [](const TopoDS_Shape & theS, Bnd_OBB & theOBB, const Standard_Boolean theIsTriangulationUsed) { BRepBndLib::AddOBB(theS, theOBB, theIsTriangulationUsed); },
+        [](const TopoDS_Shape & theS, Bnd_OBB & theOBB, const Standard_Boolean theIsTriangulationUsed, const Standard_Boolean theIsOptimal) { BRepBndLib::AddOBB(theS, theOBB, theIsTriangulationUsed, theIsOptimal); },
+        [](const TopoDS_Shape & theS, Bnd_OBB & theOBB, const Standard_Boolean theIsTriangulationUsed, const Standard_Boolean theIsOptimal, const Standard_Boolean theIsShapeToleranceUsed) { BRepBndLib::AddOBB(theS, theOBB, theIsTriangulationUsed, theIsOptimal, theIsShapeToleranceUsed); }
     ));
 }

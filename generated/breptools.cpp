@@ -9,6 +9,7 @@
 #include "breptools.hpp"
 
 #include <BRepTools.hxx>
+#include <Bnd_Box2d.hxx>
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Vertex.hxx>
 #include <TopoDS_Edge.hxx>
@@ -28,6 +29,11 @@
 void register_breptools(grunk::plugin_namespace& ns)
 {
     ns.register_type<BRepTools, sol::automagic_flags::none>("BRepTools");
+    ns.register_function("BRepTools_AddUVBounds", sol::overload(
+        [](const TopoDS_Face & F, Bnd_Box2d & B) { BRepTools::AddUVBounds(F, B); },
+        [](const TopoDS_Face & F, const TopoDS_Wire & W, Bnd_Box2d & B) { BRepTools::AddUVBounds(F, W, B); },
+        [](const TopoDS_Face & F, const TopoDS_Edge & E, Bnd_Box2d & B) { BRepTools::AddUVBounds(F, E, B); }
+    ));
     ns.register_function("BRepTools_Update", sol::overload(
         [](const TopoDS_Vertex & V) { BRepTools::Update(V); },
         [](const TopoDS_Edge & E) { BRepTools::Update(E); },

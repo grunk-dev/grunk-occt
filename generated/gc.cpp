@@ -188,6 +188,7 @@ void register_gc(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("Value", [](GC_MakeConicalSurface const& self) -> opencascade::handle<Geom_ConicalSurface> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeCylindricalSurface, sol::automagic_flags::none>("GC_MakeCylindricalSurface")
         .add_constructors(
@@ -217,6 +218,7 @@ void register_gc(grunk::plugin_namespace& ns)
         ,
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3) { return GC_MakeCylindricalSurface(P1, P2, P3); }
         )
+        .add_member_function("Value", [](GC_MakeCylindricalSurface const& self) -> opencascade::handle<Geom_CylindricalSurface> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeEllipse, sol::automagic_flags::none>("GC_MakeEllipse")
         .add_constructors(
@@ -230,6 +232,7 @@ void register_gc(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("Value", [](GC_MakeEllipse const& self) -> opencascade::handle<Geom_Ellipse> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeHyperbola, sol::automagic_flags::none>("GC_MakeHyperbola")
         .add_constructors(
@@ -243,6 +246,7 @@ void register_gc(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("Value", [](GC_MakeHyperbola const& self) -> opencascade::handle<Geom_Hyperbola> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeLine, sol::automagic_flags::none>("GC_MakeLine")
         .add_constructors(
@@ -262,7 +266,8 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Pln & Plane) { return GC_MakeMirror(Plane); },
             [](const gp_Ax2 & Plane) { return GC_MakeMirror(Plane); },
             [](const gp_Pnt & Point, const gp_Dir & Direc) { return GC_MakeMirror(Point, Direc); }
-        );
+        )
+        .add_member_function("Value", [](GC_MakeMirror const& self) -> opencascade::handle<Geom_Transformation> { return self.Value(); });
     ns.register_type<GC_MakePlane, sol::automagic_flags::none>("GC_MakePlane")
         .add_constructors(
             [](const gp_Pln & Pl) { return GC_MakePlane(Pl); },
@@ -285,6 +290,7 @@ void register_gc(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("Value", [](GC_MakePlane const& self) -> opencascade::handle<Geom_Plane> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeRotation, sol::automagic_flags::none>("GC_MakeRotation")
         .add_constructors(
@@ -309,7 +315,8 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Pnt & Point, const gp_Dir & Direc, const Standard_Real Angle) { return GC_MakeRotation(Point, Direc, Angle); }
 #endif
         
-        );
+        )
+        .add_member_function("Value", [](GC_MakeRotation const& self) -> opencascade::handle<Geom_Transformation> { return self.Value(); });
     ns.register_type<GC_MakeScale, sol::automagic_flags::none>("GC_MakeScale")
         .add_constructors(
             
@@ -319,7 +326,8 @@ void register_gc(grunk::plugin_namespace& ns)
             [](const gp_Pnt & Point, const Standard_Real Scale) { return GC_MakeScale(Point, Scale); }
 #endif
         
-        );
+        )
+        .add_member_function("Value", [](GC_MakeScale const& self) -> opencascade::handle<Geom_Transformation> { return self.Value(); });
     ns.register_type<GC_MakeSegment, sol::automagic_flags::none>("GC_MakeSegment")
         .add_constructors(
             [](const gp_Pnt & P1, const gp_Pnt & P2) { return GC_MakeSegment(P1, P2); },
@@ -345,7 +353,8 @@ void register_gc(grunk::plugin_namespace& ns)
         .add_constructors(
             [](const gp_Vec & Vect) { return GC_MakeTranslation(Vect); },
             [](const gp_Pnt & Point1, const gp_Pnt & Point2) { return GC_MakeTranslation(Point1, Point2); }
-        );
+        )
+        .add_member_function("Value", [](GC_MakeTranslation const& self) -> opencascade::handle<Geom_Transformation> { return self.Value(); });
     ns.register_type<GC_MakeTrimmedCone, sol::automagic_flags::none>("GC_MakeTrimmedCone")
         .add_constructors(
             [](const gp_Pnt & P1, const gp_Pnt & P2, const gp_Pnt & P3, const gp_Pnt & P4) { return GC_MakeTrimmedCone(P1, P2, P3, P4); },
@@ -357,6 +366,7 @@ void register_gc(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("Value", [](GC_MakeTrimmedCone const& self) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_MakeTrimmedCylinder, sol::automagic_flags::none>("GC_MakeTrimmedCylinder")
         .add_constructors(
@@ -376,6 +386,7 @@ void register_gc(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("Value", [](GC_MakeTrimmedCylinder const& self) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_Root, sol::automagic_flags::none>("GC_Root")
         .add_member_function("IsDone", [](GC_Root const& self) -> Standard_Boolean { return self.IsDone(); });

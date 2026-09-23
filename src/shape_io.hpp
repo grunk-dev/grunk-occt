@@ -15,6 +15,9 @@
 #pragma once
 
 #include <BRepTools.hxx>
+#include <IFSelect_ReturnStatus.hxx>
+#include <STEPControl_StepModelType.hxx>
+#include <STEPControl_Writer.hxx>
 #include <TopoDS_Shape.hxx>
 
 #include <grunk/dynamic.hpp>
@@ -27,6 +30,23 @@ inline void register_shape_io(grunk::plugin_namespace& ns)
         "export_brep",
         [](TopoDS_Shape const& shape, std::string const& filename) -> bool {
             return BRepTools::Write(shape, filename.c_str()) != Standard_False;
+        }
+    );
+
+    // Same hand-written-escape-hatch category as export_brep above:
+    // STEPControl_Writer isn't a static-only namespace class the generator's own
+    // conventions cover, and Transfer()/Write() are two separate calls with their
+    // own IFSelect_ReturnStatus results that a single boolean success value is
+    // enough to represent here (mirrors legacy grocc's own export_to_step, see
+    // legacy-grocc/custom_init.cpp).
+    ns.register_function(
+        "export_to_step",
+        [](TopoDS_Shape const& shape, std::string const& filename) -> bool {
+            STEPControl_Writer writer;
+            if (writer.Transfer(shape, STEPControl_AsIs) != IFSelect_RetDone) {
+                return false;
+            }
+            return writer.Write(filename.c_str()) == IFSelect_RetDone;
         }
     );
 }

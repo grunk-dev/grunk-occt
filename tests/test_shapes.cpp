@@ -17,6 +17,8 @@
 
 #include <gtest/gtest.h>
 
+#include "../src/occt_ad_support.hpp"
+
 namespace {
 
 class ShapesTest : public ::testing::Test {
@@ -105,4 +107,41 @@ TEST_F(ShapesTest, TopoDsDowncastHelper)
     )");
     ASSERT_TRUE(res.valid());
     EXPECT_FALSE(env.get<bool>("as_solid_is_null"));
+}
+
+// BRepBuilderAPI - a static-only class (no instance, free functions only), only
+// reachable once the bare BRepBuilderAPI.hxx header was added alongside the
+// BRepBuilderAPI_*.hxx glob (the glob's own underscore requirement never matched
+// the bare filename). Precision()'s getter/setter pair round-trips a value;
+// Plane() round-trips a Geom_Plane through its own get/set pair too.
+TEST_F(ShapesTest, BuilderApiPrecisionRoundTrips)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        original = occt.BRepBuilderAPI_Precision()
+        occt.BRepBuilderAPI_Precision(0.001)
+        updated = occt.BRepBuilderAPI_Precision()
+        occt.BRepBuilderAPI_Precision(original)
+        restored = occt.BRepBuilderAPI_Precision()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("updated")), 0.001);
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("restored")),
+        occt_plugin::to_double(env.get<sol::object>("original"))
+    );
+}
+
+// export_to_step - mirrors legacy grocc's own STEPControl_Writer-based helper
+// (src/shape_io.hpp), the same shape as export_brep just above but for STEP
+// rather than BREP output.
+TEST_F(ShapesTest, ExportToStepSucceeds)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        box = occt.BRepPrimAPI_MakeBox.new(10., 10., 10.):Shape()
+        export_ok = occt.export_to_step(box, "step_export_test.step")
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_TRUE(env.get<bool>("export_ok"));
 }

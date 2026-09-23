@@ -309,3 +309,88 @@ TEST_F(GeomTest, BezierSurfaceFromPoleGridExchangeUV)
         occt_plugin::to_double(env.get<sol::object>("before_01_z"))
     );
 }
+
+// Geom_Plane - one of the analytic surface classes the geom module gained once
+// its header glob widened from a hand-picked list to Geom_*.hxx. Covers both an
+// axis-based constructor and Pln()'s own value-type round trip.
+TEST_F(GeomTest, PlaneFromAxisRoundTripsThroughPln)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        origin = occt.gp_Pnt.new(0.0, 0.0, 3.0)
+        normal = occt.gp_Dir.new(0.0, 0.0, 1.0)
+        axis = occt.gp_Ax3.new(origin, normal)
+
+        plane = occt.Geom_Plane.new(axis)
+        pln = plane:Pln()
+        loc = pln:Location()
+        loc_z = loc:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("loc_z")), 3.0);
+}
+
+// Geom_CylindricalSurface - another analytic surface class from the same
+// widening; also exercises the axis+radius constructor's AD-portable
+// Standard_Real parameter.
+TEST_F(GeomTest, CylindricalSurfaceRadiusMatchesConstructorArgument)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        axis = occt.gp_Ax3.new(occt.gp_Pnt.new(0.0, 0.0, 0.0), occt.gp_Dir.new(0.0, 0.0, 1.0))
+        cyl = occt.Geom_CylindricalSurface.new(axis, 2.5)
+        radius = cyl:Radius()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("radius")), 2.5);
+}
+
+// GeomConvert - a static-only OCCT class (BRepBuilderAPI-style: no instance,
+// just free functions), added alongside Geom_*.hxx once GeomConvert.hxx was
+// picked up too. SplitBSplineCurve takes a Handle(Geom_BSplineCurve) const&
+// directly (a concrete type, constructed here rather than upcast from some
+// other curve type - GeomConvert's own CurveToBSplineCurve takes the abstract
+// Handle(Geom_Curve) instead, which currently can't be called from Lua at all;
+// see test_geomapi.cpp's own GeomApiTest.InterpolateBSplineSurfaceFromPointGrid
+// comment and DESIGN.md's "Handle(Derived) does not satisfy a Handle(Base)
+// function/constructor parameter" for that separate, already-tracked
+// limitation). Splits the same clamped curve BSplineCurveFromExplicitKnotsAnd
+// Multiplicities builds at its own knot index 2, and checks the split curve's
+// end point still matches the original curve's own end point.
+TEST_F(GeomTest, ConvertSplitBSplineCurveKeepsSharedEndPoint)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        p1 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+        p2 = occt.gp_Pnt.new(0.0, 1.0, 2.0)
+        p3 = occt.gp_Pnt.new(0.0, 2.0, -1.0)
+        p4 = occt.gp_Pnt.new(0.0, 0.0, 3.0)
+        p5 = occt.gp_Pnt.new(0.0, 4.0, 0.0)
+
+        poles = occt.gp_Pnt.as_vec(p1, p2, p3, p4, p5)
+        knots = occt.real_vec(0.0, 1.0, 2.0, 3.0)
+        mults = occt.int_vec(3, 1, 1, 3)
+
+        curve = occt.Geom_BSplineCurve.new(poles, knots, mults, 2)
+        split = occt.GeomConvert_SplitBSplineCurve(curve, 2, 4)
+
+        orig_end = curve:Value(3.0)
+        split_end = split:Value(3.0)
+
+        orig_x = orig_end:X(); orig_y = orig_end:Y(); orig_z = orig_end:Z()
+        split_x = split_end:X(); split_y = split_end:Y(); split_z = split_end:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("split_x")),
+        occt_plugin::to_double(env.get<sol::object>("orig_x"))
+    );
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("split_y")),
+        occt_plugin::to_double(env.get<sol::object>("orig_y"))
+    );
+    EXPECT_DOUBLE_EQ(
+        occt_plugin::to_double(env.get<sol::object>("split_z")),
+        occt_plugin::to_double(env.get<sol::object>("orig_z"))
+    );
+}

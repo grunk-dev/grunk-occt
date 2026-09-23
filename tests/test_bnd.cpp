@@ -101,3 +101,65 @@ TEST_F(BndTest, DirectPointBoundsAndIsOut)
     EXPECT_FALSE(env.get<bool>("inside_is_out"));
     EXPECT_TRUE(env.get<bool>("outside_is_out"));
 }
+
+// Bnd_OBB - one of the classes the bnd module gained once its header glob
+// widened from Bnd_Box.hxx alone to Bnd_*.hxx. Built directly from a Bnd_Box,
+// then checked that its center lands at the box's own midpoint.
+TEST_F(BndTest, OBBFromBoxCentersOnBoxMidpoint)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        box = occt.Bnd_Box.new()
+        box:Set(occt.gp_Pnt.new(0., 0., 0.))
+        box:Add(occt.gp_Pnt.new(10., 20., 30.))
+
+        obb = occt.Bnd_OBB.new(box)
+        center = obb:Center()
+        center_x = center:X(); center_y = center:Y(); center_z = center:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("center_x")), 5., 1e-4);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("center_y")), 10., 1e-4);
+    EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("center_z")), 15., 1e-4);
+}
+
+// Bnd_Sphere - another class from the same widening; a simple value type with
+// its own Radius()/Center() accessors, independent of any shape.
+TEST_F(BndTest, SphereRadiusAndCenterMatchConstructorArguments)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        center = occt.gp_XYZ.new(1., 2., 3.)
+        sphere = occt.Bnd_Sphere.new(center, 4.5, 0, 0)
+        radius = sphere:Radius()
+        c = sphere:Center()
+        cx = c:X(); cy = c:Y(); cz = c:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("radius")), 4.5);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("cx")), 1.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("cy")), 2.);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("cz")), 3.);
+}
+
+// Bnd_Box2d - the 2D counterpart to Bnd_Box, also newly reachable from the same
+// widening (and, transitively, what made BRepTools::UVBounds's own extra_includes
+// fix necessary - see codegen/config.yml's breptools module).
+TEST_F(BndTest, Box2dUpdateGrowsToIncludeGivenPoint)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        bbox = occt.Bnd_Box2d.new()
+        bbox:Update(0., 0.)
+        bbox:Update(5., 7.)
+
+        pnt = occt.gp_Pnt2d.new(2., 2.)
+        pnt_is_out = bbox:IsOut(pnt)
+
+        far_pnt = occt.gp_Pnt2d.new(100., 100.)
+        far_pnt_is_out = bbox:IsOut(far_pnt)
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_FALSE(env.get<bool>("pnt_is_out"));
+    EXPECT_TRUE(env.get<bool>("far_pnt_is_out"));
+}
