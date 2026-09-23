@@ -188,32 +188,36 @@ else()
     find_package(OpenCASCADE REQUIRED)
 endif()
 
-# --- code generator (Step 2, see codegen/README.md): opt-in, not wired as a
-# dependency of occt_plugin below - regenerated output needs review/diffing before
-# being trusted, not silent regeneration on every build (see DESIGN.md's
-# "Generated-code policy"). Run via `pixi run generate_code`, which activates the
-# pixi environment (python3 + libclang + pyyaml) before invoking this target.
+# --- code generator (Step 2, see grunk's own python/grunk/codegen/README.md):
+# opt-in, not wired as a dependency of occt_plugin below - regenerated output needs
+# review/diffing before being trusted, not silent regeneration on every build (see
+# DESIGN.md's "Generated-code policy"). Run via `pixi run generate_code`, which
+# activates the pixi environment (the installed `grunk` package, providing both the
+# `grunk` CLI and its own libclang/pyyaml dependencies) before invoking this target.
+# The generator itself now lives in the grunk repo (grunk.codegen, installed as the
+# `grunk` console script's `codegen` subcommand) rather than a local copy here - see
+# grunk-adolc's own CMakeLists.txt for the only other consumer.
 if (GRUNK_OCCT_GENERATE_CODE)
     add_custom_target(generate_code
-        COMMAND python3 ${CMAKE_SOURCE_DIR}/codegen/generate.py
+        COMMAND grunk codegen
                 --config ${CMAKE_SOURCE_DIR}/codegen/config.yml
-                --occt-include-dir ${OpenCASCADE_INCLUDE_DIR}
+                --include-dir ${OpenCASCADE_INCLUDE_DIR}
                 --output-dir ${CMAKE_SOURCE_DIR}/generated
         WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
-        COMMENT "Regenerating OCCT bindings (codegen/generate.py)"
+        COMMENT "Regenerating OCCT bindings (grunk codegen)"
         VERBATIM
     )
 endif()
 
 # --- occt plugin: built as its own shared object, loaded at runtime via
 # grunk::plugin::load_native (never linked directly by a consuming application) -
-# see src/occt_plugin.cpp. generated/*.cpp are checked into git (see
-# codegen/README.md) and compiled unconditionally, regardless of
+# see src/occt_plugin.cpp. generated/*.cpp are checked into git (see grunk's own
+# python/grunk/codegen/README.md) and compiled unconditionally, regardless of
 # GRUNK_OCCT_GENERATE_CODE above.
 #
 # Translation-unit grouping is read from generated/translation_units.txt, written by
-# codegen/generate.py from config.yml's own translation_units: section (see its
-# comment there) - not decided here. One line per translation unit, each a
+# grunk.codegen's own generate.py from config.yml's own translation_units: section
+# (see its comment there) - not decided here. One line per translation unit, each a
 # space-separated list of module names (generated/<name>.cpp), except a single line
 # "*" meaning "one translation unit for everything, including src/occt_plugin.cpp"
 # (config.yml's mode: unity).

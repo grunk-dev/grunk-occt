@@ -24,16 +24,9 @@ taskflow = "*"
 yaml-cpp = "*"
 libparametric = "*"
 python = ">=3.9"
-pyyaml = "*"
 gtest = "*"
 
 [pypi-dependencies]
-# Self-contained (bundles libclang.so + the clang.cindex Python bindings) - conda-forge's
-# own `libclang` package is the bare C library only, no Python bindings. See
-# codegen/README.md. Only ever used by the `default` environment's own generate_code
-# task - the `ad` environment has no equivalent (see [feature.ad]'s own comment) and
-# doesn't need this either.
-libclang = "*"
 # grunk's own Python bindings, needed by examples/run_example.py (see its own
 # README.md) - built from source (scikit-build-core + nanobind, per grunk's own
 # pyproject.toml) since grunk has no published PyPI release yet (same reason
@@ -45,7 +38,13 @@ libclang = "*"
 # grunk_recipe/grunk_plugin as SHARED libraries now, so this pip-installed copy
 # dynamically links its own bundled copy of them rather than statically embedding
 # one - see grunk's own CMakeLists.txt for why that matters.
-grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "a372159c47d3722e138634ad9997c8037c6fd422" }
+#
+# Also the sole source of the `generate_code` task's own runtime needs now
+# (previously this repo's own direct libclang/pyyaml pins, removed): the `grunk`
+# console script and its libclang/pyyaml dependencies come along transitively with
+# this same pin, since grunk.codegen (grunk/python/grunk/codegen/) now lives in the
+# grunk package itself rather than a local codegen/generate.py copy here.
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "5f5f815d5f9b0a7d4da6f2ec0ead0d6b51b0c32d" }
 
 # Stock OCCT - only pulled in by the `default` environment (see [environments]).
 # Kept out of [dependencies] specifically so the `ad` environment (adOCCT instead,
@@ -87,7 +86,6 @@ taskflow = "*"
 yaml-cpp = "*"
 libparametric = "*"
 python = ">=3.9"
-pyyaml = "*"
 gtest = "*"
 # find_package(PkgConfig REQUIRED) in CMakeLists.txt (GRUNK_OCCT_ENABLE_AD branch
 # only) uses this to locate ADOL-C via its own adolc.pc.
@@ -96,11 +94,13 @@ pkg-config = "*"
 # grunk's own Python bindings - needed for this environment's own run_examples task
 # (examples/run_example.py), same as the default environment's own copy of this
 # dependency in [pypi-dependencies] above (kept in sync manually - see that
-# comment for the pin's own rationale). libclang is deliberately *not* duplicated
-# here - codegen/ is opt-in and only ever run against the default environment (see
-# [tasks]'s own generate_code, not duplicated into [feature.ad.tasks] either).
+# comment for the pin's own rationale). codegen/ is opt-in and only ever run
+# against the default environment (see [tasks]'s own generate_code, not
+# duplicated into [feature.ad.tasks] either) - this environment never needs the
+# libclang/pyyaml that comes along transitively with grunk's own default-feature
+# copy of this pin for that reason.
 [feature.ad.pypi-dependencies]
-grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "a372159c47d3722e138634ad9997c8037c6fd422" }
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "5f5f815d5f9b0a7d4da6f2ec0ead0d6b51b0c32d" }
 
 [feature.ad.activation.env]
 # Needed for the same reason [target.linux-64.activation.env]'s own copy is - cmake's
