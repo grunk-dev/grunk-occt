@@ -3,20 +3,24 @@
 #
 # SPDX-License-Identifier: MPL-2.0
 
-"""grunk-occt's code generator: parses OCCT headers (via libclang) driven by a
-declarative config (codegen/config.yml) and emits grunk plugin registration code
-(generated/<module>.cpp) targeting grunk's register_type/add_constructors/
-add_member_function API.
+"""grunk's shared code generator: parses a set of C++ headers (via libclang) driven
+by a declarative per-plugin config (codegen/config.yml) and emits grunk plugin
+registration code (generated/<module>.cpp) targeting grunk's register_type/
+add_constructors/add_member_function API. Shared by every native grunk plugin that
+wraps a third-party C++ library this way (grunk-occt for OpenCASCADE, grunk-adolc
+for ADOL-C's adtl.h, ...) - each plugin brings its own config.yml (headers, module
+list, blacklist, and a `helper_namespace` naming its own conversion-helper namespace
+- see emit_lambda), not a shared one.
 
-See codegen/README.md for the full design (what's accepted, what's rejected and why,
-known gaps) - deliberately narrow in scope: constructors/instance methods only, and
-only a small allowlist of "simple" parameter/return types can be bound generically.
-Anything else is silently skipped and reported
-in the summary printed at the end of a run - review that output when adding a new
-module, since it's the primary way to discover what needs a hand-written escape hatch.
+See grunk-occt's own codegen/README.md for the full design (what's accepted, what's
+rejected and why, known gaps) - deliberately narrow in scope: constructors/instance
+methods only, and only a small allowlist of "simple" parameter/return types can be
+bound generically. Anything else is silently skipped and reported in the summary
+printed at the end of a run - review that output when adding a new module, since
+it's the primary way to discover what needs a hand-written escape hatch.
 
 A module's `headers` list accepts glob patterns (e.g. "gp_*.hxx") as well as literal
-filenames, expanded against --occt-include-dir - see expand_headers(). Each matched
+filenames, expanded against --include-dir - see expand_headers(). Each matched
 header is scanned for every class/struct/enum/namespace *directly* declared in it (not
 just one matching the filename stem, and not anything nested or only transitively
 included) - see discover_entities().
@@ -57,14 +61,12 @@ def system_cxx_include_dirs() -> list[str]:
         return []
     return [line.strip() for line in match.group(1).splitlines() if line.strip()]
 
-def expand_headers(patterns: list[str], occt_include_dir: Path, exclude_headers: list[str] = ()) -> tuple[list[str], set[str]]:
+def expand_headers(patterns: list[str], include_dir: Path, exclude_headers: list[str] = ()) -> tuple[list[str], set[str]]:
     """Expands a module's `headers` list: a literal filename is kept as-is (and must
     exist), a glob pattern (contains any of *?[) is matched against
-    occt_include_dir and expanded to every matching filename, sorted for a
-    deterministic, reviewable diff (`gp_*.hxx` rather than enumerating every header
-    by hand, which both undersold how many OCCT types are one glob away and made
-    growing a module tedious). Deduplicates across all patterns in the list (in case
-    two overlap) while preserving first-seen order.
+    include_dir and expanded to every matching filename, sorted for a
+    deterministic, reviewable diff. Deduplicates across all patterns in the list
+    (in case two overlap) while preserving first-seen order.
 
     exclude_headers drops specific glob-matched filenames before they're ever
     parsed - needed for a header that doesn't even *parse* standalone (a hard clang
@@ -101,12 +103,12 @@ def expand_headers(patterns: list[str], occt_include_dir: Path, exclude_headers:
     for pattern in patterns:
         is_glob = any(ch in pattern for ch in "*?[")
         if is_glob:
-            matches = sorted(p.name for p in occt_include_dir.glob(pattern) if p.name not in excluded)
+            matches = sorted(p.name for p in include_dir.glob(pattern) if p.name not in excluded)
             if not matches:
-                raise RuntimeError(f"header glob {pattern!r} matched no files in {occt_include_dir}")
+                raise RuntimeError(f"header glob {pattern!r} matched no files in {include_dir}")
         else:
-            if not (occt_include_dir / pattern).exists():
-                raise RuntimeError(f"header {pattern!r} not found in {occt_include_dir}")
+            if not (include_dir / pattern).exists():
+                raise RuntimeError(f"header {pattern!r} not found in {include_dir}")
             matches = [pattern]
         for m in matches:
             if is_glob:
@@ -500,7 +502,7 @@ class ParsedHeader:
     entities: list[Entity]
 
 
-def parse_headers(headers: list[str], occt_include_dir: Path, clang_args: list[str],
+def parse_headers(headers: list[str], include_dir: Path, clang_args: list[str],
                    cache: dict[str, ParsedHeader]) -> None:
     """Parses each header not already in cache and discovers its entities, storing
     both under cache[header] - shared by main()'s whole-config discovery pass and
@@ -510,13 +512,14 @@ def parse_headers(headers: list[str], occt_include_dir: Path, clang_args: list[s
     C++ header parsing runs in the ~0.1-0.5s range per header even for a single
     pass, so avoiding a second full pass over the same header roughly halves total
     runtime once a config has any overlap between the whole-config discovery scan
-    and each module's own processing (which a wildcard-expanded config will have
-    far more of than a one-header-per-module design would)."""
+    and each module's own processing (which a wildcard-expanded config, with
+    modules like "gc"/"geom" split apart, will have far more of than a
+    one-header-per-module design would)."""
     index = cindex.Index.create()
     for header in headers:
         if header in cache:
             continue
-        header_path = occt_include_dir / header
+        header_path = include_dir / header
         tu = index.parse(str(header_path), args=clang_args)
         diags = [d for d in tu.diagnostics if d.severity >= cindex.Diagnostic.Error]
         if diags:
@@ -775,13 +778,13 @@ def find_friend_operator_reversed(class_cursor: cindex.Cursor, token: str) -> bo
     return False
 
 
-def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) -> str:
+def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str, helper_namespace: str) -> str:
     param_decls = []
     call_args = []
     for p, k in zip(c.params, kinds):
         if ad_branch and k == "real":
             param_decls.append(f"sol::object {p.name}")
-            call_args.append(f"occt_plugin::to_real({p.name})")
+            call_args.append(f"{helper_namespace}::to_real({p.name})")
         elif k == "array1":
             elem = array_element_type(p.canonical, ARRAY1_PATTERN)
             param_decls.append(f"std::vector<{elem}> const& {p.name}")
@@ -792,12 +795,12 @@ def emit_lambda(c: Callable, kinds: list[str], ad_branch: bool, ctor_mode: str) 
             # element type is Standard_Real, a distinct C++ type from double under
             # GRUNK_OCCT_WITH_ADOLC.
             fn = "to_real_array1" if elem in REAL_ELEMENT_SPELLINGS else "to_array1"
-            call_args.append(f"occt_plugin::{fn}({p.name})")
+            call_args.append(f"{helper_namespace}::{fn}({p.name})")
         elif k == "array2":
             elem = array_element_type(p.canonical, ARRAY2_PATTERN)
             param_decls.append(f"std::vector<{elem}> const& {p.name}_flat, Standard_Integer {p.name}_rows, Standard_Integer {p.name}_cols")
             fn = "to_real_array2" if elem in REAL_ELEMENT_SPELLINGS else "to_array2"
-            call_args.append(f"occt_plugin::{fn}({p.name}_flat, {p.name}_rows, {p.name}_cols)")
+            call_args.append(f"{helper_namespace}::{fn}({p.name}_flat, {p.name}_rows, {p.name}_cols)")
         else:
             param_decls.append(f"{p.spelling} {p.name}")
             call_args.append(p.name)
@@ -928,14 +931,14 @@ def ambiguity_safe_overload_order(
     return sorted(overloads, key=lambda ck: (len(ck[1]), ck[1].count("real")))
 
 
-def emit_callable_expr(c: Callable, kinds: list[str], ctor_mode: str) -> str:
+def emit_callable_expr(c: Callable, kinds: list[str], ctor_mode: str, helper_namespace: str) -> str:
     if c.kind == "operator":
         return emit_operator_lambda(c)
     has_real = "real" in kinds
-    plain = emit_lambda(c, kinds, ad_branch=False, ctor_mode=ctor_mode)
+    plain = emit_lambda(c, kinds, ad_branch=False, ctor_mode=ctor_mode, helper_namespace=helper_namespace)
     if not has_real:
         return plain
-    ad_form = emit_lambda(c, kinds, ad_branch=True, ctor_mode=ctor_mode)
+    ad_form = emit_lambda(c, kinds, ad_branch=True, ctor_mode=ctor_mode, helper_namespace=helper_namespace)
     return f"\n#if defined({AD_MACRO})\n            {ad_form}\n#else\n            {plain}\n#endif\n        "
 
 
@@ -1030,9 +1033,6 @@ def process_module(module: dict, cache: dict[str, ParsedHeader], registered_type
 
         for entity in entities:
             name = entity.name
-            if name == "TopoDS":
-                import sys as _sys
-                print(f"DEBUG entity TopoDS kind={entity.kind!r} header={header!r}", file=_sys.stderr)
             if name in blacklist:
                 continue  # a bare ClassName/EnumName in the blacklist skips it entirely
             if entity.kind == "namespace":
@@ -1202,7 +1202,7 @@ def process_module(module: dict, cache: dict[str, ParsedHeader], registered_type
     return result
 
 
-def render_module(result: ModuleResult) -> tuple[str, str]:
+def render_module(result: ModuleResult, helper_namespace: str) -> tuple[str, str]:
     """Returns (header_source, cpp_source)."""
     header_source = GENERATED_BANNER + f"""
 #pragma once
@@ -1227,8 +1227,8 @@ void register_{result.name}(grunk::plugin_namespace& ns);
         for k in kinds
     )
     # Whether this module actually emitted any Standard_Real AD dual-emission
-    # code (occt_plugin::to_real calls - see emit_lambda) - never true for a
-    # module with no genuine Standard_Real parameter anywhere (e.g. grunk-adolc's
+    # code (<helper_namespace>::to_real calls - see emit_lambda) - never true for
+    # a module with no genuine Standard_Real parameter anywhere (e.g. grunk-adolc's
     # own adtl module, which only ever sees bare "double", a different Param.kind()
     # - see PASSTHROUGH_TYPES). occt_ad_support.hpp is grunk-occt-specific (its
     # own #include path below is relative to *this* repo's src/ directory) and
@@ -1263,10 +1263,10 @@ void register_{result.name}(grunk::plugin_namespace& ns);
             overloads = ambiguity_safe_overload_order(overloads)
             if len(overloads) == 1:
                 c, kinds = overloads[0]
-                fun_expr = emit_callable_expr(c, kinds, ctor_mode)
+                fun_expr = emit_callable_expr(c, kinds, ctor_mode, helper_namespace)
             else:
                 fun_expr = "sol::overload(\n        " + ",\n        ".join(
-                    emit_callable_expr(c, kinds, ctor_mode) for c, kinds in overloads
+                    emit_callable_expr(c, kinds, ctor_mode, helper_namespace) for c, kinds in overloads
                 ) + "\n    )"
 
             # A *genuine* C++ namespace's own free functions (result.entity_kind
@@ -1349,16 +1349,16 @@ void register_{result.name}(grunk::plugin_namespace& ns);
 
         ctors = ambiguity_safe_overload_order(result.accepted_ctors.get(class_name, []))
         if ctors:
-            ctor_exprs = [emit_callable_expr(c, kinds, ctor_mode) for c, kinds in ctors]
+            ctor_exprs = [emit_callable_expr(c, kinds, ctor_mode, helper_namespace) for c, kinds in ctors]
             lines.append("        .add_constructors(\n            " + ",\n            ".join(ctor_exprs) + "\n        )")
 
         for method_name, overloads in instance_methods.items():
             if len(overloads) == 1:
                 c, kinds = overloads[0]
-                fun_expr = emit_callable_expr(c, kinds, ctor_mode)
+                fun_expr = emit_callable_expr(c, kinds, ctor_mode, helper_namespace)
             else:
                 fun_expr = "sol::overload(\n            " + ",\n            ".join(
-                    emit_callable_expr(c, kinds, ctor_mode) for c, kinds in overloads
+                    emit_callable_expr(c, kinds, ctor_mode, helper_namespace) for c, kinds in overloads
                 ) + "\n        )"
             if method_name.startswith("__meta_"):
                 # An operator group (see process_module's own "__meta_" keying) -
@@ -1475,8 +1475,8 @@ def compute_translation_units(config: dict, module_names: list[str]) -> list[str
     return lines
 
 
-def build_clang_args(occt_include_dir: Path) -> list[str]:
-    args = ["-x", "c++", "-std=c++17", f"-I{occt_include_dir}"]
+def build_clang_args(include_dir: Path) -> list[str]:
+    args = ["-x", "c++", "-std=c++17", f"-I{include_dir}"]
     args += [f"-isystem{d}" for d in system_cxx_include_dirs()]
     return args
 
@@ -1484,17 +1484,23 @@ def build_clang_args(occt_include_dir: Path) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path(__file__).parent / "config.yml")
-    parser.add_argument("--occt-include-dir", type=Path, required=True)
+    parser.add_argument("--include-dir", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
 
     config = yaml.safe_load(args.config.read_text())
     args.output_dir.mkdir(parents=True, exist_ok=True)
-    clang_args = build_clang_args(args.occt_include_dir)
+    clang_args = build_clang_args(args.include_dir)
+    # The C++ namespace (see src/collections.hpp / occt_ad_support.hpp-style
+    # helpers) that this plugin's own to_real/to_array1/to_array2 conversion
+    # helpers live in - config-driven since this generator is now shared across
+    # plugins, each with its own such namespace (grunk-occt: occt_plugin,
+    # grunk-adolc: adolc_plugin) - see emit_lambda.
+    helper_namespace = config["helper_namespace"]
 
     for module in config["modules"]:
         module["headers"], module["_glob_matched_headers"] = expand_headers(
-            module["headers"], args.occt_include_dir, module.get("exclude_headers", [])
+            module["headers"], args.include_dir, module.get("exclude_headers", [])
         )
 
     # Every header across the whole config is parsed/discovered exactly once here
@@ -1503,14 +1509,14 @@ def main() -> int:
     # call read from it rather than re-parsing.
     cache: dict[str, ParsedHeader] = {}
     for module in config["modules"]:
-        parse_headers(module["headers"], args.occt_include_dir, clang_args, cache)
+        parse_headers(module["headers"], args.include_dir, clang_args, cache)
 
     registered_types = {e.name for p in cache.values() for e in p.entities if e.kind == "class"}
     registered_enums = {e.name for p in cache.values() for e in p.entities if e.kind == "enum"}
 
     for module in config["modules"]:
         result = process_module(module, cache, registered_types, registered_enums)
-        header_source, cpp_source = render_module(result)
+        header_source, cpp_source = render_module(result, helper_namespace)
         (args.output_dir / f"{result.name}.hpp").write_text(header_source)
         (args.output_dir / f"{result.name}.cpp").write_text(cpp_source)
 

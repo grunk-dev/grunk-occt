@@ -44,6 +44,12 @@
 # BRepFilletAPI_MakeFillet::ComputedSurface (brepfilletapi), both of which return
 # Handle(Geom_Surface) - previously rejected outright (Geom_Surface wasn't a
 # registered type at all), so this never came up before.
+# The C++ namespace generate.py's own emit_lambda emits calls into for its
+# to_real/to_array1/to_array2 conversion helpers (see src/collections.hpp,
+# src/occt_ad_support.hpp) - required since generate.py is now shared across
+# plugins, each with its own such namespace.
+helper_namespace: occt_plugin
+
 translation_units:
   mode: separate
   groups:
