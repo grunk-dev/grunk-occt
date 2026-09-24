@@ -141,11 +141,17 @@ if(GRUNK_OCCT_ENABLE_AD)
     # changed from `adtl_plugin`/"adtl" to `adolc_plugin`/"adolc") landed there -
     # this pin must track that rename too, or this build keeps fetching the
     # pre-rename source and the target name below would be wrong.
+    # Bumped again, 18b4482 -> 9af9725, to pick up grunk-adolc's own "adapt to
+    # updates in grunks code generator" commit (774cee5, tracking this repo's
+    # own grunk pin bump to the relaxed, less name-registration-dependent
+    # classify_param - see this file's own [pypi-dependencies]/pixi.toml grunk
+    # pin comment) plus three unrelated dependabot GitHub Actions bumps already
+    # merged to grunk-adolc's own main ahead of it.
     include(FetchContent)
 
     FetchContent_Declare(grunk-adolc
         GIT_REPOSITORY https://github.com/grunk-dev/grunk-adolc.git
-        GIT_TAG 18b4482765fcf5a6b0d3d9d0c482f2977ba110cf
+        GIT_TAG 9af972546d056e0c68a349d3b6eb54ad537f9a21
     )
 
     FetchContent_GetProperties(grunk-adolc)
@@ -194,15 +200,16 @@ else()
     find_package(OpenCASCADE REQUIRED)
 endif()
 
-# --- code generator (Step 2, see grunk's own python/grunk/codegen/README.md):
-# opt-in, not wired as a dependency of occt_plugin below - regenerated output needs
-# review/diffing before being trusted, not silent regeneration on every build (see
-# DESIGN.md's "Generated-code policy"). Run via `pixi run generate_code`, which
-# activates the pixi environment (the installed `grunk` package, providing both the
-# `grunk` CLI and its own libclang/pyyaml dependencies) before invoking this target.
-# The generator itself now lives in the grunk repo (grunk.codegen, installed as the
-# `grunk` console script's `codegen` subcommand) rather than a local copy here - see
-# grunk-adolc's own CMakeLists.txt for the only other consumer.
+# --- code generator (Step 2, see codegen/README.md): opt-in, not wired as a
+# dependency of occt_plugin below - regenerated output needs review/diffing before
+# being trusted, not silent regeneration on every build (see DESIGN.md's
+# "Generated-code policy"). Run via `pixi run generate_code`, which activates the
+# pixi environment (the installed `grunk` package, providing both the `grunk` CLI
+# and its own libclang/pyyaml dependencies) before invoking this target. The
+# generator's own library-agnostic core lives in the grunk repo (grunk.codegen,
+# installed as the `grunk` console script's `codegen` subcommand); everything
+# OCCT-specific lives in this repo's own codegen/hooks.py (a CodeGenerator
+# subclass - see codegen/README.md) and codegen/config.yml.
 if (GRUNK_OCCT_GENERATE_CODE)
     add_custom_target(generate_code
         COMMAND grunk codegen
@@ -217,8 +224,8 @@ endif()
 
 # --- occt plugin: built as its own shared object, loaded at runtime via
 # grunk::plugin::load_native (never linked directly by a consuming application) -
-# see src/occt_plugin.cpp. generated/*.cpp are checked into git (see grunk's own
-# python/grunk/codegen/README.md) and compiled unconditionally, regardless of
+# see src/occt_plugin.cpp. generated/*.cpp are checked into git (see
+# codegen/README.md) and compiled unconditionally, regardless of
 # GRUNK_OCCT_GENERATE_CODE above.
 #
 # Translation-unit grouping is read from generated/translation_units.txt, written by

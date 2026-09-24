@@ -389,6 +389,7 @@ void register_gc(grunk::plugin_namespace& ns)
         .add_member_function("Value", [](GC_MakeTrimmedCylinder const& self) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return self.Value(); })
         .add_bases<GC_Root>();
     ns.register_type<GC_Root, sol::automagic_flags::none>("GC_Root")
-        .add_member_function("IsDone", [](GC_Root const& self) -> Standard_Boolean { return self.IsDone(); });
+        .add_member_function("IsDone", [](GC_Root const& self) -> Standard_Boolean { return self.IsDone(); })
+        .add_member_function("Status", [](GC_Root const& self) -> gce_ErrorType { return self.Status(); });
 
 }

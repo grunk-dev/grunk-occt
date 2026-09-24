@@ -104,6 +104,10 @@ void register_brep(grunk::plugin_namespace& ns)
 #endif
         
         ))
+        .add_member_function("Continuity", sol::overload(
+            [](BRep_Builder const& self, const TopoDS_Edge & E, const TopoDS_Face & F1, const TopoDS_Face & F2, const GeomAbs_Shape C) { self.Continuity(E, F1, F2, C); },
+            [](BRep_Builder const& self, const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const TopLoc_Location & L1, const TopLoc_Location & L2, const GeomAbs_Shape C) { self.Continuity(E, S1, S2, L1, L2, C); }
+        ))
         .add_member_function("SameParameter", [](BRep_Builder const& self, const TopoDS_Edge & E, const Standard_Boolean S) { self.SameParameter(E, S); })
         .add_member_function("SameRange", [](BRep_Builder const& self, const TopoDS_Edge & E, const Standard_Boolean S) { self.SameRange(E, S); })
         .add_member_function("Degenerated", [](BRep_Builder const& self, const TopoDS_Edge & E, const Standard_Boolean D) { self.Degenerated(E, D); })
@@ -214,6 +218,7 @@ void register_brep(grunk::plugin_namespace& ns)
         [](const TopoDS_Face & F) -> opencascade::handle<Geom_Surface> { return BRep_Tool::Surface(F); },
         [](const TopoDS_Face & F, TopLoc_Location & L) -> opencascade::handle<Geom_Surface> { return BRep_Tool::Surface(F, L); }
     ));
+    ns.register_function("BRep_Tool_Triangulations", [](const TopoDS_Face & theFace, TopLoc_Location & theLocation) -> const Poly_ListOfTriangulation & { return BRep_Tool::Triangulations(theFace, theLocation); });
     ns.register_function("BRep_Tool_Tolerance", sol::overload(
         [](const TopoDS_Face & F) -> Standard_Real { return BRep_Tool::Tolerance(F); },
         [](const TopoDS_Edge & E) -> Standard_Real { return BRep_Tool::Tolerance(E); },
@@ -240,6 +245,11 @@ void register_brep(grunk::plugin_namespace& ns)
         [](const TopoDS_Edge & E, const TopoDS_Face & F1, const TopoDS_Face & F2) -> Standard_Boolean { return BRep_Tool::HasContinuity(E, F1, F2); },
         [](const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const TopLoc_Location & L1, const TopLoc_Location & L2) -> Standard_Boolean { return BRep_Tool::HasContinuity(E, S1, S2, L1, L2); }
     ));
+    ns.register_function("BRep_Tool_Continuity", sol::overload(
+        [](const TopoDS_Edge & E, const TopoDS_Face & F1, const TopoDS_Face & F2) -> GeomAbs_Shape { return BRep_Tool::Continuity(E, F1, F2); },
+        [](const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const TopLoc_Location & L1, const TopLoc_Location & L2) -> GeomAbs_Shape { return BRep_Tool::Continuity(E, S1, S2, L1, L2); }
+    ));
+    ns.register_function("BRep_Tool_MaxContinuity", [](const TopoDS_Edge & theEdge) -> GeomAbs_Shape { return BRep_Tool::MaxContinuity(theEdge); });
     ns.register_function("BRep_Tool_Pnt", [](const TopoDS_Vertex & V) -> gp_Pnt { return BRep_Tool::Pnt(V); });
     ns.register_function("BRep_Tool_Parameter", sol::overload(
         [](const TopoDS_Vertex & V, const TopoDS_Edge & E) -> Standard_Real { return BRep_Tool::Parameter(V, E); },
@@ -247,4 +257,5 @@ void register_brep(grunk::plugin_namespace& ns)
         [](const TopoDS_Vertex & V, const TopoDS_Edge & E, const opencascade::handle<Geom_Surface> & S, const TopLoc_Location & L) -> Standard_Real { return BRep_Tool::Parameter(V, E, S, L); }
     ));
     ns.register_function("BRep_Tool_Parameters", [](const TopoDS_Vertex & V, const TopoDS_Face & F) -> gp_Pnt2d { return BRep_Tool::Parameters(V, F); });
+    ns.register_function("BRep_Tool_MaxTolerance", [](const TopoDS_Shape & theShape, const TopAbs_ShapeEnum theSubShape) -> Standard_Real { return BRep_Tool::MaxTolerance(theShape, theSubShape); });
 }

@@ -127,7 +127,9 @@ process loads both variants at once).
 ## Project structure
 
 ```
-codegen/    # libclang-based code generator that produces generated/ from codegen/config.yml
+codegen/    # this plugin's own config.yml + hooks.py, teaching grunk's shared,
+            # libclang-based code generator (grunk.codegen) OCCT's own idioms -
+            # see codegen/README.md
 generated/  # generator output - checked into git, builds without clang/libclang needed
 src/        # plugin entry point (occt_plugin.cpp) + a handful of hand-written registrations
             # for the few things the generator can't produce on its own
@@ -139,10 +141,9 @@ tests/      # one gtest file per OCCT module wrapped
 
 | Dependency | Source |
 | -- | -- |
-| grunk | pinned commit, built and installed automatically into `.deps/grunk` (`scripts/install_grunk.cmake`) |
+| grunk | pinned commit, built and installed automatically into `.deps/grunk` (`scripts/install_grunk.cmake`); also provides the `grunk` Python package (the `grunk codegen` CLI, and its own libclang/pyyaml dependencies), only needed to regenerate `generated/` |
 | occt (OpenCASCADE) | conda-forge, `7.9.3` |
 | lua, sol2, taskflow, yaml-cpp, libparametric | conda-forge (needed to build grunk itself) |
-| python, pyyaml, libclang | conda-forge/PyPI, only needed to regenerate `generated/` |
 | gtest | conda-forge, the test framework |
 | ADOL-C, adOCCT | built from source, only needed for the AD build (see above) |
 

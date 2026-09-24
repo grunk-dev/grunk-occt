@@ -270,6 +270,10 @@ void register_bnd(grunk::plugin_namespace& ns)
             [](Bnd_BoundSortBox& self, const Bnd_Box & CompleteBox, const Standard_Integer nbComponents) { self.Initialize(CompleteBox, nbComponents); }
         ))
         .add_member_function("Add", [](Bnd_BoundSortBox& self, const Bnd_Box & theBox, const Standard_Integer boxIndex) { self.Add(theBox, boxIndex); })
+        .add_member_function("Compare", sol::overload(
+            [](Bnd_BoundSortBox& self, const Bnd_Box & theBox) -> const TColStd_ListOfInteger & { return self.Compare(theBox); },
+            [](Bnd_BoundSortBox& self, const gp_Pln & P) -> const TColStd_ListOfInteger & { return self.Compare(P); }
+        ))
         .add_member_function("Dump", [](Bnd_BoundSortBox const& self) { self.Dump(); })
         .add_member_function("Destroy", [](Bnd_BoundSortBox& self) { self.Destroy(); });
     ns.register_type<Bnd_Box, sol::automagic_flags::none>("Bnd_Box")
@@ -452,22 +456,28 @@ void register_bnd(grunk::plugin_namespace& ns)
         .add_constructors(
             []() { return Bnd_HArray1OfBox(); },
             [](std::vector<Bnd_Box> const& theOther) { return Bnd_HArray1OfBox(occt_plugin::to_array1(theOther)); },
-            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfBox(theLower, theUpper); }
+            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfBox(theLower, theUpper); },
+            [](const Standard_Integer theLower, const Standard_Integer theUpper, const Bnd_Array1OfBox::value_type & theValue) { return Bnd_HArray1OfBox(theLower, theUpper, theValue); }
         )
+        .add_member_function("Array1", [](Bnd_HArray1OfBox const& self) -> const Bnd_Array1OfBox & { return self.Array1(); })
         .add_bases<Bnd_Array1OfBox>();
     ns.register_type<Bnd_HArray1OfBox2d, sol::automagic_flags::none>("Bnd_HArray1OfBox2d")
         .add_constructors(
             []() { return Bnd_HArray1OfBox2d(); },
             [](std::vector<Bnd_Box2d> const& theOther) { return Bnd_HArray1OfBox2d(occt_plugin::to_array1(theOther)); },
-            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfBox2d(theLower, theUpper); }
+            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfBox2d(theLower, theUpper); },
+            [](const Standard_Integer theLower, const Standard_Integer theUpper, const Bnd_Array1OfBox2d::value_type & theValue) { return Bnd_HArray1OfBox2d(theLower, theUpper, theValue); }
         )
+        .add_member_function("Array1", [](Bnd_HArray1OfBox2d const& self) -> const Bnd_Array1OfBox2d & { return self.Array1(); })
         .add_bases<Bnd_Array1OfBox2d>();
     ns.register_type<Bnd_HArray1OfSphere, sol::automagic_flags::none>("Bnd_HArray1OfSphere")
         .add_constructors(
             []() { return Bnd_HArray1OfSphere(); },
             [](std::vector<Bnd_Sphere> const& theOther) { return Bnd_HArray1OfSphere(occt_plugin::to_array1(theOther)); },
-            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfSphere(theLower, theUpper); }
+            [](const Standard_Integer theLower, const Standard_Integer theUpper) { return Bnd_HArray1OfSphere(theLower, theUpper); },
+            [](const Standard_Integer theLower, const Standard_Integer theUpper, const Bnd_Array1OfSphere::value_type & theValue) { return Bnd_HArray1OfSphere(theLower, theUpper, theValue); }
         )
+        .add_member_function("Array1", [](Bnd_HArray1OfSphere const& self) -> const Bnd_Array1OfSphere & { return self.Array1(); })
         .add_bases<Bnd_Array1OfSphere>();
     ns.register_type<Bnd_OBB, sol::automagic_flags::none>("Bnd_OBB")
         .add_constructors(

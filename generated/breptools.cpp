@@ -19,6 +19,7 @@
 #include <TopoDS_Solid.hxx>
 #include <TopoDS_CompSolid.hxx>
 #include <TopoDS_Compound.hxx>
+#include <BRep_Builder.hxx>
 
 #include <memory>
 
@@ -89,6 +90,7 @@ void register_breptools(grunk::plugin_namespace& ns)
     ));
     ns.register_function("BRepTools_OuterWire", [](const TopoDS_Face & F) -> TopoDS_Wire { return BRepTools::OuterWire(F); });
     ns.register_function("BRepTools_IsReallyClosed", [](const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Boolean { return BRepTools::IsReallyClosed(E, F); });
+    ns.register_function("BRepTools_OriEdgeInFace", [](const TopoDS_Edge & theEdge, const TopoDS_Face & theFace) -> TopAbs_Orientation { return BRepTools::OriEdgeInFace(theEdge, theFace); });
     ns.register_function("BRepTools_RemoveInternals", sol::overload(
         [](TopoDS_Shape & theS) { BRepTools::RemoveInternals(theS); },
         [](TopoDS_Shape & theS, const Standard_Boolean theForce) { BRepTools::RemoveInternals(theS, theForce); }

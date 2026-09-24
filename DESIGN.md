@@ -1569,3 +1569,76 @@ build:
 **Verified**: `pixi run -e default test` (50/50), `pixi run -e ad test` (51/51, including
 `test_ad.cpp`'s own `BezierAdTest`), and both environments' `generate_code` task (`git diff
 generated/` empty in both) all pass against the new pins.
+
+## Cross-plugin `Handle(X)` sharing - open gap, blocks `grunk-geoml`
+
+`grunk.codegen`'s shared core (see `grunk`'s own `python/grunk/codegen/README.md`) was relaxed to
+accept a class parameter/return type this run never itself registers - a plain value or reference
+(mutable included) to an unrecognized bare type name now classifies as `"object"` unconditionally,
+confirmed empirically against sol2 (no pre-registration needed to bind a function taking/returning a
+class by value or reference at all). This is exactly what a future `grunk-geoml` plugin needs for its
+own API surface, which (per this workspace's own root `CLAUDE.md`, "Next steps") "takes/returns raw
+OCCT types directly" - `gp_Pnt`, `TopoDS_Shape`, and friends now bind cleanly with zero `hooks.py`
+code on `grunk-geoml`'s side, purely from the shared generator's own relaxed default.
+
+**`Handle(X)` (i.e. `opencascade::handle<X>`) does not get the same relaxation, and can't without
+further work - a real, open gap, not a missing `classify_param` teaching.** Confirmed by directly
+hitting it: this repo's own `hooks.py` briefly dropped the `X in registered_types` gate on its own
+`HANDLE_PATTERN` detection (matching the same "trust the shape, not the registry" principle as the
+plain-object case above), and rebuilding surfaced real compile failures for `Handle(X)` where X is
+*not* independently `register_type<X, sol::automagic_flags::none>()`'d by *this same compiled plugin*
+- e.g. (real errors, from this repo's own then-generated code):
+
+```
+error: invalid use of incomplete type ‘class Law_Function’
+error: no match for ‘operator<’ (operand types are ‘Standard_Type’ and ‘Standard_Type’)
+error: no match for ‘operator==’ (operand types are ‘BRepTools_History’ and ‘BRepTools_History’)
+```
+
+The incomplete-type ones are ordinary (fixable via `extra_includes`, same as any other forward-declared
+parameter type). The comparison-operator ones are the real constraint: `src/occt_sol_traits.hpp`'s
+`sol::unique_usertype_traits<opencascade::handle<T>>` specialization pushes `T` through a *different*
+sol2 code path than a plain value/reference parameter does - one that, the first time it sees a
+never-before-registered `T`, tries to auto-generate `operator<`/`operator==` Lua metamethods for it
+(sol2's own default `automagic_flags::all` behavior). `register_type<T, sol::automagic_flags::none>()`
+(see this file's own "`automagic_flags` policy") is what suppresses that - but it only takes effect
+within the *same compiled translation unit/plugin* that calls it. A type this repo's own config never
+registers - which, for the `Handle(X)` case, includes any `X` a future `grunk-geoml` would want to
+pass back and forth without re-declaring it itself - fails to compile the moment its `Handle(X)` form
+is pushed, since the classes involved (`Standard_Type`, `BRepTools_History`, `TopLoc_Datum3D`,
+`TopoDS_TShape`, among others already found this way) genuinely declare neither operator.
+
+**Why this matters for `grunk-geoml` specifically**: `geoml`'s own real C++ API takes/returns OCCT
+types directly, `Handle(X)`-wrapped ones included, not just plain value types like `gp_Pnt` - confirmed
+via `legacy-geo/custom_init.cpp`'s own `geoml::Transform::operator()` overload set, which takes/returns
+`opencascade::handle<Geom_Surface>` alongside plain `gp_Pnt`/`TopoDS_Shape` overloads. Re-registering
+those same OCCT types a second time
+in `grunk-geoml`'s own compiled plugin (its own `register_type<Geom_Curve, automagic_flags::none>()`
+call) would make the *comparison-operator* problem go away, but reintroduces the exact hazard this
+repo's own `grunk` dependency once had - see this file's own "grunk: pre-built dependency, not
+vendored" - two independently-registered *sol2 usertypes* for the same C++ type, this time via two
+different plugins' own `register_type<Geom_Curve>()` calls rather than two vendored copies of `grunk`
+itself. Whether that produces the exact same "looks like two different Lua types depending on which
+plugin pushed it" failure mode, or something more/less severe, has not been tested - flagged here as a
+real risk of the "just re-register it" workaround, not a ruled-out option.
+
+**Candidate directions, none yet explored**:
+
+- A lighter-weight sol2 registration that suppresses automagic comparison/container-metamethod
+  generation for a type *without* a full `register_type<T>()` call (constructors, methods, the works) -
+  unclear whether sol2's own API exposes anything at this granularity; would need reading sol2's own
+  usertype-registration internals (`usertype_storage`/`automagic` machinery, seen in the error
+  backtraces above) rather than guessing.
+- A genuinely shared header (not compiled code) providing the `automagic_flags::none`
+  registration/`unique_usertype_traits` specialization pattern identically to both `grunk-occt` and a
+  future `grunk-geoml`, so whichever plugin loads first does the one real registration and the other
+  just declares the same type without re-registering it - needs a mechanism for one plugin's codegen
+  output to know at *compile time* that a type is "somebody else's, already handled," which is exactly
+  the still-undesigned cross-plugin-type-visibility question `python/grunk/codegen/README.md`'s own
+  "Known gaps" already flags for the plain-object case, just sharper here since a compile failure (not
+  a runtime one) is on the line.
+- Accepting the duplicate-registration risk deliberately, if empirical testing shows it's actually
+  harmless for this specific case (unlike the vendored-`grunk` hazard, `register_type<T,
+  automagic_flags::none>()` may turn out to produce compatible-enough behavior across two separate
+  calls, since neither one adds any automagic surface for sol2's own object-identity resolution to
+  disagree about) - not tested, not assumed safe.

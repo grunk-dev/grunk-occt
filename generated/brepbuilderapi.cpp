@@ -145,6 +145,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](BRepBuilderAPI_GTransform& self, const TopoDS_Shape & S) { self.Perform(S); },
             [](BRepBuilderAPI_GTransform& self, const TopoDS_Shape & S, const Standard_Boolean Copy) { self.Perform(S, Copy); }
         ))
+        .add_member_function("Modified", [](BRepBuilderAPI_GTransform& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Modified(S); })
         .add_member_function("ModifiedShape", [](BRepBuilderAPI_GTransform const& self, const TopoDS_Shape & S) -> TopoDS_Shape { return self.ModifiedShape(S); })
         .add_bases<BRepBuilderAPI_ModifyShape, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepBuilderAPI_MakeEdge, sol::automagic_flags::none>("BRepBuilderAPI_MakeEdge")
@@ -448,6 +449,8 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](BRepBuilderAPI_MakeShape& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
         ))
         .add_member_function("Shape", [](BRepBuilderAPI_MakeShape& self) -> const TopoDS_Shape & { return self.Shape(); })
+        .add_member_function("Generated", [](BRepBuilderAPI_MakeShape& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Generated(S); })
+        .add_member_function("Modified", [](BRepBuilderAPI_MakeShape& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Modified(S); })
         .add_member_function("IsDeleted", [](BRepBuilderAPI_MakeShape& self, const TopoDS_Shape & S) -> Standard_Boolean { return self.IsDeleted(S); })
         .add_bases<BRepBuilderAPI_Command>();
     ns.register_type<BRepBuilderAPI_MakeShapeOnMesh, sol::automagic_flags::none>("BRepBuilderAPI_MakeShapeOnMesh")
@@ -538,6 +541,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         .add_member_function("Vertex", [](BRepBuilderAPI_MakeWire const& self) -> const TopoDS_Vertex & { return self.Vertex(); })
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepBuilderAPI_ModifyShape, sol::automagic_flags::none>("BRepBuilderAPI_ModifyShape")
+        .add_member_function("Modified", [](BRepBuilderAPI_ModifyShape& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Modified(S); })
         .add_member_function("ModifiedShape", [](BRepBuilderAPI_ModifyShape const& self, const TopoDS_Shape & S) -> TopoDS_Shape { return self.ModifiedShape(S); })
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepBuilderAPI_NurbsConvert, sol::automagic_flags::none>("BRepBuilderAPI_NurbsConvert")
@@ -550,6 +554,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](BRepBuilderAPI_NurbsConvert& self, const TopoDS_Shape & S) { self.Perform(S); },
             [](BRepBuilderAPI_NurbsConvert& self, const TopoDS_Shape & S, const Standard_Boolean Copy) { self.Perform(S, Copy); }
         ))
+        .add_member_function("Modified", [](BRepBuilderAPI_NurbsConvert& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Modified(S); })
         .add_member_function("ModifiedShape", [](BRepBuilderAPI_NurbsConvert const& self, const TopoDS_Shape & S) -> TopoDS_Shape { return self.ModifiedShape(S); })
         .add_bases<BRepBuilderAPI_ModifyShape, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     sol::table(ns.table()).new_enum("BRepBuilderAPI_PipeError",
@@ -648,6 +653,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         .add_member_function("MultipleEdge", [](BRepBuilderAPI_Sewing const& self, const Standard_Integer index) -> const TopoDS_Edge & { return self.MultipleEdge(index); })
         .add_member_function("NbContigousEdges", [](BRepBuilderAPI_Sewing const& self) -> Standard_Integer { return self.NbContigousEdges(); })
         .add_member_function("ContigousEdge", [](BRepBuilderAPI_Sewing const& self, const Standard_Integer index) -> const TopoDS_Edge & { return self.ContigousEdge(index); })
+        .add_member_function("ContigousEdgeCouple", [](BRepBuilderAPI_Sewing const& self, const Standard_Integer index) -> const TopTools_ListOfShape & { return self.ContigousEdgeCouple(index); })
         .add_member_function("IsSectionBound", [](BRepBuilderAPI_Sewing const& self, const TopoDS_Edge & section) -> Standard_Boolean { return self.IsSectionBound(section); })
         .add_member_function("SectionToBoundary", [](BRepBuilderAPI_Sewing const& self, const TopoDS_Edge & section) -> const TopoDS_Edge & { return self.SectionToBoundary(section); })
         .add_member_function("NbDegeneratedShapes", [](BRepBuilderAPI_Sewing const& self) -> Standard_Integer { return self.NbDegeneratedShapes(); })
@@ -725,6 +731,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](BRepBuilderAPI_Transform& self, const TopoDS_Shape & theShape, const Standard_Boolean theCopyGeom, const Standard_Boolean theCopyMesh) { self.Perform(theShape, theCopyGeom, theCopyMesh); }
         ))
         .add_member_function("ModifiedShape", [](BRepBuilderAPI_Transform const& self, const TopoDS_Shape & S) -> TopoDS_Shape { return self.ModifiedShape(S); })
+        .add_member_function("Modified", [](BRepBuilderAPI_Transform& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Modified(S); })
         .add_bases<BRepBuilderAPI_ModifyShape, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     sol::table(ns.table()).new_enum("BRepBuilderAPI_TransitionMode",
             "BRepBuilderAPI_Transformed", BRepBuilderAPI_Transformed,

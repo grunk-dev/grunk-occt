@@ -41,6 +41,12 @@ void register_topods(grunk::plugin_namespace& ns)
             [](TopoDS_Shape const& self, const TopLoc_Location & theLoc) -> TopoDS_Shape { return self.Located(theLoc); },
             [](TopoDS_Shape const& self, const TopLoc_Location & theLoc, const Standard_Boolean theRaiseExc) -> TopoDS_Shape { return self.Located(theLoc, theRaiseExc); }
         ))
+        .add_member_function("Orientation", sol::overload(
+            [](TopoDS_Shape const& self) -> TopAbs_Orientation { return self.Orientation(); },
+            [](TopoDS_Shape& self, TopAbs_Orientation theOrient) { self.Orientation(theOrient); }
+        ))
+        .add_member_function("Oriented", [](TopoDS_Shape const& self, TopAbs_Orientation theOrient) -> TopoDS_Shape { return self.Oriented(theOrient); })
+        .add_member_function("ShapeType", [](TopoDS_Shape const& self) -> TopAbs_ShapeEnum { return self.ShapeType(); })
         .add_member_function("Free", sol::overload(
             [](TopoDS_Shape const& self) -> Standard_Boolean { return self.Free(); },
             [](TopoDS_Shape& self, Standard_Boolean theIsFree) { self.Free(theIsFree); }
@@ -85,6 +91,8 @@ void register_topods(grunk::plugin_namespace& ns)
         .add_member_function("Reversed", [](TopoDS_Shape const& self) -> TopoDS_Shape { return self.Reversed(); })
         .add_member_function("Complement", [](TopoDS_Shape& self) { self.Complement(); })
         .add_member_function("Complemented", [](TopoDS_Shape const& self) -> TopoDS_Shape { return self.Complemented(); })
+        .add_member_function("Compose", [](TopoDS_Shape& self, TopAbs_Orientation theOrient) { self.Compose(theOrient); })
+        .add_member_function("Composed", [](TopoDS_Shape const& self, TopAbs_Orientation theOrient) -> TopoDS_Shape { return self.Composed(theOrient); })
         .add_member_function("NbChildren", [](TopoDS_Shape const& self) -> Standard_Integer { return self.NbChildren(); })
         .add_member_function("IsPartner", [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self.IsPartner(theOther); })
         .add_member_function("IsSame", [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self.IsSame(theOther); })

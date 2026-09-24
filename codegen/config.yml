@@ -44,11 +44,24 @@
 # BRepFilletAPI_MakeFillet::ComputedSurface (brepfilletapi), both of which return
 # Handle(Geom_Surface) - previously rejected outright (Geom_Surface wasn't a
 # registered type at all), so this never came up before.
-# The C++ namespace generate.py's own emit_lambda emits calls into for its
-# to_real/to_array1/to_array2 conversion helpers (see src/collections.hpp,
-# src/occt_ad_support.hpp) - required since generate.py is now shared across
-# plugins, each with its own such namespace.
-helper_namespace: occt_plugin
+# grunk's own shared generator (grunk.codegen) is library-agnostic - every
+# OCCT-specific idiom (Standard_Real's AD-portability dual-emission,
+# Standard_Transient/opencascade::handle<T>, NCollection_Array1/2<T>) is taught to
+# it here, via a CodeGenerator subclass (see hooks.py, and
+# grunk.codegen.generate.CodeGenerator's own docstring for the extension mechanism).
+code_generator: hooks.py
+
+# Extra #include lines this module's own generated .cpp needs when it actually used
+# a given hooks.py-chosen kind/ctor-mode - see render_module's own docstring. Keys
+# are whatever kind/ctor-mode names hooks.py's own classify_param()/
+# classify_ctor_mode() return; values are the literal #include argument (with its
+# own quote/angle-bracket delimiter).
+includes_for_kinds:
+  array1: ['"../src/collections.hpp"', '<vector>']
+  array2: ['"../src/collections.hpp"', '<vector>']
+  real: ['"../src/occt_ad_support.hpp"']
+includes_for_ctor_modes:
+  handle: ['"../src/occt_sol_traits.hpp"']
 
 translation_units:
   mode: separate
@@ -264,6 +277,21 @@ modules:
       - gp_Pln.hxx
       - gp_Sphere.hxx
       - gp_Torus.hxx
+    # BRepBuilderAPI_Collect::Modification/Generated return
+    # TopTools_DataMapOfShapeListOfShape (NCollection_DataMap<TopoDS_Shape,
+    # NCollection_List<TopoDS_Shape>, ...>) by const-reference - accepted as a
+    # plain "object" (a bare, unregistered type name, same as any other class
+    # this run doesn't itself register - see Param.kind()'s own docstring),
+    # but sol2's own automatic container-shape detection (triggered the first
+    # time it pushes a never-before-seen type, to decide whether it should
+    # get automatic iteration/indexing support) expects something roughly
+    # std::map-shaped and fails to compile against OCCT's own NCollection_DataMap
+    # API instead of falling back gracefully. No conversion helper exists for
+    # this shape today (unlike NCollection_Array1/2 - see collections.hpp) -
+    # blacklisted rather than taught to the generator.
+    blacklist:
+      - BRepBuilderAPI_Collect::Modification
+      - BRepBuilderAPI_Collect::Generated
 
   - name: brepprimapi
     # Reproduces legacy grocc's test_simple_boolean_op.cpp (box, cylinder, cut).
@@ -285,6 +313,16 @@ modules:
       - BRepAlgoAPI_*.hxx
     extra_includes:
       - gp_Pln.hxx
+      # BRepAlgoAPI_BooleanOperation and others take a const BOPAlgo_PaveFiller&
+      # constructor parameter (a plain class, accepted the same way any other
+      # unregistered class is - see Param.kind()'s own docstring); this
+      # module's own headers only forward-declare it. BRepAlgoAPI_BuilderAlgo::
+      # DSFiller()/Builder() also return const BOPAlgo_PPaveFiller&/
+      # BOPAlgo_PBuilder& (OCCT's own "pointer to X" typedef convention,
+      # BOPAlgo_PaveFiller*/BOPAlgo_Builder*) - same completeness need for the
+      # pointee either way.
+      - BOPAlgo_PaveFiller.hxx
+      - BOPAlgo_Builder.hxx
 
   - name: bnd
     #   - Bnd_Box is a plain value type (no Standard_Transient/Handle, no explicit
@@ -440,6 +478,9 @@ modules:
       - TopoDS_Solid.hxx
       - TopoDS_CompSolid.hxx
       - TopoDS_Compound.hxx
+      # BRepTools::Read takes a const BRep_Builder& - only forward-declared
+      # by this module's own headers, same completeness issue as above.
+      - BRep_Builder.hxx
 
   - name: toploc
     # TopLoc_Location is a plain

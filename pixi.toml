@@ -25,6 +25,9 @@ yaml-cpp = "*"
 libparametric = "*"
 python = ">=3.9"
 gtest = "*"
+# tests/python/test_hooks.py - unit tests for this plugin's own
+# codegen/hooks.py CodeGenerator subclass (see [tasks]'s own test_hooks task).
+pytest = "*"
 
 [pypi-dependencies]
 # grunk's own Python bindings, needed by examples/run_example.py (see its own
@@ -44,7 +47,7 @@ gtest = "*"
 # console script and its libclang/pyyaml dependencies come along transitively with
 # this same pin, since grunk.codegen (grunk/python/grunk/codegen/) now lives in the
 # grunk package itself rather than a local codegen/generate.py copy here.
-grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "5f5f815d5f9b0a7d4da6f2ec0ead0d6b51b0c32d" }
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "f7728eb65930fd8b0b011e38f6893681e06981e7" }
 
 # Stock OCCT - only pulled in by the `default` environment (see [environments]).
 # Kept out of [dependencies] specifically so the `ad` environment (adOCCT instead,
@@ -100,7 +103,7 @@ pkg-config = "*"
 # libclang/pyyaml that comes along transitively with grunk's own default-feature
 # copy of this pin for that reason.
 [feature.ad.pypi-dependencies]
-grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "5f5f815d5f9b0a7d4da6f2ec0ead0d6b51b0c32d" }
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "f7728eb65930fd8b0b011e38f6893681e06981e7" }
 
 [feature.ad.activation.env]
 # Needed for the same reason [target.linux-64.activation.env]'s own copy is - cmake's
@@ -208,11 +211,17 @@ generate_code = { cmd = "cmake --build build --target generate_code", descriptio
 
 test = { cmd = "ctest --test-dir build --output-on-failure", depends-on = ["build"], description = "Run the test harness." }
 
+# Pure-Python, no build dependency at all - tests codegen/hooks.py's own
+# CodeGenerator subclass directly (see tests/python/test_hooks.py's own module
+# docstring for why these live here rather than in grunk's own shared
+# tests/python/test_codegen.py).
+test_hooks = { cmd = "pytest -xvs tests/python", description = "Run this plugin's own codegen/hooks.py unit tests." }
+
 install = { cmd = "cmake --install build", depends-on = ["build"], description = "Install occt_plugin into build/install (CMAKE_INSTALL_PREFIX, set by the configure task) - run `cmake --install build --prefix <path>` directly for a different location." }
 
 [tasks.all]
-depends-on = ["configure", "build", "test", "run_examples"]
-description = "Configure, build, test, and run the examples."
+depends-on = ["configure", "build", "test", "test_hooks", "run_examples"]
+description = "Configure, build, test, test_hooks, and run the examples."
 
 # run_examples is platform-specific only in the plugin filename it passes to
 # run_example.py (see examples/run_example.py's own argv[1]) - CMake's own default

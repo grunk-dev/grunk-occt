@@ -123,6 +123,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("OneAxis", [](BRepPrimAPI_MakeCone& self) -> Standard_Address { return self.OneAxis(); })
         .add_bases<BRepPrimAPI_MakeOneAxis, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeCylinder, sol::automagic_flags::none>("BRepPrimAPI_MakeCylinder")
         .add_constructors(
@@ -155,6 +156,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("OneAxis", [](BRepPrimAPI_MakeCylinder& self) -> Standard_Address { return self.OneAxis(); })
         .add_bases<BRepPrimAPI_MakeOneAxis, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeHalfSpace, sol::automagic_flags::none>("BRepPrimAPI_MakeHalfSpace")
         .add_constructors(
@@ -164,6 +166,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         .add_member_function("Solid", [](BRepPrimAPI_MakeHalfSpace const& self) -> const TopoDS_Solid & { return self.Solid(); })
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeOneAxis, sol::automagic_flags::none>("BRepPrimAPI_MakeOneAxis")
+        .add_member_function("OneAxis", [](BRepPrimAPI_MakeOneAxis& self) -> Standard_Address { return self.OneAxis(); })
         .add_member_function("Build", sol::overload(
             [](BRepPrimAPI_MakeOneAxis& self) { self.Build(); },
             [](BRepPrimAPI_MakeOneAxis& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
@@ -182,6 +185,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](const TopoDS_Shape & S, const gp_Dir & D, const Standard_Boolean Inf, const Standard_Boolean Copy) { return std::make_unique<BRepPrimAPI_MakePrism>(S, D, Inf, Copy); },
             [](const TopoDS_Shape & S, const gp_Dir & D, const Standard_Boolean Inf, const Standard_Boolean Copy, const Standard_Boolean Canonize) { return std::make_unique<BRepPrimAPI_MakePrism>(S, D, Inf, Copy, Canonize); }
         )
+        .add_member_function("Prism", [](BRepPrimAPI_MakePrism const& self) -> const BRepSweep_Prism & { return self.Prism(); })
         .add_member_function("Build", sol::overload(
             [](BRepPrimAPI_MakePrism& self) { self.Build(); },
             [](BRepPrimAPI_MakePrism& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
@@ -194,6 +198,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](BRepPrimAPI_MakePrism& self) -> TopoDS_Shape { return self.LastShape(); },
             [](BRepPrimAPI_MakePrism& self, const TopoDS_Shape & theShape) -> TopoDS_Shape { return self.LastShape(theShape); }
         ))
+        .add_member_function("Generated", [](BRepPrimAPI_MakePrism& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Generated(S); })
         .add_member_function("IsDeleted", [](BRepPrimAPI_MakePrism& self, const TopoDS_Shape & S) -> Standard_Boolean { return self.IsDeleted(S); })
         .add_bases<BRepPrimAPI_MakeSweep, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeRevol, sol::automagic_flags::none>("BRepPrimAPI_MakeRevol")
@@ -215,6 +220,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("Revol", [](BRepPrimAPI_MakeRevol const& self) -> const BRepSweep_Revol & { return self.Revol(); })
         .add_member_function("Build", sol::overload(
             [](BRepPrimAPI_MakeRevol& self) { self.Build(); },
             [](BRepPrimAPI_MakeRevol& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
@@ -227,8 +233,10 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
             [](BRepPrimAPI_MakeRevol& self) -> TopoDS_Shape { return self.LastShape(); },
             [](BRepPrimAPI_MakeRevol& self, const TopoDS_Shape & theShape) -> TopoDS_Shape { return self.LastShape(theShape); }
         ))
+        .add_member_function("Generated", [](BRepPrimAPI_MakeRevol& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Generated(S); })
         .add_member_function("IsDeleted", [](BRepPrimAPI_MakeRevol& self, const TopoDS_Shape & S) -> Standard_Boolean { return self.IsDeleted(S); })
         .add_member_function("HasDegenerated", [](BRepPrimAPI_MakeRevol const& self) -> Standard_Boolean { return self.HasDegenerated(); })
+        .add_member_function("Degenerated", [](BRepPrimAPI_MakeRevol const& self) -> const TopTools_ListOfShape & { return self.Degenerated(); })
         .add_bases<BRepPrimAPI_MakeSweep, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeRevolution, sol::automagic_flags::none>("BRepPrimAPI_MakeRevolution")
         .add_constructors(
@@ -277,6 +285,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("OneAxis", [](BRepPrimAPI_MakeRevolution& self) -> Standard_Address { return self.OneAxis(); })
         .add_bases<BRepPrimAPI_MakeOneAxis, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeSphere, sol::automagic_flags::none>("BRepPrimAPI_MakeSphere")
         .add_constructors(
@@ -365,6 +374,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("OneAxis", [](BRepPrimAPI_MakeSphere& self) -> Standard_Address { return self.OneAxis(); })
         .add_bases<BRepPrimAPI_MakeOneAxis, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeSweep, sol::automagic_flags::none>("BRepPrimAPI_MakeSweep")
         .add_member_function("FirstShape", [](BRepPrimAPI_MakeSweep& self) -> TopoDS_Shape { return self.FirstShape(); })
@@ -429,6 +439,7 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
 #endif
         
         )
+        .add_member_function("OneAxis", [](BRepPrimAPI_MakeTorus& self) -> Standard_Address { return self.OneAxis(); })
         .add_bases<BRepPrimAPI_MakeOneAxis, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeWedge, sol::automagic_flags::none>("BRepPrimAPI_MakeWedge")
         .add_constructors(
