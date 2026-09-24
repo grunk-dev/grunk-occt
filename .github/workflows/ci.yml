@@ -48,7 +48,7 @@ jobs:
       # see its top comment - is what makes a cache hit skip straight past the
       # actual build).
       - name: Cache grunk
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .deps/grunk
           key: ${{ runner.os }}-grunk-${{ hashFiles('scripts/install_grunk.cmake') }}
@@ -100,7 +100,7 @@ jobs:
           cache: true
 
       - name: Cache ADOL-C/adOCCT/grunk
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: |
             .deps/adolc
