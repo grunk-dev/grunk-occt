@@ -36,7 +36,7 @@ jobs:
         with:
           arch: x64
 
-      - uses: prefix-dev/setup-pixi@v0.8.1
+      - uses: prefix-dev/setup-pixi@v0.10.2
         with:
           cache: true
 
@@ -95,7 +95,7 @@ jobs:
       - name: Install autotools
         run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool
 
-      - uses: prefix-dev/setup-pixi@v0.8.1
+      - uses: prefix-dev/setup-pixi@v0.10.2
         with:
           cache: true
 
