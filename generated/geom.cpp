@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "geom.hpp"
+#include "sol_base_classes.hpp"
 
 #include <Geom_Axis1Placement.hxx>
 #include <Geom_Axis2Placement.hxx>
@@ -98,7 +99,7 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("SetAxis", [](Geom_AxisPlacement& self, const gp_Ax1 & A1) { self.SetAxis(A1); })
         .add_member_function("SetDirection", [](Geom_AxisPlacement& self, const gp_Dir & V) { self.SetDirection(V); })
         .add_member_function("SetLocation", [](Geom_AxisPlacement& self, const gp_Pnt & P) { self.SetLocation(P); })
-        .add_member_function("Angle", [](Geom_AxisPlacement const& self, const opencascade::handle<Geom_AxisPlacement> & Other) -> Standard_Real { return self.Angle(Other); })
+        .add_member_function("Angle", [](Geom_AxisPlacement const& self, opencascade::handle<Geom_AxisPlacement> Other) -> Standard_Real { return self.Angle(Other); })
         .add_member_function("Axis", [](Geom_AxisPlacement const& self) -> const gp_Ax1 & { return self.Axis(); })
         .add_member_function("Direction", [](Geom_AxisPlacement const& self) -> gp_Dir { return self.Direction(); })
         .add_member_function("Location", [](Geom_AxisPlacement const& self) -> gp_Pnt { return self.Location(); })
@@ -335,28 +336,45 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("FirstUKnotIndex", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.FirstUKnotIndex(); })
         .add_member_function("FirstParameter", [](Geom_BSplineCurve const& self) -> Standard_Real { return self.FirstParameter(); })
         .add_member_function("Knot", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Knot(Index); })
-        .add_member_function("Knots", [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.Knots(); })
-        .add_member_function("KnotSequence", [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.KnotSequence(); })
+        .add_member_function("Knots", sol::overload(
+            [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.Knots(); },
+            [](Geom_BSplineCurve const& self, TColStd_Array1OfReal & K) { self.Knots(K); }
+        ))
+        .add_member_function("KnotSequence", sol::overload(
+            [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.KnotSequence(); },
+            [](Geom_BSplineCurve const& self, TColStd_Array1OfReal & K) { self.KnotSequence(K); }
+        ))
         .add_member_function("KnotDistribution", [](Geom_BSplineCurve const& self) -> GeomAbs_BSplKnotDistribution { return self.KnotDistribution(); })
         .add_member_function("LastUKnotIndex", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.LastUKnotIndex(); })
         .add_member_function("LastParameter", [](Geom_BSplineCurve const& self) -> Standard_Real { return self.LastParameter(); })
         .add_member_function("Multiplicity", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Integer { return self.Multiplicity(Index); })
-        .add_member_function("Multiplicities", [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfInteger & { return self.Multiplicities(); })
+        .add_member_function("Multiplicities", sol::overload(
+            [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfInteger & { return self.Multiplicities(); },
+            [](Geom_BSplineCurve const& self, TColStd_Array1OfInteger & M) { self.Multiplicities(M); }
+        ))
         .add_member_function("NbKnots", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.NbKnots(); })
         .add_member_function("NbPoles", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.NbPoles(); })
         .add_member_function("Pole", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Pole(Index); })
-        .add_member_function("Poles", [](Geom_BSplineCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); })
+        .add_member_function("Poles", sol::overload(
+            [](Geom_BSplineCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); },
+            [](Geom_BSplineCurve const& self, TColgp_Array1OfPnt & P) { self.Poles(P); }
+        ))
         .add_member_function("StartPoint", [](Geom_BSplineCurve const& self) -> gp_Pnt { return self.StartPoint(); })
         .add_member_function("Weight", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Weight(Index); })
+        .add_member_function("Weights", [](Geom_BSplineCurve const& self, TColStd_Array1OfReal & W) { self.Weights(W); })
         .add_member_function("Transform", [](Geom_BSplineCurve& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BSplineCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_member_function("IsEqual", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](Geom_BSplineCurve const& self, const opencascade::handle<Geom_BSplineCurve> & theOther, sol::object thePreci) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(thePreci)); }
+            [](Geom_BSplineCurve const& self, opencascade::handle<Geom_BSplineCurve> theOther, sol::object thePreci) -> Standard_Boolean { return self.IsEqual(theOther, occt_plugin::to_real(thePreci)); }
 #else
-            [](Geom_BSplineCurve const& self, const opencascade::handle<Geom_BSplineCurve> & theOther, const Standard_Real thePreci) -> Standard_Boolean { return self.IsEqual(theOther, thePreci); }
+            [](Geom_BSplineCurve const& self, opencascade::handle<Geom_BSplineCurve> theOther, const Standard_Real thePreci) -> Standard_Boolean { return self.IsEqual(theOther, thePreci); }
 #endif
         )
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_BSplineCurve const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_BSplineCurve const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_BSplineSurface, sol::automagic_flags::none>("Geom_BSplineSurface")
         .add_constructors(
@@ -606,22 +624,44 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("NbVKnots", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbVKnots(); })
         .add_member_function("NbVPoles", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbVPoles(); })
         .add_member_function("Pole", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> const gp_Pnt & { return self.Pole(UIndex, VIndex); })
-        .add_member_function("Poles", [](Geom_BSplineSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); })
+        .add_member_function("Poles", sol::overload(
+            [](Geom_BSplineSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); },
+            [](Geom_BSplineSurface const& self, TColgp_Array2OfPnt & P) { self.Poles(P); }
+        ))
         .add_member_function("UDegree", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.UDegree(); })
         .add_member_function("UKnot", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex) -> Standard_Real { return self.UKnot(UIndex); })
         .add_member_function("UKnotDistribution", [](Geom_BSplineSurface const& self) -> GeomAbs_BSplKnotDistribution { return self.UKnotDistribution(); })
-        .add_member_function("UKnots", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnots(); })
-        .add_member_function("UKnotSequence", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnotSequence(); })
+        .add_member_function("UKnots", sol::overload(
+            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnots(); },
+            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Ku) { self.UKnots(Ku); }
+        ))
+        .add_member_function("UKnotSequence", sol::overload(
+            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnotSequence(); },
+            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Ku) { self.UKnotSequence(Ku); }
+        ))
         .add_member_function("UMultiplicity", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex) -> Standard_Integer { return self.UMultiplicity(UIndex); })
-        .add_member_function("UMultiplicities", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.UMultiplicities(); })
+        .add_member_function("UMultiplicities", sol::overload(
+            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.UMultiplicities(); },
+            [](Geom_BSplineSurface const& self, TColStd_Array1OfInteger & Mu) { self.UMultiplicities(Mu); }
+        ))
         .add_member_function("VDegree", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.VDegree(); })
         .add_member_function("VKnot", [](Geom_BSplineSurface const& self, const Standard_Integer VIndex) -> Standard_Real { return self.VKnot(VIndex); })
         .add_member_function("VKnotDistribution", [](Geom_BSplineSurface const& self) -> GeomAbs_BSplKnotDistribution { return self.VKnotDistribution(); })
-        .add_member_function("VKnots", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnots(); })
-        .add_member_function("VKnotSequence", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnotSequence(); })
+        .add_member_function("VKnots", sol::overload(
+            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnots(); },
+            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Kv) { self.VKnots(Kv); }
+        ))
+        .add_member_function("VKnotSequence", sol::overload(
+            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnotSequence(); },
+            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Kv) { self.VKnotSequence(Kv); }
+        ))
         .add_member_function("VMultiplicity", [](Geom_BSplineSurface const& self, const Standard_Integer VIndex) -> Standard_Integer { return self.VMultiplicity(VIndex); })
-        .add_member_function("VMultiplicities", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.VMultiplicities(); })
+        .add_member_function("VMultiplicities", sol::overload(
+            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.VMultiplicities(); },
+            [](Geom_BSplineSurface const& self, TColStd_Array1OfInteger & Mv) { self.VMultiplicities(Mv); }
+        ))
         .add_member_function("Weight", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> Standard_Real { return self.Weight(UIndex, VIndex); })
+        .add_member_function("Weights", [](Geom_BSplineSurface const& self, TColStd_Array2OfReal & W) { self.Weights(W); })
         .add_member_function("D0", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](Geom_BSplineSurface const& self, sol::object U, sol::object V, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), occt_plugin::to_real(V), P); }
@@ -733,6 +773,10 @@ void register_geom(grunk::plugin_namespace& ns)
         ))
         .add_member_function("Transform", [](Geom_BSplineSurface& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BSplineSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_BSplineSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_BSplineSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_BoundedSurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_BezierCurve, sol::automagic_flags::none>("Geom_BezierCurve")
         .add_constructors(
@@ -840,10 +884,18 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("LastParameter", [](Geom_BezierCurve const& self) -> Standard_Real { return self.LastParameter(); })
         .add_member_function("NbPoles", [](Geom_BezierCurve const& self) -> Standard_Integer { return self.NbPoles(); })
         .add_member_function("Pole", [](Geom_BezierCurve const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Pole(Index); })
-        .add_member_function("Poles", [](Geom_BezierCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); })
+        .add_member_function("Poles", sol::overload(
+            [](Geom_BezierCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); },
+            [](Geom_BezierCurve const& self, TColgp_Array1OfPnt & P) { self.Poles(P); }
+        ))
         .add_member_function("Weight", [](Geom_BezierCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Weight(Index); })
+        .add_member_function("Weights", [](Geom_BezierCurve const& self, TColStd_Array1OfReal & W) { self.Weights(W); })
         .add_member_function("Transform", [](Geom_BezierCurve& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BezierCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_BezierCurve const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_BezierCurve const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_BezierSurface, sol::automagic_flags::none>("Geom_BezierSurface")
         .add_constructors(
@@ -959,7 +1011,10 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("NbUPoles", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.NbUPoles(); })
         .add_member_function("NbVPoles", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.NbVPoles(); })
         .add_member_function("Pole", [](Geom_BezierSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> const gp_Pnt & { return self.Pole(UIndex, VIndex); })
-        .add_member_function("Poles", [](Geom_BezierSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); })
+        .add_member_function("Poles", sol::overload(
+            [](Geom_BezierSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); },
+            [](Geom_BezierSurface const& self, TColgp_Array2OfPnt & P) { self.Poles(P); }
+        ))
         .add_member_function("UDegree", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.UDegree(); })
         .add_member_function("UIso", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -977,6 +1032,7 @@ void register_geom(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Weight", [](Geom_BezierSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> Standard_Real { return self.Weight(UIndex, VIndex); })
+        .add_member_function("Weights", [](Geom_BezierSurface const& self, TColStd_Array2OfReal & W) { self.Weights(W); })
         .add_member_function("IsUClosed", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsUClosed(); })
         .add_member_function("IsVClosed", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsVClosed(); })
         .add_member_function("IsCNu", [](Geom_BezierSurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNu(N); })
@@ -987,10 +1043,18 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("IsVRational", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsVRational(); })
         .add_member_function("Transform", [](Geom_BezierSurface& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BezierSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_BezierSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_BezierSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_BoundedSurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_BoundedCurve, sol::automagic_flags::none>("Geom_BoundedCurve")
         .add_member_function("EndPoint", [](Geom_BoundedCurve const& self) -> gp_Pnt { return self.EndPoint(); })
         .add_member_function("StartPoint", [](Geom_BoundedCurve const& self) -> gp_Pnt { return self.StartPoint(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_BoundedCurve const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_BoundedCurve const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_BoundedSurface, sol::automagic_flags::none>("Geom_BoundedSurface")
         .add_bases<Geom_Surface, Geom_Geometry, Standard_Transient>();
@@ -1111,6 +1175,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_Circle& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_Circle const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Circle const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Circle const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Conic, sol::automagic_flags::none>("Geom_Conic")
         .add_member_function("SetAxis", [](Geom_Conic& self, const gp_Ax1 & theA1) { self.SetAxis(theA1); })
@@ -1132,6 +1200,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Continuity", [](Geom_Conic const& self) -> GeomAbs_Shape { return self.Continuity(); })
         .add_member_function("IsCN", [](Geom_Conic const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCN(N); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Conic const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Conic const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_ConicalSurface, sol::automagic_flags::none>("Geom_ConicalSurface")
         .add_constructors(
@@ -1234,6 +1306,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_ConicalSurface& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_ConicalSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_ConicalSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_ConicalSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_ElementarySurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Curve, sol::automagic_flags::none>("Geom_Curve")
         .add_member_function("Reverse", [](Geom_Curve& self) { self.Reverse(); })
@@ -1302,6 +1378,10 @@ void register_geom(grunk::plugin_namespace& ns)
             [](Geom_Curve const& self, const Standard_Real U) -> gp_Pnt { return self.Value(U); }
 #endif
         )
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Curve const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Curve const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_CylindricalSurface, sol::automagic_flags::none>("Geom_CylindricalSurface")
         .add_constructors(
@@ -1394,6 +1474,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_CylindricalSurface& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_CylindricalSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_CylindricalSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_CylindricalSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_ElementarySurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Direction, sol::automagic_flags::none>("Geom_Direction")
         .add_constructors(
@@ -1438,10 +1522,10 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Dir", [](Geom_Direction const& self) -> gp_Dir { return self.Dir(); })
         .add_member_function("Magnitude", [](Geom_Direction const& self) -> Standard_Real { return self.Magnitude(); })
         .add_member_function("SquareMagnitude", [](Geom_Direction const& self) -> Standard_Real { return self.SquareMagnitude(); })
-        .add_member_function("Cross", [](Geom_Direction& self, const opencascade::handle<Geom_Vector> & Other) { self.Cross(Other); })
-        .add_member_function("CrossCross", [](Geom_Direction& self, const opencascade::handle<Geom_Vector> & V1, const opencascade::handle<Geom_Vector> & V2) { self.CrossCross(V1, V2); })
-        .add_member_function("Crossed", [](Geom_Direction const& self, const opencascade::handle<Geom_Vector> & Other) -> opencascade::handle<Geom_Vector> { return self.Crossed(Other); })
-        .add_member_function("CrossCrossed", [](Geom_Direction const& self, const opencascade::handle<Geom_Vector> & V1, const opencascade::handle<Geom_Vector> & V2) -> opencascade::handle<Geom_Vector> { return self.CrossCrossed(V1, V2); })
+        .add_member_function("Cross", [](Geom_Direction& self, opencascade::handle<Geom_Vector> Other) { self.Cross(Other); })
+        .add_member_function("CrossCross", [](Geom_Direction& self, opencascade::handle<Geom_Vector> V1, opencascade::handle<Geom_Vector> V2) { self.CrossCross(V1, V2); })
+        .add_member_function("Crossed", [](Geom_Direction const& self, opencascade::handle<Geom_Vector> Other) -> opencascade::handle<Geom_Vector> { return self.Crossed(Other); })
+        .add_member_function("CrossCrossed", [](Geom_Direction const& self, opencascade::handle<Geom_Vector> V1, opencascade::handle<Geom_Vector> V2) -> opencascade::handle<Geom_Vector> { return self.CrossCrossed(V1, V2); })
         .add_member_function("Transform", [](Geom_Direction& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_Direction const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_bases<Geom_Vector, Geom_Geometry, Standard_Transient>();
@@ -1471,6 +1555,10 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Continuity", [](Geom_ElementarySurface const& self) -> GeomAbs_Shape { return self.Continuity(); })
         .add_member_function("IsCNu", [](Geom_ElementarySurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNu(N); })
         .add_member_function("IsCNv", [](Geom_ElementarySurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNv(N); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_ElementarySurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_ElementarySurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Ellipse, sol::automagic_flags::none>("Geom_Ellipse")
         .add_constructors(
@@ -1556,6 +1644,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_Ellipse& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_Ellipse const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Ellipse const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Ellipse const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Geometry, sol::automagic_flags::none>("Geom_Geometry")
         .add_member_function("Mirror", sol::overload(
@@ -1607,12 +1699,21 @@ void register_geom(grunk::plugin_namespace& ns)
             [](Geom_Geometry const& self, const gp_Pnt & P1, const gp_Pnt & P2) -> opencascade::handle<Geom_Geometry> { return self.Translated(P1, P2); }
         ))
         .add_member_function("Copy", [](Geom_Geometry const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Geometry const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Geometry const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Standard_Transient>();
     ns.register_type<Geom_HSequenceOfBSplineSurface, sol::automagic_flags::none>("Geom_HSequenceOfBSplineSurface")
         .add_constructors(
-            []() { return Geom_HSequenceOfBSplineSurface(); }
+            []() { return Geom_HSequenceOfBSplineSurface(); },
+            [](const Geom_SequenceOfBSplineSurface & theOther) { return Geom_HSequenceOfBSplineSurface(theOther); }
         )
         .add_member_function("Sequence", [](Geom_HSequenceOfBSplineSurface const& self) -> const Geom_SequenceOfBSplineSurface & { return self.Sequence(); })
+        .add_member_function("Append", sol::overload(
+            [](Geom_HSequenceOfBSplineSurface& self, const Geom_SequenceOfBSplineSurface::value_type & theItem) { self.Append(theItem); },
+            [](Geom_HSequenceOfBSplineSurface& self, Geom_SequenceOfBSplineSurface & theSequence) { self.Append(theSequence); }
+        ))
         .add_bases<Geom_SequenceOfBSplineSurface>();
     ns.register_type<Geom_Hyperbola, sol::automagic_flags::none>("Geom_Hyperbola")
         .add_constructors(
@@ -1703,6 +1804,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_Hyperbola& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_Hyperbola const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Hyperbola const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Hyperbola const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Line, sol::automagic_flags::none>("Geom_Line")
         .add_constructors(
@@ -1775,21 +1880,25 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("ParametricTransformation", [](Geom_Line const& self, const gp_Trsf & T) -> Standard_Real { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_Line const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Line const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Line const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_OffsetCurve, sol::automagic_flags::none>("Geom_OffsetCurve")
         .add_constructors(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & C, sol::object Offset, const gp_Dir & V) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, occt_plugin::to_real(Offset), V)); }
+            [](opencascade::handle<Geom_Curve> C, sol::object Offset, const gp_Dir & V) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, occt_plugin::to_real(Offset), V)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real Offset, const gp_Dir & V) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, Offset, V)); }
+            [](opencascade::handle<Geom_Curve> C, const Standard_Real Offset, const gp_Dir & V) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, Offset, V)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & C, sol::object Offset, const gp_Dir & V, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, occt_plugin::to_real(Offset), V, isNotCheckC0)); }
+            [](opencascade::handle<Geom_Curve> C, sol::object Offset, const gp_Dir & V, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, occt_plugin::to_real(Offset), V, isNotCheckC0)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real Offset, const gp_Dir & V, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, Offset, V, isNotCheckC0)); }
+            [](opencascade::handle<Geom_Curve> C, const Standard_Real Offset, const gp_Dir & V, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetCurve> { return opencascade::handle<Geom_OffsetCurve>(new Geom_OffsetCurve(C, Offset, V, isNotCheckC0)); }
 #endif
         
         )
@@ -1802,8 +1911,8 @@ void register_geom(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("SetBasisCurve", sol::overload(
-            [](Geom_OffsetCurve& self, const opencascade::handle<Geom_Curve> & C) { self.SetBasisCurve(C); },
-            [](Geom_OffsetCurve& self, const opencascade::handle<Geom_Curve> & C, const Standard_Boolean isNotCheckC0) { self.SetBasisCurve(C, isNotCheckC0); }
+            [](Geom_OffsetCurve& self, opencascade::handle<Geom_Curve> C) { self.SetBasisCurve(C); },
+            [](Geom_OffsetCurve& self, opencascade::handle<Geom_Curve> C, const Standard_Boolean isNotCheckC0) { self.SetBasisCurve(C, isNotCheckC0); }
         ))
         .add_member_function("SetDirection", [](Geom_OffsetCurve& self, const gp_Dir & V) { self.SetDirection(V); })
         .add_member_function("SetOffsetValue", 
@@ -1869,27 +1978,31 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("ParametricTransformation", [](Geom_OffsetCurve const& self, const gp_Trsf & T) -> Standard_Real { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_OffsetCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_member_function("GetBasisCurveContinuity", [](Geom_OffsetCurve const& self) -> GeomAbs_Shape { return self.GetBasisCurveContinuity(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_OffsetCurve const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_OffsetCurve const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_OffsetSurface, sol::automagic_flags::none>("Geom_OffsetSurface")
         .add_constructors(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object Offset) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, occt_plugin::to_real(Offset))); }
+            [](opencascade::handle<Geom_Surface> S, sol::object Offset) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, occt_plugin::to_real(Offset))); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real Offset) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, Offset)); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real Offset) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, Offset)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object Offset, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, occt_plugin::to_real(Offset), isNotCheckC0)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object Offset, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, occt_plugin::to_real(Offset), isNotCheckC0)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real Offset, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, Offset, isNotCheckC0)); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real Offset, const Standard_Boolean isNotCheckC0) -> opencascade::handle<Geom_OffsetSurface> { return opencascade::handle<Geom_OffsetSurface>(new Geom_OffsetSurface(S, Offset, isNotCheckC0)); }
 #endif
         
         )
         .add_member_function("SetBasisSurface", sol::overload(
-            [](Geom_OffsetSurface& self, const opencascade::handle<Geom_Surface> & S) { self.SetBasisSurface(S); },
-            [](Geom_OffsetSurface& self, const opencascade::handle<Geom_Surface> & S, const Standard_Boolean isNotCheckC0) { self.SetBasisSurface(S, isNotCheckC0); }
+            [](Geom_OffsetSurface& self, opencascade::handle<Geom_Surface> S) { self.SetBasisSurface(S); },
+            [](Geom_OffsetSurface& self, opencascade::handle<Geom_Surface> S, const Standard_Boolean isNotCheckC0) { self.SetBasisSurface(S, isNotCheckC0); }
         ))
         .add_member_function("SetOffsetValue", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -1980,27 +2093,35 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Copy", [](Geom_OffsetSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_member_function("Surface", [](Geom_OffsetSurface const& self) -> opencascade::handle<Geom_Surface> { return self.Surface(); })
         .add_member_function("GetBasisSurfContinuity", [](Geom_OffsetSurface const& self) -> GeomAbs_Shape { return self.GetBasisSurfContinuity(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_OffsetSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_OffsetSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_OsculatingSurface, sol::automagic_flags::none>("Geom_OsculatingSurface")
         .add_constructors(
             []() -> opencascade::handle<Geom_OsculatingSurface> { return opencascade::handle<Geom_OsculatingSurface>(new Geom_OsculatingSurface()); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & BS, sol::object Tol) -> opencascade::handle<Geom_OsculatingSurface> { return opencascade::handle<Geom_OsculatingSurface>(new Geom_OsculatingSurface(BS, occt_plugin::to_real(Tol))); }
+            [](opencascade::handle<Geom_Surface> BS, sol::object Tol) -> opencascade::handle<Geom_OsculatingSurface> { return opencascade::handle<Geom_OsculatingSurface>(new Geom_OsculatingSurface(BS, occt_plugin::to_real(Tol))); }
 #else
-            [](const opencascade::handle<Geom_Surface> & BS, const Standard_Real Tol) -> opencascade::handle<Geom_OsculatingSurface> { return opencascade::handle<Geom_OsculatingSurface>(new Geom_OsculatingSurface(BS, Tol)); }
+            [](opencascade::handle<Geom_Surface> BS, const Standard_Real Tol) -> opencascade::handle<Geom_OsculatingSurface> { return opencascade::handle<Geom_OsculatingSurface>(new Geom_OsculatingSurface(BS, Tol)); }
 #endif
         
         )
         .add_member_function("Init", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](Geom_OsculatingSurface& self, const opencascade::handle<Geom_Surface> & BS, sol::object Tol) { self.Init(BS, occt_plugin::to_real(Tol)); }
+            [](Geom_OsculatingSurface& self, opencascade::handle<Geom_Surface> BS, sol::object Tol) { self.Init(BS, occt_plugin::to_real(Tol)); }
 #else
-            [](Geom_OsculatingSurface& self, const opencascade::handle<Geom_Surface> & BS, const Standard_Real Tol) { self.Init(BS, Tol); }
+            [](Geom_OsculatingSurface& self, opencascade::handle<Geom_Surface> BS, const Standard_Real Tol) { self.Init(BS, Tol); }
 #endif
         )
         .add_member_function("BasisSurface", [](Geom_OsculatingSurface const& self) -> opencascade::handle<Geom_Surface> { return self.BasisSurface(); })
         .add_member_function("Tolerance", [](Geom_OsculatingSurface const& self) -> Standard_Real { return self.Tolerance(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_OsculatingSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_OsculatingSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Standard_Transient>();
     ns.register_type<Geom_Parabola, sol::automagic_flags::none>("Geom_Parabola")
         .add_constructors(
@@ -2084,6 +2205,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("ParametricTransformation", [](Geom_Parabola const& self, const gp_Trsf & T) -> Standard_Real { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_Parabola const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Parabola const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Parabola const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Conic, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Plane, sol::automagic_flags::none>("Geom_Plane")
         .add_constructors(
@@ -2172,50 +2297,54 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_Plane& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_Plane const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Plane const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Plane const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_ElementarySurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Point, sol::automagic_flags::none>("Geom_Point")
         .add_member_function("Pnt", [](Geom_Point const& self) -> gp_Pnt { return self.Pnt(); })
         .add_member_function("X", [](Geom_Point const& self) -> Standard_Real { return self.X(); })
         .add_member_function("Y", [](Geom_Point const& self) -> Standard_Real { return self.Y(); })
         .add_member_function("Z", [](Geom_Point const& self) -> Standard_Real { return self.Z(); })
-        .add_member_function("Distance", [](Geom_Point const& self, const opencascade::handle<Geom_Point> & Other) -> Standard_Real { return self.Distance(Other); })
-        .add_member_function("SquareDistance", [](Geom_Point const& self, const opencascade::handle<Geom_Point> & Other) -> Standard_Real { return self.SquareDistance(Other); })
+        .add_member_function("Distance", [](Geom_Point const& self, opencascade::handle<Geom_Point> Other) -> Standard_Real { return self.Distance(Other); })
+        .add_member_function("SquareDistance", [](Geom_Point const& self, opencascade::handle<Geom_Point> Other) -> Standard_Real { return self.SquareDistance(Other); })
         .add_bases<Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_RectangularTrimmedSurface, sol::automagic_flags::none>("Geom_RectangularTrimmedSurface")
         .add_constructors(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object Param1, sol::object Param2, const Standard_Boolean UTrim) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(Param1), occt_plugin::to_real(Param2), UTrim)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object Param1, sol::object Param2, const Standard_Boolean UTrim) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(Param1), occt_plugin::to_real(Param2), UTrim)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real Param1, const Standard_Real Param2, const Standard_Boolean UTrim) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, Param1, Param2, UTrim)); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real Param1, const Standard_Real Param2, const Standard_Boolean UTrim) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, Param1, Param2, UTrim)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object Param1, sol::object Param2, const Standard_Boolean UTrim, const Standard_Boolean Sense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(Param1), occt_plugin::to_real(Param2), UTrim, Sense)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object Param1, sol::object Param2, const Standard_Boolean UTrim, const Standard_Boolean Sense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(Param1), occt_plugin::to_real(Param2), UTrim, Sense)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real Param1, const Standard_Real Param2, const Standard_Boolean UTrim, const Standard_Boolean Sense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, Param1, Param2, UTrim, Sense)); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real Param1, const Standard_Real Param2, const Standard_Boolean UTrim, const Standard_Boolean Sense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, Param1, Param2, UTrim, Sense)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object U1, sol::object U2, sol::object V1, sol::object V2) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2))); }
+            [](opencascade::handle<Geom_Surface> S, sol::object U1, sol::object U2, sol::object V1, sol::object V2) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2))); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, U1, U2, V1, V2)); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, U1, U2, V1, V2)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object U1, sol::object U2, sol::object V1, sol::object V2, const Standard_Boolean USense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), USense)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object U1, sol::object U2, sol::object V1, sol::object V2, const Standard_Boolean USense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), USense)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Boolean USense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, U1, U2, V1, V2, USense)); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Boolean USense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, U1, U2, V1, V2, USense)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object U1, sol::object U2, sol::object V1, sol::object V2, const Standard_Boolean USense, const Standard_Boolean VSense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), USense, VSense)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object U1, sol::object U2, sol::object V1, sol::object V2, const Standard_Boolean USense, const Standard_Boolean VSense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, occt_plugin::to_real(U1), occt_plugin::to_real(U2), occt_plugin::to_real(V1), occt_plugin::to_real(V2), USense, VSense)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Boolean USense, const Standard_Boolean VSense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, U1, U2, V1, V2, USense, VSense)); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real U1, const Standard_Real U2, const Standard_Real V1, const Standard_Real V2, const Standard_Boolean USense, const Standard_Boolean VSense) -> opencascade::handle<Geom_RectangularTrimmedSurface> { return opencascade::handle<Geom_RectangularTrimmedSurface>(new Geom_RectangularTrimmedSurface(S, U1, U2, V1, V2, USense, VSense)); }
 #endif
         
         )
@@ -2334,6 +2463,10 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Transform", [](Geom_RectangularTrimmedSurface& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("ParametricTransformation", [](Geom_RectangularTrimmedSurface const& self, const gp_Trsf & T) -> gp_GTrsf2d { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_RectangularTrimmedSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_RectangularTrimmedSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_RectangularTrimmedSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_BoundedSurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_SphericalSurface, sol::automagic_flags::none>("Geom_SphericalSurface")
         .add_constructors(
@@ -2427,6 +2560,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_SphericalSurface& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_SphericalSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_SphericalSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_SphericalSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_ElementarySurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Surface, sol::automagic_flags::none>("Geom_Surface")
         .add_member_function("UReverse", [](Geom_Surface& self) { self.UReverse(); })
@@ -2513,13 +2650,17 @@ void register_geom(grunk::plugin_namespace& ns)
             [](Geom_Surface const& self, const Standard_Real U, const Standard_Real V) -> gp_Pnt { return self.Value(U, V); }
 #endif
         )
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Surface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Surface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_SurfaceOfLinearExtrusion, sol::automagic_flags::none>("Geom_SurfaceOfLinearExtrusion")
         .add_constructors(
-            [](const opencascade::handle<Geom_Curve> & C, const gp_Dir & V) -> opencascade::handle<Geom_SurfaceOfLinearExtrusion> { return opencascade::handle<Geom_SurfaceOfLinearExtrusion>(new Geom_SurfaceOfLinearExtrusion(C, V)); }
+            [](opencascade::handle<Geom_Curve> C, const gp_Dir & V) -> opencascade::handle<Geom_SurfaceOfLinearExtrusion> { return opencascade::handle<Geom_SurfaceOfLinearExtrusion>(new Geom_SurfaceOfLinearExtrusion(C, V)); }
         )
         .add_member_function("SetDirection", [](Geom_SurfaceOfLinearExtrusion& self, const gp_Dir & V) { self.SetDirection(V); })
-        .add_member_function("SetBasisCurve", [](Geom_SurfaceOfLinearExtrusion& self, const opencascade::handle<Geom_Curve> & C) { self.SetBasisCurve(C); })
+        .add_member_function("SetBasisCurve", [](Geom_SurfaceOfLinearExtrusion& self, opencascade::handle<Geom_Curve> C) { self.SetBasisCurve(C); })
         .add_member_function("UReverse", [](Geom_SurfaceOfLinearExtrusion& self) { self.UReverse(); })
         .add_member_function("UReversedParameter", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -2594,14 +2735,18 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Transform", [](Geom_SurfaceOfLinearExtrusion& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("ParametricTransformation", [](Geom_SurfaceOfLinearExtrusion const& self, const gp_Trsf & T) -> gp_GTrsf2d { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_SurfaceOfLinearExtrusion const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_SurfaceOfLinearExtrusion const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_SurfaceOfLinearExtrusion const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_SweptSurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_SurfaceOfRevolution, sol::automagic_flags::none>("Geom_SurfaceOfRevolution")
         .add_constructors(
-            [](const opencascade::handle<Geom_Curve> & C, const gp_Ax1 & A1) -> opencascade::handle<Geom_SurfaceOfRevolution> { return opencascade::handle<Geom_SurfaceOfRevolution>(new Geom_SurfaceOfRevolution(C, A1)); }
+            [](opencascade::handle<Geom_Curve> C, const gp_Ax1 & A1) -> opencascade::handle<Geom_SurfaceOfRevolution> { return opencascade::handle<Geom_SurfaceOfRevolution>(new Geom_SurfaceOfRevolution(C, A1)); }
         )
         .add_member_function("SetAxis", [](Geom_SurfaceOfRevolution& self, const gp_Ax1 & A1) { self.SetAxis(A1); })
         .add_member_function("SetDirection", [](Geom_SurfaceOfRevolution& self, const gp_Dir & V) { self.SetDirection(V); })
-        .add_member_function("SetBasisCurve", [](Geom_SurfaceOfRevolution& self, const opencascade::handle<Geom_Curve> & C) { self.SetBasisCurve(C); })
+        .add_member_function("SetBasisCurve", [](Geom_SurfaceOfRevolution& self, opencascade::handle<Geom_Curve> C) { self.SetBasisCurve(C); })
         .add_member_function("SetLocation", [](Geom_SurfaceOfRevolution& self, const gp_Pnt & P) { self.SetLocation(P); })
         .add_member_function("Axis", [](Geom_SurfaceOfRevolution const& self) -> gp_Ax1 { return self.Axis(); })
         .add_member_function("Location", [](Geom_SurfaceOfRevolution const& self) -> const gp_Pnt & { return self.Location(); })
@@ -2680,11 +2825,19 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_SurfaceOfRevolution& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_SurfaceOfRevolution const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_SurfaceOfRevolution const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_SurfaceOfRevolution const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_SweptSurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_SweptSurface, sol::automagic_flags::none>("Geom_SweptSurface")
         .add_member_function("Continuity", [](Geom_SweptSurface const& self) -> GeomAbs_Shape { return self.Continuity(); })
         .add_member_function("Direction", [](Geom_SweptSurface const& self) -> const gp_Dir & { return self.Direction(); })
         .add_member_function("BasisCurve", [](Geom_SweptSurface const& self) -> opencascade::handle<Geom_Curve> { return self.BasisCurve(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_SweptSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_SweptSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_ToroidalSurface, sol::automagic_flags::none>("Geom_ToroidalSurface")
         .add_constructors(
@@ -2728,6 +2881,7 @@ void register_geom(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Area", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.Area(); })
+        .add_member_function("Coefficients", [](Geom_ToroidalSurface const& self, TColStd_Array1OfReal & Coef) { self.Coefficients(Coef); })
         .add_member_function("MajorRadius", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.MajorRadius(); })
         .add_member_function("MinorRadius", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.MinorRadius(); })
         .add_member_function("Volume", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.Volume(); })
@@ -2786,6 +2940,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Transform", [](Geom_ToroidalSurface& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_ToroidalSurface const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_ToroidalSurface const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_ToroidalSurface const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_ElementarySurface, Geom_Surface, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_Transformation, sol::automagic_flags::none>("Geom_Transformation")
         .add_constructors(
@@ -2827,34 +2985,38 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("Value", [](Geom_Transformation const& self, const Standard_Integer theRow, const Standard_Integer theCol) -> Standard_Real { return self.Value(theRow, theCol); })
         .add_member_function("Invert", [](Geom_Transformation& self) { self.Invert(); })
         .add_member_function("Inverted", [](Geom_Transformation const& self) -> opencascade::handle<Geom_Transformation> { return self.Inverted(); })
-        .add_member_function("Multiplied", [](Geom_Transformation const& self, const opencascade::handle<Geom_Transformation> & Other) -> opencascade::handle<Geom_Transformation> { return self.Multiplied(Other); })
-        .add_member_function("Multiply", [](Geom_Transformation& self, const opencascade::handle<Geom_Transformation> & theOther) { self.Multiply(theOther); })
+        .add_member_function("Multiplied", [](Geom_Transformation const& self, opencascade::handle<Geom_Transformation> Other) -> opencascade::handle<Geom_Transformation> { return self.Multiplied(Other); })
+        .add_member_function("Multiply", [](Geom_Transformation& self, opencascade::handle<Geom_Transformation> theOther) { self.Multiply(theOther); })
         .add_member_function("Power", [](Geom_Transformation& self, const Standard_Integer N) { self.Power(N); })
         .add_member_function("Powered", [](Geom_Transformation const& self, const Standard_Integer N) -> opencascade::handle<Geom_Transformation> { return self.Powered(N); })
-        .add_member_function("PreMultiply", [](Geom_Transformation& self, const opencascade::handle<Geom_Transformation> & Other) { self.PreMultiply(Other); })
+        .add_member_function("PreMultiply", [](Geom_Transformation& self, opencascade::handle<Geom_Transformation> Other) { self.PreMultiply(Other); })
         .add_member_function("Copy", [](Geom_Transformation const& self) -> opencascade::handle<Geom_Transformation> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_Transformation const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_Transformation const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Standard_Transient>();
     ns.register_type<Geom_TrimmedCurve, sol::automagic_flags::none>("Geom_TrimmedCurve")
         .add_constructors(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & C, sol::object U1, sol::object U2) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2))); }
+            [](opencascade::handle<Geom_Curve> C, sol::object U1, sol::object U2) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2))); }
 #else
-            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real U1, const Standard_Real U2) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2)); }
+            [](opencascade::handle<Geom_Curve> C, const Standard_Real U1, const Standard_Real U2) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & C, sol::object U1, sol::object U2, const Standard_Boolean Sense) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense)); }
+            [](opencascade::handle<Geom_Curve> C, sol::object U1, sol::object U2, const Standard_Boolean Sense) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2, Sense)); }
+            [](opencascade::handle<Geom_Curve> C, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2, Sense)); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & C, sol::object U1, sol::object U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense, theAdjustPeriodic)); }
+            [](opencascade::handle<Geom_Curve> C, sol::object U1, sol::object U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, occt_plugin::to_real(U1), occt_plugin::to_real(U2), Sense, theAdjustPeriodic)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & C, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2, Sense, theAdjustPeriodic)); }
+            [](opencascade::handle<Geom_Curve> C, const Standard_Real U1, const Standard_Real U2, const Standard_Boolean Sense, const Standard_Boolean theAdjustPeriodic) -> opencascade::handle<Geom_TrimmedCurve> { return opencascade::handle<Geom_TrimmedCurve>(new Geom_TrimmedCurve(C, U1, U2, Sense, theAdjustPeriodic)); }
 #endif
         
         )
@@ -2944,6 +3106,10 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("ParametricTransformation", [](Geom_TrimmedCurve const& self, const gp_Trsf & T) -> Standard_Real { return self.ParametricTransformation(T); })
         .add_member_function("Copy", [](Geom_TrimmedCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Geom_TrimmedCurve const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Geom_TrimmedCurve const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
         .add_bases<Geom_BoundedCurve, Geom_Curve, Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_UndefinedDerivative, sol::automagic_flags::none>("Geom_UndefinedDerivative")
         .add_constructors(
@@ -2958,19 +3124,19 @@ void register_geom(grunk::plugin_namespace& ns)
     ns.register_type<Geom_Vector, sol::automagic_flags::none>("Geom_Vector")
         .add_member_function("Reverse", [](Geom_Vector& self) { self.Reverse(); })
         .add_member_function("Reversed", [](Geom_Vector const& self) -> opencascade::handle<Geom_Vector> { return self.Reversed(); })
-        .add_member_function("Angle", [](Geom_Vector const& self, const opencascade::handle<Geom_Vector> & Other) -> Standard_Real { return self.Angle(Other); })
-        .add_member_function("AngleWithRef", [](Geom_Vector const& self, const opencascade::handle<Geom_Vector> & Other, const opencascade::handle<Geom_Vector> & VRef) -> Standard_Real { return self.AngleWithRef(Other, VRef); })
+        .add_member_function("Angle", [](Geom_Vector const& self, opencascade::handle<Geom_Vector> Other) -> Standard_Real { return self.Angle(Other); })
+        .add_member_function("AngleWithRef", [](Geom_Vector const& self, opencascade::handle<Geom_Vector> Other, opencascade::handle<Geom_Vector> VRef) -> Standard_Real { return self.AngleWithRef(Other, VRef); })
         .add_member_function("Magnitude", [](Geom_Vector const& self) -> Standard_Real { return self.Magnitude(); })
         .add_member_function("SquareMagnitude", [](Geom_Vector const& self) -> Standard_Real { return self.SquareMagnitude(); })
         .add_member_function("X", [](Geom_Vector const& self) -> Standard_Real { return self.X(); })
         .add_member_function("Y", [](Geom_Vector const& self) -> Standard_Real { return self.Y(); })
         .add_member_function("Z", [](Geom_Vector const& self) -> Standard_Real { return self.Z(); })
-        .add_member_function("Cross", [](Geom_Vector& self, const opencascade::handle<Geom_Vector> & Other) { self.Cross(Other); })
-        .add_member_function("Crossed", [](Geom_Vector const& self, const opencascade::handle<Geom_Vector> & Other) -> opencascade::handle<Geom_Vector> { return self.Crossed(Other); })
-        .add_member_function("CrossCross", [](Geom_Vector& self, const opencascade::handle<Geom_Vector> & V1, const opencascade::handle<Geom_Vector> & V2) { self.CrossCross(V1, V2); })
-        .add_member_function("CrossCrossed", [](Geom_Vector const& self, const opencascade::handle<Geom_Vector> & V1, const opencascade::handle<Geom_Vector> & V2) -> opencascade::handle<Geom_Vector> { return self.CrossCrossed(V1, V2); })
-        .add_member_function("Dot", [](Geom_Vector const& self, const opencascade::handle<Geom_Vector> & Other) -> Standard_Real { return self.Dot(Other); })
-        .add_member_function("DotCross", [](Geom_Vector const& self, const opencascade::handle<Geom_Vector> & V1, const opencascade::handle<Geom_Vector> & V2) -> Standard_Real { return self.DotCross(V1, V2); })
+        .add_member_function("Cross", [](Geom_Vector& self, opencascade::handle<Geom_Vector> Other) { self.Cross(Other); })
+        .add_member_function("Crossed", [](Geom_Vector const& self, opencascade::handle<Geom_Vector> Other) -> opencascade::handle<Geom_Vector> { return self.Crossed(Other); })
+        .add_member_function("CrossCross", [](Geom_Vector& self, opencascade::handle<Geom_Vector> V1, opencascade::handle<Geom_Vector> V2) { self.CrossCross(V1, V2); })
+        .add_member_function("CrossCrossed", [](Geom_Vector const& self, opencascade::handle<Geom_Vector> V1, opencascade::handle<Geom_Vector> V2) -> opencascade::handle<Geom_Vector> { return self.CrossCrossed(V1, V2); })
+        .add_member_function("Dot", [](Geom_Vector const& self, opencascade::handle<Geom_Vector> Other) -> Standard_Real { return self.Dot(Other); })
+        .add_member_function("DotCross", [](Geom_Vector const& self, opencascade::handle<Geom_Vector> V1, opencascade::handle<Geom_Vector> V2) -> Standard_Real { return self.DotCross(V1, V2); })
         .add_member_function("Vec", [](Geom_Vector const& self) -> const gp_Vec & { return self.Vec(); })
         .add_bases<Geom_Geometry, Standard_Transient>();
     ns.register_type<Geom_VectorWithMagnitude, sol::automagic_flags::none>("Geom_VectorWithMagnitude")
@@ -3016,12 +3182,12 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Magnitude", [](Geom_VectorWithMagnitude const& self) -> Standard_Real { return self.Magnitude(); })
         .add_member_function("SquareMagnitude", [](Geom_VectorWithMagnitude const& self) -> Standard_Real { return self.SquareMagnitude(); })
-        .add_member_function("Add", [](Geom_VectorWithMagnitude& self, const opencascade::handle<Geom_Vector> & Other) { self.Add(Other); })
-        .add_member_function("Added", [](Geom_VectorWithMagnitude const& self, const opencascade::handle<Geom_Vector> & Other) -> opencascade::handle<Geom_VectorWithMagnitude> { return self.Added(Other); })
-        .add_member_function("Cross", [](Geom_VectorWithMagnitude& self, const opencascade::handle<Geom_Vector> & Other) { self.Cross(Other); })
-        .add_member_function("Crossed", [](Geom_VectorWithMagnitude const& self, const opencascade::handle<Geom_Vector> & Other) -> opencascade::handle<Geom_Vector> { return self.Crossed(Other); })
-        .add_member_function("CrossCross", [](Geom_VectorWithMagnitude& self, const opencascade::handle<Geom_Vector> & V1, const opencascade::handle<Geom_Vector> & V2) { self.CrossCross(V1, V2); })
-        .add_member_function("CrossCrossed", [](Geom_VectorWithMagnitude const& self, const opencascade::handle<Geom_Vector> & V1, const opencascade::handle<Geom_Vector> & V2) -> opencascade::handle<Geom_Vector> { return self.CrossCrossed(V1, V2); })
+        .add_member_function("Add", [](Geom_VectorWithMagnitude& self, opencascade::handle<Geom_Vector> Other) { self.Add(Other); })
+        .add_member_function("Added", [](Geom_VectorWithMagnitude const& self, opencascade::handle<Geom_Vector> Other) -> opencascade::handle<Geom_VectorWithMagnitude> { return self.Added(Other); })
+        .add_member_function("Cross", [](Geom_VectorWithMagnitude& self, opencascade::handle<Geom_Vector> Other) { self.Cross(Other); })
+        .add_member_function("Crossed", [](Geom_VectorWithMagnitude const& self, opencascade::handle<Geom_Vector> Other) -> opencascade::handle<Geom_Vector> { return self.Crossed(Other); })
+        .add_member_function("CrossCross", [](Geom_VectorWithMagnitude& self, opencascade::handle<Geom_Vector> V1, opencascade::handle<Geom_Vector> V2) { self.CrossCross(V1, V2); })
+        .add_member_function("CrossCrossed", [](Geom_VectorWithMagnitude const& self, opencascade::handle<Geom_Vector> V1, opencascade::handle<Geom_Vector> V2) -> opencascade::handle<Geom_Vector> { return self.CrossCrossed(V1, V2); })
         .add_member_function("Divide", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](Geom_VectorWithMagnitude& self, sol::object Scalar) { self.Divide(occt_plugin::to_real(Scalar)); }
@@ -3052,8 +3218,8 @@ void register_geom(grunk::plugin_namespace& ns)
         )
         .add_member_function("Normalize", [](Geom_VectorWithMagnitude& self) { self.Normalize(); })
         .add_member_function("Normalized", [](Geom_VectorWithMagnitude const& self) -> opencascade::handle<Geom_VectorWithMagnitude> { return self.Normalized(); })
-        .add_member_function("Subtract", [](Geom_VectorWithMagnitude& self, const opencascade::handle<Geom_Vector> & Other) { self.Subtract(Other); })
-        .add_member_function("Subtracted", [](Geom_VectorWithMagnitude const& self, const opencascade::handle<Geom_Vector> & Other) -> opencascade::handle<Geom_VectorWithMagnitude> { return self.Subtracted(Other); })
+        .add_member_function("Subtract", [](Geom_VectorWithMagnitude& self, opencascade::handle<Geom_Vector> Other) { self.Subtract(Other); })
+        .add_member_function("Subtracted", [](Geom_VectorWithMagnitude const& self, opencascade::handle<Geom_Vector> Other) -> opencascade::handle<Geom_VectorWithMagnitude> { return self.Subtracted(Other); })
         .add_member_function("Transform", [](Geom_VectorWithMagnitude& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_VectorWithMagnitude const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_bases<Geom_Vector, Geom_Geometry, Standard_Transient>();
@@ -3062,88 +3228,94 @@ void register_geom(grunk::plugin_namespace& ns)
     ns.register_function("Geom_BSplineSurface_MaxDegree", []() -> Standard_Integer { return Geom_BSplineSurface::MaxDegree(); });
     ns.register_function("Geom_BezierCurve_MaxDegree", []() -> Standard_Integer { return Geom_BezierCurve::MaxDegree(); });
     ns.register_function("Geom_BezierSurface_MaxDegree", []() -> Standard_Integer { return Geom_BezierSurface::MaxDegree(); });
-    ns.register_function("Geom_UndefinedDerivative_Raise", []() { Geom_UndefinedDerivative::Raise(); });
+    ns.register_function("Geom_UndefinedDerivative_Raise", sol::overload(
+        []() { Geom_UndefinedDerivative::Raise(); },
+        [](Standard_SStream & theMessage) { Geom_UndefinedDerivative::Raise(theMessage); }
+    ));
     ns.register_function("Geom_UndefinedDerivative_NewInstance", []() -> opencascade::handle<Geom_UndefinedDerivative> { return Geom_UndefinedDerivative::NewInstance(); });
-    ns.register_function("Geom_UndefinedValue_Raise", []() { Geom_UndefinedValue::Raise(); });
+    ns.register_function("Geom_UndefinedValue_Raise", sol::overload(
+        []() { Geom_UndefinedValue::Raise(); },
+        [](Standard_SStream & theMessage) { Geom_UndefinedValue::Raise(theMessage); }
+    ));
     ns.register_function("Geom_UndefinedValue_NewInstance", []() -> opencascade::handle<Geom_UndefinedValue> { return Geom_UndefinedValue::NewInstance(); });
     ns.register_function("GeomConvert_SplitBSplineCurve", sol::overload(
-        [](const opencascade::handle<Geom_BSplineCurve> & C, const Standard_Integer FromK1, const Standard_Integer ToK2) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromK1, ToK2); },
-        [](const opencascade::handle<Geom_BSplineCurve> & C, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromK1, ToK2, SameOrientation); },
+        [](opencascade::handle<Geom_BSplineCurve> C, const Standard_Integer FromK1, const Standard_Integer ToK2) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromK1, ToK2); },
+        [](opencascade::handle<Geom_BSplineCurve> C, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromK1, ToK2, SameOrientation); },
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_BSplineCurve> & C, sol::object FromU1, sol::object ToU2, sol::object ParametricTolerance) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(ParametricTolerance)); }
+            [](opencascade::handle<Geom_BSplineCurve> C, sol::object FromU1, sol::object ToU2, sol::object ParametricTolerance) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(ParametricTolerance)); }
 #else
-            [](const opencascade::handle<Geom_BSplineCurve> & C, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real ParametricTolerance) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromU1, ToU2, ParametricTolerance); }
+            [](opencascade::handle<Geom_BSplineCurve> C, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real ParametricTolerance) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromU1, ToU2, ParametricTolerance); }
 #endif
         ,
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_BSplineCurve> & C, sol::object FromU1, sol::object ToU2, sol::object ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(ParametricTolerance), SameOrientation); }
+            [](opencascade::handle<Geom_BSplineCurve> C, sol::object FromU1, sol::object ToU2, sol::object ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(ParametricTolerance), SameOrientation); }
 #else
-            [](const opencascade::handle<Geom_BSplineCurve> & C, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromU1, ToU2, ParametricTolerance, SameOrientation); }
+            [](opencascade::handle<Geom_BSplineCurve> C, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::SplitBSplineCurve(C, FromU1, ToU2, ParametricTolerance, SameOrientation); }
 #endif
         
     ));
     ns.register_function("GeomConvert_SplitBSplineSurface", sol::overload(
-        [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Boolean USplit) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromK1, ToK2, USplit); },
-        [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromUK1, ToUK2, FromVK1, ToVK2); },
-        [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Boolean USplit, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromK1, ToK2, USplit, SameOrientation); },
+        [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Boolean USplit) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromK1, ToK2, USplit); },
+        [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromUK1, ToUK2, FromVK1, ToVK2); },
+        [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Integer FromK1, const Standard_Integer ToK2, const Standard_Boolean USplit, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromK1, ToK2, USplit, SameOrientation); },
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_BSplineSurface> & S, sol::object FromParam1, sol::object ToParam2, const Standard_Boolean USplit, sol::object ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromParam1), occt_plugin::to_real(ToParam2), USplit, occt_plugin::to_real(ParametricTolerance)); }
+            [](opencascade::handle<Geom_BSplineSurface> S, sol::object FromParam1, sol::object ToParam2, const Standard_Boolean USplit, sol::object ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromParam1), occt_plugin::to_real(ToParam2), USplit, occt_plugin::to_real(ParametricTolerance)); }
 #else
-            [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Real FromParam1, const Standard_Real ToParam2, const Standard_Boolean USplit, const Standard_Real ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromParam1, ToParam2, USplit, ParametricTolerance); }
+            [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Real FromParam1, const Standard_Real ToParam2, const Standard_Boolean USplit, const Standard_Real ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromParam1, ToParam2, USplit, ParametricTolerance); }
 #endif
         ,
-        [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, const Standard_Boolean SameUOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromUK1, ToUK2, FromVK1, ToVK2, SameUOrientation); },
+        [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, const Standard_Boolean SameUOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromUK1, ToUK2, FromVK1, ToVK2, SameUOrientation); },
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_BSplineSurface> & S, sol::object FromParam1, sol::object ToParam2, const Standard_Boolean USplit, sol::object ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromParam1), occt_plugin::to_real(ToParam2), USplit, occt_plugin::to_real(ParametricTolerance), SameOrientation); }
+            [](opencascade::handle<Geom_BSplineSurface> S, sol::object FromParam1, sol::object ToParam2, const Standard_Boolean USplit, sol::object ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromParam1), occt_plugin::to_real(ToParam2), USplit, occt_plugin::to_real(ParametricTolerance), SameOrientation); }
 #else
-            [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Real FromParam1, const Standard_Real ToParam2, const Standard_Boolean USplit, const Standard_Real ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromParam1, ToParam2, USplit, ParametricTolerance, SameOrientation); }
-#endif
-        ,
-        
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_BSplineSurface> & S, sol::object FromU1, sol::object ToU2, sol::object FromV1, sol::object ToV2, sol::object ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(FromV1), occt_plugin::to_real(ToV2), occt_plugin::to_real(ParametricTolerance)); }
-#else
-            [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real FromV1, const Standard_Real ToV2, const Standard_Real ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromU1, ToU2, FromV1, ToV2, ParametricTolerance); }
-#endif
-        ,
-        [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, const Standard_Boolean SameUOrientation, const Standard_Boolean SameVOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromUK1, ToUK2, FromVK1, ToVK2, SameUOrientation, SameVOrientation); },
-        
-#if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_BSplineSurface> & S, sol::object FromU1, sol::object ToU2, sol::object FromV1, sol::object ToV2, sol::object ParametricTolerance, const Standard_Boolean SameUOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(FromV1), occt_plugin::to_real(ToV2), occt_plugin::to_real(ParametricTolerance), SameUOrientation); }
-#else
-            [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real FromV1, const Standard_Real ToV2, const Standard_Real ParametricTolerance, const Standard_Boolean SameUOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromU1, ToU2, FromV1, ToV2, ParametricTolerance, SameUOrientation); }
+            [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Real FromParam1, const Standard_Real ToParam2, const Standard_Boolean USplit, const Standard_Real ParametricTolerance, const Standard_Boolean SameOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromParam1, ToParam2, USplit, ParametricTolerance, SameOrientation); }
 #endif
         ,
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_BSplineSurface> & S, sol::object FromU1, sol::object ToU2, sol::object FromV1, sol::object ToV2, sol::object ParametricTolerance, const Standard_Boolean SameUOrientation, const Standard_Boolean SameVOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(FromV1), occt_plugin::to_real(ToV2), occt_plugin::to_real(ParametricTolerance), SameUOrientation, SameVOrientation); }
+            [](opencascade::handle<Geom_BSplineSurface> S, sol::object FromU1, sol::object ToU2, sol::object FromV1, sol::object ToV2, sol::object ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(FromV1), occt_plugin::to_real(ToV2), occt_plugin::to_real(ParametricTolerance)); }
 #else
-            [](const opencascade::handle<Geom_BSplineSurface> & S, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real FromV1, const Standard_Real ToV2, const Standard_Real ParametricTolerance, const Standard_Boolean SameUOrientation, const Standard_Boolean SameVOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromU1, ToU2, FromV1, ToV2, ParametricTolerance, SameUOrientation, SameVOrientation); }
+            [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real FromV1, const Standard_Real ToV2, const Standard_Real ParametricTolerance) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromU1, ToU2, FromV1, ToV2, ParametricTolerance); }
+#endif
+        ,
+        [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Integer FromUK1, const Standard_Integer ToUK2, const Standard_Integer FromVK1, const Standard_Integer ToVK2, const Standard_Boolean SameUOrientation, const Standard_Boolean SameVOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromUK1, ToUK2, FromVK1, ToVK2, SameUOrientation, SameVOrientation); },
+        
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](opencascade::handle<Geom_BSplineSurface> S, sol::object FromU1, sol::object ToU2, sol::object FromV1, sol::object ToV2, sol::object ParametricTolerance, const Standard_Boolean SameUOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(FromV1), occt_plugin::to_real(ToV2), occt_plugin::to_real(ParametricTolerance), SameUOrientation); }
+#else
+            [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real FromV1, const Standard_Real ToV2, const Standard_Real ParametricTolerance, const Standard_Boolean SameUOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromU1, ToU2, FromV1, ToV2, ParametricTolerance, SameUOrientation); }
+#endif
+        ,
+        
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](opencascade::handle<Geom_BSplineSurface> S, sol::object FromU1, sol::object ToU2, sol::object FromV1, sol::object ToV2, sol::object ParametricTolerance, const Standard_Boolean SameUOrientation, const Standard_Boolean SameVOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, occt_plugin::to_real(FromU1), occt_plugin::to_real(ToU2), occt_plugin::to_real(FromV1), occt_plugin::to_real(ToV2), occt_plugin::to_real(ParametricTolerance), SameUOrientation, SameVOrientation); }
+#else
+            [](opencascade::handle<Geom_BSplineSurface> S, const Standard_Real FromU1, const Standard_Real ToU2, const Standard_Real FromV1, const Standard_Real ToV2, const Standard_Real ParametricTolerance, const Standard_Boolean SameUOrientation, const Standard_Boolean SameVOrientation) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SplitBSplineSurface(S, FromU1, ToU2, FromV1, ToV2, ParametricTolerance, SameUOrientation, SameVOrientation); }
 #endif
         
     ));
     ns.register_function("GeomConvert_CurveToBSplineCurve", sol::overload(
-        [](const opencascade::handle<Geom_Curve> & C) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::CurveToBSplineCurve(C); },
-        [](const opencascade::handle<Geom_Curve> & C, const Convert_ParameterisationType Parameterisation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::CurveToBSplineCurve(C, Parameterisation); }
+        [](opencascade::handle<Geom_Curve> C) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::CurveToBSplineCurve(C); },
+        [](opencascade::handle<Geom_Curve> C, const Convert_ParameterisationType Parameterisation) -> opencascade::handle<Geom_BSplineCurve> { return GeomConvert::CurveToBSplineCurve(C, Parameterisation); }
     ));
-    ns.register_function("GeomConvert_SurfaceToBSplineSurface", [](const opencascade::handle<Geom_Surface> & S) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SurfaceToBSplineSurface(S); });
+    ns.register_function("GeomConvert_SurfaceToBSplineSurface", [](opencascade::handle<Geom_Surface> S) -> opencascade::handle<Geom_BSplineSurface> { return GeomConvert::SurfaceToBSplineSurface(S); });
     ns.register_function("GeomConvert_C0BSplineToC1BSplineCurve", sol::overload(
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](opencascade::handle<Geom_BSplineCurve> & BS, sol::object tolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, occt_plugin::to_real(tolerance)); }
+            [](opencascade::handle<Geom_BSplineCurve> BS, sol::object tolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, occt_plugin::to_real(tolerance)); }
 #else
-            [](opencascade::handle<Geom_BSplineCurve> & BS, const Standard_Real tolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, tolerance); }
+            [](opencascade::handle<Geom_BSplineCurve> BS, const Standard_Real tolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, tolerance); }
 #endif
         ,
         
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](opencascade::handle<Geom_BSplineCurve> & BS, sol::object tolerance, sol::object AngularTolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, occt_plugin::to_real(tolerance), occt_plugin::to_real(AngularTolerance)); }
+            [](opencascade::handle<Geom_BSplineCurve> BS, sol::object tolerance, sol::object AngularTolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, occt_plugin::to_real(tolerance), occt_plugin::to_real(AngularTolerance)); }
 #else
-            [](opencascade::handle<Geom_BSplineCurve> & BS, const Standard_Real tolerance, const Standard_Real AngularTolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, tolerance, AngularTolerance); }
+            [](opencascade::handle<Geom_BSplineCurve> BS, const Standard_Real tolerance, const Standard_Real AngularTolerance) { GeomConvert::C0BSplineToC1BSplineCurve(BS, tolerance, AngularTolerance); }
 #endif
         
     ));

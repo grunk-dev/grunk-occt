@@ -47,7 +47,6 @@
 #include "gp/gp_extras.hpp"
 #include "brep/brep_extras.hpp"
 #include "geom/geom_extras.hpp"
-#include "gc/gc_extras.hpp"
 #include "shape_io.hpp"
 #include "topexp_extras.hpp"
 #include "math_extras.hpp"
@@ -96,7 +95,6 @@ void register_occt(grunk::state& state, grunk::PluginInfo const& info)
     register_brep_extras(ns);
     register_breptools(ns);
     register_gc(ns);
-    register_gc_extras(ns);
     register_brepoffsetapi(ns);
     register_geomapi(ns);
     register_brepfilletapi(ns);

@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "brepalgoapi.hpp"
+#include "sol_base_classes.hpp"
 
 #include <BRepAlgoAPI_Algo.hxx>
 #include <BRepAlgoAPI_BooleanOperation.hxx>
@@ -40,6 +41,7 @@ void register_brepalgoapi(grunk::plugin_namespace& ns)
         )
         .add_member_function("Shape1", [](BRepAlgoAPI_BooleanOperation const& self) -> const TopoDS_Shape & { return self.Shape1(); })
         .add_member_function("Shape2", [](BRepAlgoAPI_BooleanOperation const& self) -> const TopoDS_Shape & { return self.Shape2(); })
+        .add_member_function("SetTools", [](BRepAlgoAPI_BooleanOperation& self, const TopTools_ListOfShape & theLS) { self.SetTools(theLS); })
         .add_member_function("Tools", [](BRepAlgoAPI_BooleanOperation const& self) -> const TopTools_ListOfShape & { return self.Tools(); })
         .add_member_function("SetOperation", [](BRepAlgoAPI_BooleanOperation& self, const BOPAlgo_Operation theBOP) { self.SetOperation(theBOP); })
         .add_member_function("Operation", [](BRepAlgoAPI_BooleanOperation const& self) -> BOPAlgo_Operation { return self.Operation(); })
@@ -53,6 +55,7 @@ void register_brepalgoapi(grunk::plugin_namespace& ns)
             []() { return std::make_unique<BRepAlgoAPI_BuilderAlgo>(); },
             [](const BOPAlgo_PaveFiller & thePF) { return std::make_unique<BRepAlgoAPI_BuilderAlgo>(thePF); }
         )
+        .add_member_function("SetArguments", [](BRepAlgoAPI_BuilderAlgo& self, const TopTools_ListOfShape & theLS) { self.SetArguments(theLS); })
         .add_member_function("Arguments", [](BRepAlgoAPI_BuilderAlgo const& self) -> const TopTools_ListOfShape & { return self.Arguments(); })
         .add_member_function("SetNonDestructive", [](BRepAlgoAPI_BuilderAlgo& self, const Standard_Boolean theFlag) { self.SetNonDestructive(theFlag); })
         .add_member_function("NonDestructive", [](BRepAlgoAPI_BuilderAlgo const& self) -> Standard_Boolean { return self.NonDestructive(); })
@@ -145,6 +148,7 @@ void register_brepalgoapi(grunk::plugin_namespace& ns)
         .add_member_function("SetShape", [](BRepAlgoAPI_Defeaturing& self, const TopoDS_Shape & theShape) { self.SetShape(theShape); })
         .add_member_function("InputShape", [](BRepAlgoAPI_Defeaturing const& self) -> const TopoDS_Shape & { return self.InputShape(); })
         .add_member_function("AddFaceToRemove", [](BRepAlgoAPI_Defeaturing& self, const TopoDS_Shape & theFace) { self.AddFaceToRemove(theFace); })
+        .add_member_function("AddFacesToRemove", [](BRepAlgoAPI_Defeaturing& self, const TopTools_ListOfShape & theFaces) { self.AddFacesToRemove(theFaces); })
         .add_member_function("FacesToRemove", [](BRepAlgoAPI_Defeaturing const& self) -> const TopTools_ListOfShape & { return self.FacesToRemove(); })
         .add_member_function("Build", sol::overload(
             [](BRepAlgoAPI_Defeaturing& self) { self.Build(); },
@@ -175,26 +179,26 @@ void register_brepalgoapi(grunk::plugin_namespace& ns)
             [](const BOPAlgo_PaveFiller & PF) { return std::make_unique<BRepAlgoAPI_Section>(PF); },
             [](const TopoDS_Shape & S1, const TopoDS_Shape & S2) { return std::make_unique<BRepAlgoAPI_Section>(S1, S2); },
             [](const TopoDS_Shape & S1, const gp_Pln & Pl) { return std::make_unique<BRepAlgoAPI_Section>(S1, Pl); },
-            [](const TopoDS_Shape & S1, const opencascade::handle<Geom_Surface> & Sf) { return std::make_unique<BRepAlgoAPI_Section>(S1, Sf); },
-            [](const opencascade::handle<Geom_Surface> & Sf, const TopoDS_Shape & S2) { return std::make_unique<BRepAlgoAPI_Section>(Sf, S2); },
-            [](const opencascade::handle<Geom_Surface> & Sf1, const opencascade::handle<Geom_Surface> & Sf2) { return std::make_unique<BRepAlgoAPI_Section>(Sf1, Sf2); },
+            [](const TopoDS_Shape & S1, opencascade::handle<Geom_Surface> Sf) { return std::make_unique<BRepAlgoAPI_Section>(S1, Sf); },
+            [](opencascade::handle<Geom_Surface> Sf, const TopoDS_Shape & S2) { return std::make_unique<BRepAlgoAPI_Section>(Sf, S2); },
+            [](opencascade::handle<Geom_Surface> Sf1, opencascade::handle<Geom_Surface> Sf2) { return std::make_unique<BRepAlgoAPI_Section>(Sf1, Sf2); },
             [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, S2, PerformNow); },
             [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const BOPAlgo_PaveFiller & aDSF) { return std::make_unique<BRepAlgoAPI_Section>(S1, S2, aDSF); },
             [](const TopoDS_Shape & S1, const gp_Pln & Pl, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, Pl, PerformNow); },
-            [](const TopoDS_Shape & S1, const opencascade::handle<Geom_Surface> & Sf, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, Sf, PerformNow); },
-            [](const opencascade::handle<Geom_Surface> & Sf, const TopoDS_Shape & S2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(Sf, S2, PerformNow); },
-            [](const opencascade::handle<Geom_Surface> & Sf1, const opencascade::handle<Geom_Surface> & Sf2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(Sf1, Sf2, PerformNow); },
+            [](const TopoDS_Shape & S1, opencascade::handle<Geom_Surface> Sf, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, Sf, PerformNow); },
+            [](opencascade::handle<Geom_Surface> Sf, const TopoDS_Shape & S2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(Sf, S2, PerformNow); },
+            [](opencascade::handle<Geom_Surface> Sf1, opencascade::handle<Geom_Surface> Sf2, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(Sf1, Sf2, PerformNow); },
             [](const TopoDS_Shape & S1, const TopoDS_Shape & S2, const BOPAlgo_PaveFiller & aDSF, const Standard_Boolean PerformNow) { return std::make_unique<BRepAlgoAPI_Section>(S1, S2, aDSF, PerformNow); }
         )
         .add_member_function("Init1", sol::overload(
             [](BRepAlgoAPI_Section& self, const TopoDS_Shape & S1) { self.Init1(S1); },
             [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init1(Pl); },
-            [](BRepAlgoAPI_Section& self, const opencascade::handle<Geom_Surface> & Sf) { self.Init1(Sf); }
+            [](BRepAlgoAPI_Section& self, opencascade::handle<Geom_Surface> Sf) { self.Init1(Sf); }
         ))
         .add_member_function("Init2", sol::overload(
             [](BRepAlgoAPI_Section& self, const TopoDS_Shape & S2) { self.Init2(S2); },
             [](BRepAlgoAPI_Section& self, const gp_Pln & Pl) { self.Init2(Pl); },
-            [](BRepAlgoAPI_Section& self, const opencascade::handle<Geom_Surface> & Sf) { self.Init2(Sf); }
+            [](BRepAlgoAPI_Section& self, opencascade::handle<Geom_Surface> Sf) { self.Init2(Sf); }
         ))
         .add_member_function("Approximation", [](BRepAlgoAPI_Section& self, const Standard_Boolean B) { self.Approximation(B); })
         .add_member_function("ComputePCurveOn1", [](BRepAlgoAPI_Section& self, const Standard_Boolean B) { self.ComputePCurveOn1(B); })
@@ -211,6 +215,7 @@ void register_brepalgoapi(grunk::plugin_namespace& ns)
             []() { return std::make_unique<BRepAlgoAPI_Splitter>(); },
             [](const BOPAlgo_PaveFiller & thePF) { return std::make_unique<BRepAlgoAPI_Splitter>(thePF); }
         )
+        .add_member_function("SetTools", [](BRepAlgoAPI_Splitter& self, const TopTools_ListOfShape & theLS) { self.SetTools(theLS); })
         .add_member_function("Tools", [](BRepAlgoAPI_Splitter const& self) -> const TopTools_ListOfShape & { return self.Tools(); })
         .add_member_function("Build", sol::overload(
             [](BRepAlgoAPI_Splitter& self) { self.Build(); },

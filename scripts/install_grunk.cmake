@@ -46,7 +46,22 @@ cmake_minimum_required(VERSION 3.15)
 if(NOT DEFINED GRUNK_INSTALL_NAME)
     set(GRUNK_INSTALL_NAME "grunk")
 endif()
-set(GRUNK_REV "583da89f0184ef6333000c45573da65a9dd551d0")
+# Bumped 2026-09-29 from 583da89f0184ef6333000c45573da65a9dd551d0 to
+# d9b079905d4eccaa08d51265ab2f6ef6b76786cd - lands grunk.codegen's new
+# sol_base_classes.hpp generation (SOL_BASE_CLASSES/SOL_DERIVED_CLASSES,
+# aggregated across a whole run, plus a unique_usertype_traits::rebind_actual_type
+# member src/occt_sol_traits.hpp now defines), the missing piece that makes
+# sol2's own Handle(Derived)->Handle(Base) unique-usertype conversion work at
+# all - see DESIGN.md's "Handle(Derived)->Handle(Base) argument conversion:
+# real root cause and fix" for the full writeup. Also carries the earlier
+# DynamicFeature sol::meta_function::call fix (c0cc16d) this repo never
+# consumed before (its own pin was still on the original 583da89f commit).
+# Bumped again 2026-09-29 to 13ab6232fdcd7b7e20a916392cfbb607417fb143 - lands
+# a fix to with_std_vector()'s own cast_to_element (was taking its element by
+# reference, excluded from sol2's base-aware unique-usertype conversion just
+# like any other by-reference Handle(X) parameter). Lets Geom_Curve gain a
+# native .with_std_vector<opencascade::handle<Geom_Curve>>() - see DESIGN.md.
+set(GRUNK_REV "13ab6232fdcd7b7e20a916392cfbb607417fb143")
 
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set(GRUNK_PREFIX "${PROJECT_ROOT}/.deps/${GRUNK_INSTALL_NAME}")

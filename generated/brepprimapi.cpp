@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "brepprimapi.hpp"
+#include "sol_base_classes.hpp"
 
 #include <BRepPrimAPI_MakeBox.hxx>
 #include <BRepPrimAPI_MakeCone.hxx>
@@ -240,48 +241,48 @@ void register_brepprimapi(grunk::plugin_namespace& ns)
         .add_bases<BRepPrimAPI_MakeSweep, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepPrimAPI_MakeRevolution, sol::automagic_flags::none>("BRepPrimAPI_MakeRevolution")
         .add_constructors(
-            [](const opencascade::handle<Geom_Curve> & Meridian) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian); },
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian); },
+            [](opencascade::handle<Geom_Curve> Meridian) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian); },
+            [](const gp_Ax2 & Axes, opencascade::handle<Geom_Curve> Meridian) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & Meridian, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(angle)); }
+            [](opencascade::handle<Geom_Curve> Meridian, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(angle)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, angle); }
+            [](opencascade::handle<Geom_Curve> Meridian, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, angle); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(angle)); }
+            [](const gp_Ax2 & Axes, opencascade::handle<Geom_Curve> Meridian, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(angle)); }
 #else
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, angle); }
+            [](const gp_Ax2 & Axes, opencascade::handle<Geom_Curve> Meridian, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, angle); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & Meridian, sol::object VMin, sol::object VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
+            [](opencascade::handle<Geom_Curve> Meridian, sol::object VMin, sol::object VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real VMin, const Standard_Real VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, VMin, VMax); }
+            [](opencascade::handle<Geom_Curve> Meridian, const Standard_Real VMin, const Standard_Real VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, VMin, VMax); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, sol::object VMin, sol::object VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
+            [](const gp_Ax2 & Axes, opencascade::handle<Geom_Curve> Meridian, sol::object VMin, sol::object VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
 #else
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real VMin, const Standard_Real VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, VMin, VMax); }
+            [](const gp_Ax2 & Axes, opencascade::handle<Geom_Curve> Meridian, const Standard_Real VMin, const Standard_Real VMax) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, VMin, VMax); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & Meridian, sol::object VMin, sol::object VMax, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(angle)); }
+            [](opencascade::handle<Geom_Curve> Meridian, sol::object VMin, sol::object VMax, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(angle)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, VMin, VMax, angle); }
+            [](opencascade::handle<Geom_Curve> Meridian, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Meridian, VMin, VMax, angle); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, sol::object VMin, sol::object VMax, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(angle)); }
+            [](const gp_Ax2 & Axes, opencascade::handle<Geom_Curve> Meridian, sol::object VMin, sol::object VMax, sol::object angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(angle)); }
 #else
-            [](const gp_Ax2 & Axes, const opencascade::handle<Geom_Curve> & Meridian, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, VMin, VMax, angle); }
+            [](const gp_Ax2 & Axes, opencascade::handle<Geom_Curve> Meridian, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real angle) { return std::make_unique<BRepPrimAPI_MakeRevolution>(Axes, Meridian, VMin, VMax, angle); }
 #endif
         
         )

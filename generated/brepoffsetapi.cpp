@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "brepoffsetapi.hpp"
+#include "sol_base_classes.hpp"
 
 #include <BRepOffsetAPI_DraftAngle.hxx>
 #include <BRepOffsetAPI_FindContigousEdges.hxx>
@@ -104,7 +105,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeDraft& self, const Standard_Boolean IsInternal) { self.SetDraft(IsInternal); }
         ))
         .add_member_function("Perform", sol::overload(
-            [](BRepOffsetAPI_MakeDraft& self, const opencascade::handle<Geom_Surface> & Surface) { self.Perform(Surface); },
+            [](BRepOffsetAPI_MakeDraft& self, opencascade::handle<Geom_Surface> Surface) { self.Perform(Surface); },
             [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape) { self.Perform(StopShape); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -113,7 +114,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeDraft& self, const Standard_Real LengthMax) { self.Perform(LengthMax); }
 #endif
         ,
-            [](BRepOffsetAPI_MakeDraft& self, const opencascade::handle<Geom_Surface> & Surface, const Standard_Boolean KeepInsideSurface) { self.Perform(Surface, KeepInsideSurface); },
+            [](BRepOffsetAPI_MakeDraft& self, opencascade::handle<Geom_Surface> Surface, const Standard_Boolean KeepInsideSurface) { self.Perform(Surface, KeepInsideSurface); },
             [](BRepOffsetAPI_MakeDraft& self, const TopoDS_Shape & StopShape, const Standard_Boolean KeepOutSide) { self.Perform(StopShape, KeepOutSide); }
         ))
         .add_member_function("Shell", [](BRepOffsetAPI_MakeDraft const& self) -> TopoDS_Shell { return self.Shell(); })
@@ -475,6 +476,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakePipeShell& self) { self.SetTransitionMode(); },
             [](BRepOffsetAPI_MakePipeShell& self, const BRepBuilderAPI_TransitionMode Mode) { self.SetTransitionMode(Mode); }
         ))
+        .add_member_function("Simulate", [](BRepOffsetAPI_MakePipeShell& self, const Standard_Integer NumberOfSection, TopTools_ListOfShape & Result) { self.Simulate(NumberOfSection, Result); })
         .add_member_function("Build", sol::overload(
             [](BRepOffsetAPI_MakePipeShell& self) { self.Build(); },
             [](BRepOffsetAPI_MakePipeShell& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
@@ -484,6 +486,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         .add_member_function("LastShape", [](BRepOffsetAPI_MakePipeShell& self) -> TopoDS_Shape { return self.LastShape(); })
         .add_member_function("Generated", [](BRepOffsetAPI_MakePipeShell& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Generated(S); })
         .add_member_function("ErrorOnSurface", [](BRepOffsetAPI_MakePipeShell const& self) -> Standard_Real { return self.ErrorOnSurface(); })
+        .add_member_function("Profiles", [](BRepOffsetAPI_MakePipeShell& self, TopTools_ListOfShape & theProfiles) { self.Profiles(theProfiles); })
         .add_member_function("Spine", [](BRepOffsetAPI_MakePipeShell& self) -> const TopoDS_Wire & { return self.Spine(); })
         .add_bases<BRepPrimAPI_MakeSweep, BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_MakeThickSolid, sol::automagic_flags::none>("BRepOffsetAPI_MakeThickSolid")
@@ -497,6 +500,57 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
             [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & theS, const Standard_Real theOffsetValue) { self.MakeThickSolidBySimple(theS, theOffsetValue); }
 #endif
         )
+        .add_member_function("MakeThickSolidByJoin", sol::overload(
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, sol::object Offset, sol::object Tol) { self.MakeThickSolidByJoin(S, ClosingFaces, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol)); }
+#else
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, const Standard_Real Offset, const Standard_Real Tol) { self.MakeThickSolidByJoin(S, ClosingFaces, Offset, Tol); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, sol::object Offset, sol::object Tol, const BRepOffset_Mode Mode) { self.MakeThickSolidByJoin(S, ClosingFaces, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol), Mode); }
+#else
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, const Standard_Real Offset, const Standard_Real Tol, const BRepOffset_Mode Mode) { self.MakeThickSolidByJoin(S, ClosingFaces, Offset, Tol, Mode); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, sol::object Offset, sol::object Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection) { self.MakeThickSolidByJoin(S, ClosingFaces, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol), Mode, Intersection); }
+#else
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, const Standard_Real Offset, const Standard_Real Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection) { self.MakeThickSolidByJoin(S, ClosingFaces, Offset, Tol, Mode, Intersection); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, sol::object Offset, sol::object Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter) { self.MakeThickSolidByJoin(S, ClosingFaces, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol), Mode, Intersection, SelfInter); }
+#else
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, const Standard_Real Offset, const Standard_Real Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter) { self.MakeThickSolidByJoin(S, ClosingFaces, Offset, Tol, Mode, Intersection, SelfInter); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, sol::object Offset, sol::object Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter, const GeomAbs_JoinType Join) { self.MakeThickSolidByJoin(S, ClosingFaces, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol), Mode, Intersection, SelfInter, Join); }
+#else
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, const Standard_Real Offset, const Standard_Real Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter, const GeomAbs_JoinType Join) { self.MakeThickSolidByJoin(S, ClosingFaces, Offset, Tol, Mode, Intersection, SelfInter, Join); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, sol::object Offset, sol::object Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter, const GeomAbs_JoinType Join, const Standard_Boolean RemoveIntEdges) { self.MakeThickSolidByJoin(S, ClosingFaces, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol), Mode, Intersection, SelfInter, Join, RemoveIntEdges); }
+#else
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, const Standard_Real Offset, const Standard_Real Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter, const GeomAbs_JoinType Join, const Standard_Boolean RemoveIntEdges) { self.MakeThickSolidByJoin(S, ClosingFaces, Offset, Tol, Mode, Intersection, SelfInter, Join, RemoveIntEdges); }
+#endif
+        ,
+            
+#if defined(GRUNK_OCCT_WITH_ADOLC)
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, sol::object Offset, sol::object Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter, const GeomAbs_JoinType Join, const Standard_Boolean RemoveIntEdges, const Message_ProgressRange & theRange) { self.MakeThickSolidByJoin(S, ClosingFaces, occt_plugin::to_real(Offset), occt_plugin::to_real(Tol), Mode, Intersection, SelfInter, Join, RemoveIntEdges, theRange); }
+#else
+            [](BRepOffsetAPI_MakeThickSolid& self, const TopoDS_Shape & S, const TopTools_ListOfShape & ClosingFaces, const Standard_Real Offset, const Standard_Real Tol, const BRepOffset_Mode Mode, const Standard_Boolean Intersection, const Standard_Boolean SelfInter, const GeomAbs_JoinType Join, const Standard_Boolean RemoveIntEdges, const Message_ProgressRange & theRange) { self.MakeThickSolidByJoin(S, ClosingFaces, Offset, Tol, Mode, Intersection, SelfInter, Join, RemoveIntEdges, theRange); }
+#endif
+        
+        ))
         .add_member_function("Build", sol::overload(
             [](BRepOffsetAPI_MakeThickSolid& self) { self.Build(); },
             [](BRepOffsetAPI_MakeThickSolid& self, const Message_ProgressRange & theRange) { self.Build(theRange); }
@@ -550,6 +604,7 @@ void register_brepoffsetapi(grunk::plugin_namespace& ns)
         .add_member_function("Couple", [](BRepOffsetAPI_NormalProjection const& self, const TopoDS_Edge & E) -> const TopoDS_Shape & { return self.Couple(E); })
         .add_member_function("Generated", [](BRepOffsetAPI_NormalProjection& self, const TopoDS_Shape & S) -> const TopTools_ListOfShape & { return self.Generated(S); })
         .add_member_function("Ancestor", [](BRepOffsetAPI_NormalProjection const& self, const TopoDS_Edge & E) -> const TopoDS_Shape & { return self.Ancestor(E); })
+        .add_member_function("BuildWire", [](BRepOffsetAPI_NormalProjection const& self, TopTools_ListOfShape & Liste) -> Standard_Boolean { return self.BuildWire(Liste); })
         .add_bases<BRepBuilderAPI_MakeShape, BRepBuilderAPI_Command>();
     ns.register_type<BRepOffsetAPI_ThruSections, sol::automagic_flags::none>("BRepOffsetAPI_ThruSections")
         .add_constructors(

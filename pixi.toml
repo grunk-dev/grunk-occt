@@ -47,7 +47,7 @@ pytest = "*"
 # console script and its libclang/pyyaml dependencies come along transitively with
 # this same pin, since grunk.codegen (grunk/python/grunk/codegen/) now lives in the
 # grunk package itself rather than a local codegen/generate.py copy here.
-grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "583da89f0184ef6333000c45573da65a9dd551d0" }
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "13ab6232fdcd7b7e20a916392cfbb607417fb143" }
 
 # Stock OCCT - only pulled in by the `default` environment (see [environments]).
 # Kept out of [dependencies] specifically so the `ad` environment (adOCCT instead,
@@ -103,7 +103,7 @@ pkg-config = "*"
 # libclang/pyyaml that comes along transitively with grunk's own default-feature
 # copy of this pin for that reason.
 [feature.ad.pypi-dependencies]
-grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "583da89f0184ef6333000c45573da65a9dd551d0" }
+grunk = { git = "https://github.com/grunk-dev/grunk.git", rev = "13ab6232fdcd7b7e20a916392cfbb607417fb143" }
 
 [feature.ad.activation.env]
 # Needed for the same reason [target.linux-64.activation.env]'s own copy is - cmake's

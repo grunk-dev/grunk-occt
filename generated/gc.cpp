@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "gc.hpp"
+#include "sol_base_classes.hpp"
 
 #include <GC_MakeArcOfCircle.hxx>
 #include <GC_MakeArcOfEllipse.hxx>

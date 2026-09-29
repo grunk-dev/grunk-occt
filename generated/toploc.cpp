@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "toploc.hpp"
+#include "sol_base_classes.hpp"
 
 #include <TopLoc_Location.hxx>
 
@@ -38,6 +39,11 @@ void register_toploc(grunk::plugin_namespace& ns)
         .add_member_function("IsEqual", [](TopLoc_Location const& self, const TopLoc_Location & Other) -> Standard_Boolean { return self.IsEqual(Other); })
         .add_member_function(sol::meta_function::equal_to, [](TopLoc_Location const& self, const TopLoc_Location & Other) -> Standard_Boolean { return self == Other; })
         .add_member_function("IsDifferent", [](TopLoc_Location const& self, const TopLoc_Location & Other) -> Standard_Boolean { return self.IsDifferent(Other); })
+        .add_member_function("DumpJson", sol::overload(
+            [](TopLoc_Location const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](TopLoc_Location const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ))
+        .add_member_function("ShallowDump", [](TopLoc_Location const& self, Standard_OStream & S) { self.ShallowDump(S); })
         .add_member_function("Clear", [](TopLoc_Location& self) { self.Clear(); });
     ns.register_function("TopLoc_Location_ScalePrec", []() -> Standard_Real { return TopLoc_Location::ScalePrec(); });
 }

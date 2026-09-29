@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "brepbuilderapi.hpp"
+#include "sol_base_classes.hpp"
 
 #include <BRepBuilderAPI.hxx>
 #include <BRepBuilderAPI_Collect.hxx>
@@ -156,7 +157,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Elips & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             [](const gp_Hypr & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             [](const gp_Parab & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
-            [](const opencascade::handle<Geom_Curve> & L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
+            [](opencascade::handle<Geom_Curve> L) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L); },
             [](const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(V1, V2); },
             [](const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(P1, P2); },
             [](const gp_Lin & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
@@ -169,8 +170,8 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Hypr & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
             [](const gp_Parab & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
             [](const gp_Parab & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
-            [](const opencascade::handle<Geom_Curve> & L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
-            [](const opencascade::handle<Geom_Curve> & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
+            [](opencascade::handle<Geom_Curve> L, const gp_Pnt & P1, const gp_Pnt & P2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2); },
+            [](opencascade::handle<Geom_Curve> L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Lin & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
@@ -208,49 +209,49 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
+            [](opencascade::handle<Geom_Curve> L, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
+            [](opencascade::handle<Geom_Curve> L, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, p1, p2); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & L, const gp_Pnt & P1, const gp_Pnt & P2, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
+            [](opencascade::handle<Geom_Curve> L, const gp_Pnt & P1, const gp_Pnt & P2, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & L, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2, p1, p2); }
+            [](opencascade::handle<Geom_Curve> L, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, P1, P2, p1, p2); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Curve> & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
+            [](opencascade::handle<Geom_Curve> L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, sol::object p1, sol::object p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
 #else
-            [](const opencascade::handle<Geom_Curve> & L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2, p1, p2); }
+            [](opencascade::handle<Geom_Curve> L, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const Standard_Real p1, const Standard_Real p2) { return std::make_unique<BRepBuilderAPI_MakeEdge>(L, V1, V2, p1, p2); }
 #endif
         
         )
         .add_member_function("Init", sol::overload(
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C) { self.Init(C); },
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const gp_Pnt & P1, const gp_Pnt & P2) { self.Init(C, P1, P2); },
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { self.Init(C, V1, V2); },
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C) { self.Init(C); },
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, const gp_Pnt & P1, const gp_Pnt & P2) { self.Init(C, P1, P2); },
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2) { self.Init(C, V1, V2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, sol::object p1, sol::object p2) { self.Init(C, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, sol::object p1, sol::object p2) { self.Init(C, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
 #else
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const Standard_Real p1, const Standard_Real p2) { self.Init(C, p1, p2); }
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, const Standard_Real p1, const Standard_Real p2) { self.Init(C, p1, p2); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const gp_Pnt & P1, const gp_Pnt & P2, sol::object p1, sol::object p2) { self.Init(C, P1, P2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, const gp_Pnt & P1, const gp_Pnt & P2, sol::object p1, sol::object p2) { self.Init(C, P1, P2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
 #else
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Real p1, const Standard_Real p2) { self.Init(C, P1, P2, p1, p2); }
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, const gp_Pnt & P1, const gp_Pnt & P2, const Standard_Real p1, const Standard_Real p2) { self.Init(C, P1, P2, p1, p2); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, sol::object p1, sol::object p2) { self.Init(C, V1, V2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, sol::object p1, sol::object p2) { self.Init(C, V1, V2, occt_plugin::to_real(p1), occt_plugin::to_real(p2)); }
 #else
-            [](BRepBuilderAPI_MakeEdge& self, const opencascade::handle<Geom_Curve> & C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const Standard_Real p1, const Standard_Real p2) { self.Init(C, V1, V2, p1, p2); }
+            [](BRepBuilderAPI_MakeEdge& self, opencascade::handle<Geom_Curve> C, const TopoDS_Vertex & V1, const TopoDS_Vertex & V2, const Standard_Real p1, const Standard_Real p2) { self.Init(C, V1, V2, p1, p2); }
 #endif
         
         ))
@@ -337,13 +338,13 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Cone & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
             [](const gp_Sphere & S, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W); },
             [](const gp_Torus & C, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W); },
-            [](const opencascade::handle<Geom_Surface> & S, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W); },
+            [](opencascade::handle<Geom_Surface> S, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W); },
             [](const TopoDS_Face & F, const TopoDS_Wire & W) { return std::make_unique<BRepBuilderAPI_MakeFace>(F, W); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, occt_plugin::to_real(TolDegen)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, occt_plugin::to_real(TolDegen)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, TolDegen); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, TolDegen); }
 #endif
         ,
             [](const gp_Pln & P, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(P, W, Inside); },
@@ -351,7 +352,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](const gp_Cone & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
             [](const gp_Sphere & S, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W, Inside); },
             [](const gp_Torus & C, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(C, W, Inside); },
-            [](const opencascade::handle<Geom_Surface> & S, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W, Inside); },
+            [](opencascade::handle<Geom_Surface> S, const TopoDS_Wire & W, const Standard_Boolean Inside) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, W, Inside); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](const gp_Pln & P, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax) { return std::make_unique<BRepBuilderAPI_MakeFace>(P, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
@@ -389,9 +390,9 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, sol::object TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(TolDegen)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, sol::object TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(TolDegen)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, UMin, UMax, VMin, VMax, TolDegen); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real TolDegen) { return std::make_unique<BRepBuilderAPI_MakeFace>(S, UMin, UMax, VMin, VMax, TolDegen); }
 #endif
         
         )
@@ -399,16 +400,16 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
             [](BRepBuilderAPI_MakeFace& self, const TopoDS_Face & F) { self.Init(F); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepBuilderAPI_MakeFace& self, const opencascade::handle<Geom_Surface> & S, const Standard_Boolean Bound, sol::object TolDegen) { self.Init(S, Bound, occt_plugin::to_real(TolDegen)); }
+            [](BRepBuilderAPI_MakeFace& self, opencascade::handle<Geom_Surface> S, const Standard_Boolean Bound, sol::object TolDegen) { self.Init(S, Bound, occt_plugin::to_real(TolDegen)); }
 #else
-            [](BRepBuilderAPI_MakeFace& self, const opencascade::handle<Geom_Surface> & S, const Standard_Boolean Bound, const Standard_Real TolDegen) { self.Init(S, Bound, TolDegen); }
+            [](BRepBuilderAPI_MakeFace& self, opencascade::handle<Geom_Surface> S, const Standard_Boolean Bound, const Standard_Real TolDegen) { self.Init(S, Bound, TolDegen); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepBuilderAPI_MakeFace& self, const opencascade::handle<Geom_Surface> & S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, sol::object TolDegen) { self.Init(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(TolDegen)); }
+            [](BRepBuilderAPI_MakeFace& self, opencascade::handle<Geom_Surface> S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, sol::object TolDegen) { self.Init(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), occt_plugin::to_real(TolDegen)); }
 #else
-            [](BRepBuilderAPI_MakeFace& self, const opencascade::handle<Geom_Surface> & S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real TolDegen) { self.Init(S, UMin, UMax, VMin, VMax, TolDegen); }
+            [](BRepBuilderAPI_MakeFace& self, opencascade::handle<Geom_Surface> S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Real TolDegen) { self.Init(S, UMin, UMax, VMin, VMax, TolDegen); }
 #endif
         
         ))
@@ -462,36 +463,36 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
     ns.register_type<BRepBuilderAPI_MakeShell, sol::automagic_flags::none>("BRepBuilderAPI_MakeShell")
         .add_constructors(
             []() { return std::make_unique<BRepBuilderAPI_MakeShell>(); },
-            [](const opencascade::handle<Geom_Surface> & S) { return std::make_unique<BRepBuilderAPI_MakeShell>(S); },
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Boolean Segment) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, Segment); },
+            [](opencascade::handle<Geom_Surface> S) { return std::make_unique<BRepBuilderAPI_MakeShell>(S); },
+            [](opencascade::handle<Geom_Surface> S, const Standard_Boolean Segment) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, Segment); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
+            [](opencascade::handle<Geom_Surface> S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, UMin, UMax, VMin, VMax); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, UMin, UMax, VMin, VMax); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, const Standard_Boolean Segment) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), Segment); }
+            [](opencascade::handle<Geom_Surface> S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, const Standard_Boolean Segment) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), Segment); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Boolean Segment) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, UMin, UMax, VMin, VMax, Segment); }
+            [](opencascade::handle<Geom_Surface> S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Boolean Segment) { return std::make_unique<BRepBuilderAPI_MakeShell>(S, UMin, UMax, VMin, VMax, Segment); }
 #endif
         
         )
         .add_member_function("Init", sol::overload(
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepBuilderAPI_MakeShell& self, const opencascade::handle<Geom_Surface> & S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax) { self.Init(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
+            [](BRepBuilderAPI_MakeShell& self, opencascade::handle<Geom_Surface> S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax) { self.Init(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax)); }
 #else
-            [](BRepBuilderAPI_MakeShell& self, const opencascade::handle<Geom_Surface> & S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax) { self.Init(S, UMin, UMax, VMin, VMax); }
+            [](BRepBuilderAPI_MakeShell& self, opencascade::handle<Geom_Surface> S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax) { self.Init(S, UMin, UMax, VMin, VMax); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](BRepBuilderAPI_MakeShell& self, const opencascade::handle<Geom_Surface> & S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, const Standard_Boolean Segment) { self.Init(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), Segment); }
+            [](BRepBuilderAPI_MakeShell& self, opencascade::handle<Geom_Surface> S, sol::object UMin, sol::object UMax, sol::object VMin, sol::object VMax, const Standard_Boolean Segment) { self.Init(S, occt_plugin::to_real(UMin), occt_plugin::to_real(UMax), occt_plugin::to_real(VMin), occt_plugin::to_real(VMax), Segment); }
 #else
-            [](BRepBuilderAPI_MakeShell& self, const opencascade::handle<Geom_Surface> & S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Boolean Segment) { self.Init(S, UMin, UMax, VMin, VMax, Segment); }
+            [](BRepBuilderAPI_MakeShell& self, opencascade::handle<Geom_Surface> S, const Standard_Real UMin, const Standard_Real UMax, const Standard_Real VMin, const Standard_Real VMax, const Standard_Boolean Segment) { self.Init(S, UMin, UMax, VMin, VMax, Segment); }
 #endif
         
         ))
@@ -532,7 +533,8 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         )
         .add_member_function("Add", sol::overload(
             [](BRepBuilderAPI_MakeWire& self, const TopoDS_Edge & E) { self.Add(E); },
-            [](BRepBuilderAPI_MakeWire& self, const TopoDS_Wire & W) { self.Add(W); }
+            [](BRepBuilderAPI_MakeWire& self, const TopoDS_Wire & W) { self.Add(W); },
+            [](BRepBuilderAPI_MakeWire& self, const TopTools_ListOfShape & L) { self.Add(L); }
         ))
         .add_member_function("IsDone", [](BRepBuilderAPI_MakeWire const& self) -> Standard_Boolean { return self.IsDone(); })
         .add_member_function("Error", [](BRepBuilderAPI_MakeWire const& self) -> BRepBuilderAPI_WireError { return self.Error(); })
@@ -746,7 +748,7 @@ void register_brepbuilderapi(grunk::plugin_namespace& ns)
         );
     ns.register_function("BRepBuilderAPI_Plane", sol::overload(
         []() -> opencascade::handle<Geom_Plane> { return BRepBuilderAPI::Plane(); },
-        [](const opencascade::handle<Geom_Plane> & P) { BRepBuilderAPI::Plane(P); }
+        [](opencascade::handle<Geom_Plane> P) { BRepBuilderAPI::Plane(P); }
     ));
     ns.register_function("BRepBuilderAPI_Precision", sol::overload(
         []() -> Standard_Real { return BRepBuilderAPI::Precision(); },

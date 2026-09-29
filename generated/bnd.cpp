@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "bnd.hpp"
+#include "sol_base_classes.hpp"
 
 #include <Bnd_Array1OfBox.hxx>
 #include <Bnd_Array1OfBox2d.hxx>
@@ -265,8 +266,8 @@ void register_bnd(grunk::plugin_namespace& ns)
             []() { return std::make_unique<Bnd_BoundSortBox>(); }
         )
         .add_member_function("Initialize", sol::overload(
-            [](Bnd_BoundSortBox& self, const opencascade::handle<Bnd_HArray1OfBox> & SetOfBox) { self.Initialize(SetOfBox); },
-            [](Bnd_BoundSortBox& self, const Bnd_Box & CompleteBox, const opencascade::handle<Bnd_HArray1OfBox> & SetOfBox) { self.Initialize(CompleteBox, SetOfBox); },
+            [](Bnd_BoundSortBox& self, opencascade::handle<Bnd_HArray1OfBox> SetOfBox) { self.Initialize(SetOfBox); },
+            [](Bnd_BoundSortBox& self, const Bnd_Box & CompleteBox, opencascade::handle<Bnd_HArray1OfBox> SetOfBox) { self.Initialize(CompleteBox, SetOfBox); },
             [](Bnd_BoundSortBox& self, const Bnd_Box & CompleteBox, const Standard_Integer nbComponents) { self.Initialize(CompleteBox, nbComponents); }
         ))
         .add_member_function("Add", [](Bnd_BoundSortBox& self, const Bnd_Box & theBox, const Standard_Integer boxIndex) { self.Add(theBox, boxIndex); })
@@ -383,7 +384,11 @@ void register_bnd(grunk::plugin_namespace& ns)
         .add_member_function("Dump", [](Bnd_Box const& self) { self.Dump(); })
         .add_member_function("SquareExtent", [](Bnd_Box const& self) -> Standard_Real { return self.SquareExtent(); })
         .add_member_function("FinitePart", [](Bnd_Box const& self) -> Bnd_Box { return self.FinitePart(); })
-        .add_member_function("HasFinitePart", [](Bnd_Box const& self) -> Standard_Boolean { return self.HasFinitePart(); });
+        .add_member_function("HasFinitePart", [](Bnd_Box const& self) -> Standard_Boolean { return self.HasFinitePart(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](Bnd_Box const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Bnd_Box const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<Bnd_Box2d, sol::automagic_flags::none>("Bnd_Box2d")
         .add_constructors(
             []() { return Bnd_Box2d(); }
@@ -542,6 +547,10 @@ void register_bnd(grunk::plugin_namespace& ns)
         .add_member_function("Add", sol::overload(
             [](Bnd_OBB& self, const Bnd_OBB & theOther) { self.Add(theOther); },
             [](Bnd_OBB& self, const gp_Pnt & theP) { self.Add(theP); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](Bnd_OBB const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Bnd_OBB const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<Bnd_Range, sol::automagic_flags::none>("Bnd_Range")
         .add_constructors(
@@ -630,7 +639,11 @@ void register_bnd(grunk::plugin_namespace& ns)
 #endif
         
         ))
-        .add_member_function(sol::meta_function::equal_to, [](Bnd_Range const& self, const Bnd_Range & theOther) -> Standard_Boolean { return self == theOther; });
+        .add_member_function(sol::meta_function::equal_to, [](Bnd_Range const& self, const Bnd_Range & theOther) -> Standard_Boolean { return self == theOther; })
+        .add_member_function("DumpJson", sol::overload(
+            [](Bnd_Range const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](Bnd_Range const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<Bnd_Sphere, sol::automagic_flags::none>("Bnd_Sphere")
         .add_constructors(
             []() { return Bnd_Sphere(); },

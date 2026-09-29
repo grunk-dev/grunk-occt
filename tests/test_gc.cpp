@@ -102,3 +102,26 @@ TEST_F(GcTest, MakeCircleFromAxisAndRadius)
     EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("p0y")), 0., 1e-9);
     EXPECT_NEAR(occt_plugin::to_double(env.get<sol::object>("p0z")), 0., 1e-9);
 }
+
+// GC_MakeArcOfCircle::Value() returns Handle(Geom_TrimmedCurve), fed directly (no
+// C++-side upcast, no escape hatch) into BRepBuilderAPI_MakeEdge's Handle(Geom_Curve)
+// constructor - src/gc/gc_extras.hpp's own occt.edge_from_arc used to do this upcast
+// in plain C++ because the generated binding couldn't; now that grunk-dev/grunk-occt#1
+// is fixed (see DESIGN.md's "Handle(Derived)->Handle(Base) argument conversion"), that
+// escape hatch is gone and this is the regression test for the native path.
+TEST_F(GcTest, ArcToEdgeNoEscapeHatch)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        p1 = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+        p_on_arc = occt.gp_Pnt.new(1.0, 1.0, 0.0)
+        p2 = occt.gp_Pnt.new(2.0, 0.0, 0.0)
+
+        arc = occt.GC_MakeArcOfCircle.new(p1, p_on_arc, p2)
+        curve = arc:Value()
+        edge = occt.BRepBuilderAPI_MakeEdge.new(curve):Edge()
+        is_null = edge:IsNull()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_FALSE(env.get<bool>("is_null"));
+}

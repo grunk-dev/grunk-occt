@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "gp.hpp"
+#include "sol_base_classes.hpp"
 
 #include <gp_Ax1.hxx>
 #include <gp_Ax2.hxx>
@@ -147,6 +148,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Ax1 const& self, const gp_Vec & theV) -> gp_Ax1 { return self.Translated(theV); },
             [](gp_Ax1 const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Ax1 { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Ax1 const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Ax1 const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Ax2, sol::automagic_flags::none>("gp_Ax2")
         .add_constructors(
@@ -228,6 +233,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Ax2 const& self, const gp_Vec & theV) -> gp_Ax2 { return self.Translated(theV); },
             [](gp_Ax2 const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Ax2 { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Ax2 const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Ax2 const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Ax22d, sol::automagic_flags::none>("gp_Ax22d")
         .add_constructors(
@@ -294,6 +303,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Ax22d const& self, const gp_Vec2d & theV) -> gp_Ax22d { return self.Translated(theV); },
             [](gp_Ax22d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Ax22d { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Ax22d const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Ax22d const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Ax2d, sol::automagic_flags::none>("gp_Ax2d")
         .add_constructors(
@@ -380,6 +393,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Ax2d const& self, const gp_Vec2d & theV) -> gp_Ax2d { return self.Translated(theV); },
             [](gp_Ax2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Ax2d { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Ax2d const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Ax2d const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Ax3, sol::automagic_flags::none>("gp_Ax3")
         .add_constructors(
@@ -467,6 +484,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Ax3 const& self, const gp_Vec & theV) -> gp_Ax3 { return self.Translated(theV); },
             [](gp_Ax3 const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Ax3 { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Ax3 const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Ax3 const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Circ, sol::automagic_flags::none>("gp_Circ")
         .add_constructors(
@@ -942,7 +963,11 @@ void register_gp(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Transform", [](gp_Dir& self, const gp_Trsf & theT) { self.Transform(theT); })
-        .add_member_function("Transformed", [](gp_Dir const& self, const gp_Trsf & theT) -> gp_Dir { return self.Transformed(theT); });
+        .add_member_function("Transformed", [](gp_Dir const& self, const gp_Trsf & theT) -> gp_Dir { return self.Transformed(theT); })
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Dir const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Dir const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<gp_Dir2d, sol::automagic_flags::none>("gp_Dir2d")
         .add_constructors(
             []() { return gp_Dir2d(); },
@@ -1049,7 +1074,11 @@ void register_gp(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Transform", [](gp_Dir2d& self, const gp_Trsf2d & theT) { self.Transform(theT); })
-        .add_member_function("Transformed", [](gp_Dir2d const& self, const gp_Trsf2d & theT) -> gp_Dir2d { return self.Transformed(theT); });
+        .add_member_function("Transformed", [](gp_Dir2d const& self, const gp_Trsf2d & theT) -> gp_Dir2d { return self.Transformed(theT); })
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Dir2d const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Dir2d const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<gp_Elips, sol::automagic_flags::none>("gp_Elips")
         .add_constructors(
             []() { return gp_Elips(); },
@@ -1323,7 +1352,11 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Power", [](gp_GTrsf& self, const Standard_Integer theN) { self.Power(theN); })
         .add_member_function("Powered", [](gp_GTrsf const& self, const Standard_Integer theN) -> gp_GTrsf { return self.Powered(theN); })
         .add_member_function("Transforms", [](gp_GTrsf const& self, gp_XYZ & theCoord) { self.Transforms(theCoord); })
-        .add_member_function("Trsf", [](gp_GTrsf const& self) -> gp_Trsf { return self.Trsf(); });
+        .add_member_function("Trsf", [](gp_GTrsf const& self) -> gp_Trsf { return self.Trsf(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_GTrsf const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_GTrsf const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<gp_GTrsf2d, sol::automagic_flags::none>("gp_GTrsf2d")
         .add_constructors(
             []() { return gp_GTrsf2d(); },
@@ -1836,7 +1869,11 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Subtracted", [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self.Subtracted(theOther); })
         .add_member_function(sol::meta_function::subtraction, [](gp_Mat const& self, const gp_Mat & theOther) -> gp_Mat { return self - theOther; })
         .add_member_function("Transpose", [](gp_Mat& self) { self.Transpose(); })
-        .add_member_function("Transposed", [](gp_Mat const& self) -> gp_Mat { return self.Transposed(); });
+        .add_member_function("Transposed", [](gp_Mat const& self) -> gp_Mat { return self.Transposed(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Mat const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Mat const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<gp_Mat2d, sol::automagic_flags::none>("gp_Mat2d")
         .add_constructors(
             []() { return gp_Mat2d(); },
@@ -2202,6 +2239,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Pln const& self, const gp_Vec & theV) -> gp_Pln { return self.Translated(theV); },
             [](gp_Pln const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Pln { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Pln const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Pln const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Pnt, sol::automagic_flags::none>("gp_Pnt")
         .add_constructors(
@@ -2318,6 +2359,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Pnt const& self, const gp_Vec & theV) -> gp_Pnt { return self.Translated(theV); },
             [](gp_Pnt const& self, const gp_Pnt & theP1, const gp_Pnt & theP2) -> gp_Pnt { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Pnt const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Pnt const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Pnt2d, sol::automagic_flags::none>("gp_Pnt2d")
         .add_constructors(
@@ -2424,6 +2469,10 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("Translated", sol::overload(
             [](gp_Pnt2d const& self, const gp_Vec2d & theV) -> gp_Pnt2d { return self.Translated(theV); },
             [](gp_Pnt2d const& self, const gp_Pnt2d & theP1, const gp_Pnt2d & theP2) -> gp_Pnt2d { return self.Translated(theP1, theP2); }
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Pnt2d const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Pnt2d const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_type<gp_Quaternion, sol::automagic_flags::none>("gp_Quaternion")
         .add_constructors(
@@ -2650,6 +2699,7 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("VReverse", [](gp_Torus& self) { self.VReverse(); })
         .add_member_function("Direct", [](gp_Torus const& self) -> Standard_Boolean { return self.Direct(); })
         .add_member_function("Axis", [](gp_Torus const& self) -> const gp_Ax1 & { return self.Axis(); })
+        .add_member_function("Coefficients", [](gp_Torus const& self, TColStd_Array1OfReal & theCoef) { self.Coefficients(theCoef); })
         .add_member_function("Location", [](gp_Torus const& self) -> const gp_Pnt & { return self.Location(); })
         .add_member_function("Position", [](gp_Torus const& self) -> const gp_Ax3 & { return self.Position(); })
         .add_member_function("MajorRadius", [](gp_Torus const& self) -> Standard_Real { return self.MajorRadius(); })
@@ -2775,7 +2825,11 @@ void register_gp(grunk::plugin_namespace& ns)
         .add_member_function("PreMultiply", [](gp_Trsf& self, const gp_Trsf & theT) { self.PreMultiply(theT); })
         .add_member_function("Power", [](gp_Trsf& self, const Standard_Integer theN) { self.Power(theN); })
         .add_member_function("Powered", [](gp_Trsf const& self, const Standard_Integer theN) -> gp_Trsf { return self.Powered(theN); })
-        .add_member_function("Transforms", [](gp_Trsf const& self, gp_XYZ & theCoord) { self.Transforms(theCoord); });
+        .add_member_function("Transforms", [](gp_Trsf const& self, gp_XYZ & theCoord) { self.Transforms(theCoord); })
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Trsf const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Trsf const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<gp_Trsf2d, sol::automagic_flags::none>("gp_Trsf2d")
         .add_constructors(
             []() { return gp_Trsf2d(); },
@@ -3068,7 +3122,11 @@ void register_gp(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Transform", [](gp_Vec& self, const gp_Trsf & theT) { self.Transform(theT); })
-        .add_member_function("Transformed", [](gp_Vec const& self, const gp_Trsf & theT) -> gp_Vec { return self.Transformed(theT); });
+        .add_member_function("Transformed", [](gp_Vec const& self, const gp_Trsf & theT) -> gp_Vec { return self.Transformed(theT); })
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_Vec const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_Vec const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<gp_Vec2d, sol::automagic_flags::none>("gp_Vec2d")
         .add_constructors(
             []() { return gp_Vec2d(); },
@@ -3552,6 +3610,10 @@ void register_gp(grunk::plugin_namespace& ns)
             [](gp_XYZ& self, const Standard_Real theA1, const gp_XYZ & theXYZ1, const Standard_Real theA2, const gp_XYZ & theXYZ2, const Standard_Real theA3, const gp_XYZ & theXYZ3, const gp_XYZ & theXYZ4) { self.SetLinearForm(theA1, theXYZ1, theA2, theXYZ2, theA3, theXYZ3, theXYZ4); }
 #endif
         
+        ))
+        .add_member_function("DumpJson", sol::overload(
+            [](gp_XYZ const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](gp_XYZ const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
         ));
     ns.register_function("gp_QuaternionNLerp_Interpolate", sol::overload(
         

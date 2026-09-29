@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "breptools.hpp"
+#include "sol_base_classes.hpp"
 
 #include <BRepTools.hxx>
 #include <Bnd_Box2d.hxx>
@@ -89,10 +90,23 @@ void register_breptools(grunk::plugin_namespace& ns)
         [](const TopoDS_Edge & E1, const TopoDS_Edge & E2) -> Standard_Boolean { return BRepTools::Compare(E1, E2); }
     ));
     ns.register_function("BRepTools_OuterWire", [](const TopoDS_Face & F) -> TopoDS_Wire { return BRepTools::OuterWire(F); });
+    ns.register_function("BRepTools_Map3DEdges", [](const TopoDS_Shape & S, TopTools_IndexedMapOfShape & M) { BRepTools::Map3DEdges(S, M); });
     ns.register_function("BRepTools_IsReallyClosed", [](const TopoDS_Edge & E, const TopoDS_Face & F) -> Standard_Boolean { return BRepTools::IsReallyClosed(E, F); });
+    ns.register_function("BRepTools_Dump", [](const TopoDS_Shape & Sh, Standard_OStream & S) { BRepTools::Dump(Sh, S); });
+    ns.register_function("BRepTools_Write", sol::overload(
+        [](const TopoDS_Shape & theShape, Standard_OStream & theStream) { BRepTools::Write(theShape, theStream); },
+        [](const TopoDS_Shape & theShape, Standard_OStream & theStream, const Message_ProgressRange & theProgress) { BRepTools::Write(theShape, theStream, theProgress); },
+        [](const TopoDS_Shape & theShape, Standard_OStream & theStream, const Standard_Boolean theWithTriangles, const Standard_Boolean theWithNormals, const TopTools_FormatVersion theVersion) { BRepTools::Write(theShape, theStream, theWithTriangles, theWithNormals, theVersion); },
+        [](const TopoDS_Shape & theShape, Standard_OStream & theStream, const Standard_Boolean theWithTriangles, const Standard_Boolean theWithNormals, const TopTools_FormatVersion theVersion, const Message_ProgressRange & theProgress) { BRepTools::Write(theShape, theStream, theWithTriangles, theWithNormals, theVersion, theProgress); }
+    ));
+    ns.register_function("BRepTools_Read", sol::overload(
+        [](TopoDS_Shape & Sh, Standard_IStream & S, const BRep_Builder & B) { BRepTools::Read(Sh, S, B); },
+        [](TopoDS_Shape & Sh, Standard_IStream & S, const BRep_Builder & B, const Message_ProgressRange & theProgress) { BRepTools::Read(Sh, S, B, theProgress); }
+    ));
     ns.register_function("BRepTools_OriEdgeInFace", [](const TopoDS_Edge & theEdge, const TopoDS_Face & theFace) -> TopAbs_Orientation { return BRepTools::OriEdgeInFace(theEdge, theFace); });
     ns.register_function("BRepTools_RemoveInternals", sol::overload(
         [](TopoDS_Shape & theS) { BRepTools::RemoveInternals(theS); },
         [](TopoDS_Shape & theS, const Standard_Boolean theForce) { BRepTools::RemoveInternals(theS, theForce); }
     ));
+    ns.register_function("BRepTools_CheckLocations", [](const TopoDS_Shape & theS, TopTools_ListOfShape & theProblemShapes) { BRepTools::CheckLocations(theS, theProblemShapes); });
 }

@@ -205,7 +205,11 @@ recipes:
 
           p4 = occt.gp_Pnt.new(diagonal_width_neg, diagonal_width, 0.0)
           p5 = occt.gp_Pnt.new(0.0, radius, 0.0)
-          edge3 = occt.edge_from_arc(p4, p5, p3)
+          -- Native GC_MakeArcOfCircle -> BRepBuilderAPI_MakeEdge chain, no escape
+          -- hatch: occt.edge_from_arc (src/gc/gc_extras.hpp) is gone now that
+          -- grunk-dev/grunk-occt#1 is fixed for real (see DESIGN.md).
+          arc3 = occt.GC_MakeArcOfCircle.new(p4, p5, p3)
+          edge3 = occt.BRepBuilderAPI_MakeEdge.new(arc3:Value()):Edge()
 
           edge0 = occt.BRepBuilderAPI_MakeEdge.new(p4, p2):Edge()
 

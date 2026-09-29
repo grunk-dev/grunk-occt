@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "geomapi.hpp"
+#include "sol_base_classes.hpp"
 
 #include <GeomAPI_ExtremaCurveCurve.hxx>
 #include <GeomAPI_ExtremaCurveSurface.hxx>
@@ -32,22 +33,22 @@ void register_geomapi(grunk::plugin_namespace& ns)
     ns.register_type<GeomAPI_ExtremaSurfaceSurface, sol::automagic_flags::none>("GeomAPI_ExtremaSurfaceSurface")
         .add_constructors(
             []() { return GeomAPI_ExtremaSurfaceSurface(); },
-            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2) { return GeomAPI_ExtremaSurfaceSurface(S1, S2); },
+            [](opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2) { return GeomAPI_ExtremaSurfaceSurface(S1, S2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object U1min, sol::object U1max, sol::object V1min, sol::object V1max, sol::object U2min, sol::object U2max, sol::object V2min, sol::object V2max) { return GeomAPI_ExtremaSurfaceSurface(S1, S2, occt_plugin::to_real(U1min), occt_plugin::to_real(U1max), occt_plugin::to_real(V1min), occt_plugin::to_real(V1max), occt_plugin::to_real(U2min), occt_plugin::to_real(U2max), occt_plugin::to_real(V2min), occt_plugin::to_real(V2max)); }
+            [](opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, sol::object U1min, sol::object U1max, sol::object V1min, sol::object V1max, sol::object U2min, sol::object U2max, sol::object V2min, sol::object V2max) { return GeomAPI_ExtremaSurfaceSurface(S1, S2, occt_plugin::to_real(U1min), occt_plugin::to_real(U1max), occt_plugin::to_real(V1min), occt_plugin::to_real(V1max), occt_plugin::to_real(U2min), occt_plugin::to_real(U2max), occt_plugin::to_real(V2min), occt_plugin::to_real(V2max)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real U1min, const Standard_Real U1max, const Standard_Real V1min, const Standard_Real V1max, const Standard_Real U2min, const Standard_Real U2max, const Standard_Real V2min, const Standard_Real V2max) { return GeomAPI_ExtremaSurfaceSurface(S1, S2, U1min, U1max, V1min, V1max, U2min, U2max, V2min, V2max); }
+            [](opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, const Standard_Real U1min, const Standard_Real U1max, const Standard_Real V1min, const Standard_Real V1max, const Standard_Real U2min, const Standard_Real U2max, const Standard_Real V2min, const Standard_Real V2max) { return GeomAPI_ExtremaSurfaceSurface(S1, S2, U1min, U1max, V1min, V1max, U2min, U2max, V2min, V2max); }
 #endif
         
         )
         .add_member_function("Init", sol::overload(
-            [](GeomAPI_ExtremaSurfaceSurface& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2) { self.Init(S1, S2); },
+            [](GeomAPI_ExtremaSurfaceSurface& self, opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2) { self.Init(S1, S2); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](GeomAPI_ExtremaSurfaceSurface& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object U1min, sol::object U1max, sol::object V1min, sol::object V1max, sol::object U2min, sol::object U2max, sol::object V2min, sol::object V2max) { self.Init(S1, S2, occt_plugin::to_real(U1min), occt_plugin::to_real(U1max), occt_plugin::to_real(V1min), occt_plugin::to_real(V1max), occt_plugin::to_real(U2min), occt_plugin::to_real(U2max), occt_plugin::to_real(V2min), occt_plugin::to_real(V2max)); }
+            [](GeomAPI_ExtremaSurfaceSurface& self, opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, sol::object U1min, sol::object U1max, sol::object V1min, sol::object V1max, sol::object U2min, sol::object U2max, sol::object V2min, sol::object V2max) { self.Init(S1, S2, occt_plugin::to_real(U1min), occt_plugin::to_real(U1max), occt_plugin::to_real(V1min), occt_plugin::to_real(V1max), occt_plugin::to_real(U2min), occt_plugin::to_real(U2max), occt_plugin::to_real(V2min), occt_plugin::to_real(V2max)); }
 #else
-            [](GeomAPI_ExtremaSurfaceSurface& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real U1min, const Standard_Real U1max, const Standard_Real V1min, const Standard_Real V1max, const Standard_Real U2min, const Standard_Real U2max, const Standard_Real V2min, const Standard_Real V2max) { self.Init(S1, S2, U1min, U1max, V1min, V1max, U2min, U2max, V2min, V2max); }
+            [](GeomAPI_ExtremaSurfaceSurface& self, opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, const Standard_Real U1min, const Standard_Real U1max, const Standard_Real V1min, const Standard_Real V1max, const Standard_Real U2min, const Standard_Real U2max, const Standard_Real V2min, const Standard_Real V2max) { self.Init(S1, S2, U1min, U1max, V1min, V1max, U2min, U2max, V2min, V2max); }
 #endif
         
         ))
@@ -61,9 +62,9 @@ void register_geomapi(grunk::plugin_namespace& ns)
     ns.register_type<GeomAPI_IntCS, sol::automagic_flags::none>("GeomAPI_IntCS")
         .add_constructors(
             []() { return GeomAPI_IntCS(); },
-            [](const opencascade::handle<Geom_Curve> & C, const opencascade::handle<Geom_Surface> & S) { return GeomAPI_IntCS(C, S); }
+            [](opencascade::handle<Geom_Curve> C, opencascade::handle<Geom_Surface> S) { return GeomAPI_IntCS(C, S); }
         )
-        .add_member_function("Perform", [](GeomAPI_IntCS& self, const opencascade::handle<Geom_Curve> & C, const opencascade::handle<Geom_Surface> & S) { self.Perform(C, S); })
+        .add_member_function("Perform", [](GeomAPI_IntCS& self, opencascade::handle<Geom_Curve> C, opencascade::handle<Geom_Surface> S) { self.Perform(C, S); })
         .add_member_function("IsDone", [](GeomAPI_IntCS const& self) -> Standard_Boolean { return self.IsDone(); })
         .add_member_function("NbPoints", [](GeomAPI_IntCS const& self) -> Standard_Integer { return self.NbPoints(); })
         .add_member_function("Point", [](GeomAPI_IntCS const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Point(Index); })
@@ -74,17 +75,17 @@ void register_geomapi(grunk::plugin_namespace& ns)
             []() { return GeomAPI_IntSS(); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object Tol) { return GeomAPI_IntSS(S1, S2, occt_plugin::to_real(Tol)); }
+            [](opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, sol::object Tol) { return GeomAPI_IntSS(S1, S2, occt_plugin::to_real(Tol)); }
 #else
-            [](const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real Tol) { return GeomAPI_IntSS(S1, S2, Tol); }
+            [](opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, const Standard_Real Tol) { return GeomAPI_IntSS(S1, S2, Tol); }
 #endif
         
         )
         .add_member_function("Perform", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](GeomAPI_IntSS& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, sol::object Tol) { self.Perform(S1, S2, occt_plugin::to_real(Tol)); }
+            [](GeomAPI_IntSS& self, opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, sol::object Tol) { self.Perform(S1, S2, occt_plugin::to_real(Tol)); }
 #else
-            [](GeomAPI_IntSS& self, const opencascade::handle<Geom_Surface> & S1, const opencascade::handle<Geom_Surface> & S2, const Standard_Real Tol) { self.Perform(S1, S2, Tol); }
+            [](GeomAPI_IntSS& self, opencascade::handle<Geom_Surface> S1, opencascade::handle<Geom_Surface> S2, const Standard_Real Tol) { self.Perform(S1, S2, Tol); }
 #endif
         )
         .add_member_function("IsDone", [](GeomAPI_IntSS const& self) -> Standard_Boolean { return self.IsDone(); })
@@ -429,29 +430,29 @@ void register_geomapi(grunk::plugin_namespace& ns)
     ns.register_type<GeomAPI_ProjectPointOnCurve, sol::automagic_flags::none>("GeomAPI_ProjectPointOnCurve")
         .add_constructors(
             []() { return GeomAPI_ProjectPointOnCurve(); },
-            [](const gp_Pnt & P, const opencascade::handle<Geom_Curve> & Curve) { return GeomAPI_ProjectPointOnCurve(P, Curve); },
+            [](const gp_Pnt & P, opencascade::handle<Geom_Curve> Curve) { return GeomAPI_ProjectPointOnCurve(P, Curve); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](const gp_Pnt & P, const opencascade::handle<Geom_Curve> & Curve, sol::object Umin, sol::object Usup) { return GeomAPI_ProjectPointOnCurve(P, Curve, occt_plugin::to_real(Umin), occt_plugin::to_real(Usup)); }
+            [](const gp_Pnt & P, opencascade::handle<Geom_Curve> Curve, sol::object Umin, sol::object Usup) { return GeomAPI_ProjectPointOnCurve(P, Curve, occt_plugin::to_real(Umin), occt_plugin::to_real(Usup)); }
 #else
-            [](const gp_Pnt & P, const opencascade::handle<Geom_Curve> & Curve, const Standard_Real Umin, const Standard_Real Usup) { return GeomAPI_ProjectPointOnCurve(P, Curve, Umin, Usup); }
+            [](const gp_Pnt & P, opencascade::handle<Geom_Curve> Curve, const Standard_Real Umin, const Standard_Real Usup) { return GeomAPI_ProjectPointOnCurve(P, Curve, Umin, Usup); }
 #endif
         
         )
         .add_member_function("Init", sol::overload(
-            [](GeomAPI_ProjectPointOnCurve& self, const gp_Pnt & P, const opencascade::handle<Geom_Curve> & Curve) { self.Init(P, Curve); },
+            [](GeomAPI_ProjectPointOnCurve& self, const gp_Pnt & P, opencascade::handle<Geom_Curve> Curve) { self.Init(P, Curve); },
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](GeomAPI_ProjectPointOnCurve& self, const opencascade::handle<Geom_Curve> & Curve, sol::object Umin, sol::object Usup) { self.Init(Curve, occt_plugin::to_real(Umin), occt_plugin::to_real(Usup)); }
+            [](GeomAPI_ProjectPointOnCurve& self, opencascade::handle<Geom_Curve> Curve, sol::object Umin, sol::object Usup) { self.Init(Curve, occt_plugin::to_real(Umin), occt_plugin::to_real(Usup)); }
 #else
-            [](GeomAPI_ProjectPointOnCurve& self, const opencascade::handle<Geom_Curve> & Curve, const Standard_Real Umin, const Standard_Real Usup) { self.Init(Curve, Umin, Usup); }
+            [](GeomAPI_ProjectPointOnCurve& self, opencascade::handle<Geom_Curve> Curve, const Standard_Real Umin, const Standard_Real Usup) { self.Init(Curve, Umin, Usup); }
 #endif
         ,
             
 #if defined(GRUNK_OCCT_WITH_ADOLC)
-            [](GeomAPI_ProjectPointOnCurve& self, const gp_Pnt & P, const opencascade::handle<Geom_Curve> & Curve, sol::object Umin, sol::object Usup) { self.Init(P, Curve, occt_plugin::to_real(Umin), occt_plugin::to_real(Usup)); }
+            [](GeomAPI_ProjectPointOnCurve& self, const gp_Pnt & P, opencascade::handle<Geom_Curve> Curve, sol::object Umin, sol::object Usup) { self.Init(P, Curve, occt_plugin::to_real(Umin), occt_plugin::to_real(Usup)); }
 #else
-            [](GeomAPI_ProjectPointOnCurve& self, const gp_Pnt & P, const opencascade::handle<Geom_Curve> & Curve, const Standard_Real Umin, const Standard_Real Usup) { self.Init(P, Curve, Umin, Usup); }
+            [](GeomAPI_ProjectPointOnCurve& self, const gp_Pnt & P, opencascade::handle<Geom_Curve> Curve, const Standard_Real Umin, const Standard_Real Usup) { self.Init(P, Curve, Umin, Usup); }
 #endif
         
         ))

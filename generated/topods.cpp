@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "topods.hpp"
+#include "sol_base_classes.hpp"
 
 #include <TopoDS_Shape.hxx>
 #include <TopoDS_Vertex.hxx>
@@ -100,7 +101,11 @@ void register_topods(grunk::plugin_namespace& ns)
         .add_member_function(sol::meta_function::equal_to, [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self == theOther; })
         .add_member_function("IsNotEqual", [](TopoDS_Shape const& self, const TopoDS_Shape & theOther) -> Standard_Boolean { return self.IsNotEqual(theOther); })
         .add_member_function("EmptyCopy", [](TopoDS_Shape& self) { self.EmptyCopy(); })
-        .add_member_function("EmptyCopied", [](TopoDS_Shape const& self) -> TopoDS_Shape { return self.EmptyCopied(); });
+        .add_member_function("EmptyCopied", [](TopoDS_Shape const& self) -> TopoDS_Shape { return self.EmptyCopied(); })
+        .add_member_function("DumpJson", sol::overload(
+            [](TopoDS_Shape const& self, Standard_OStream & theOStream) { self.DumpJson(theOStream); },
+            [](TopoDS_Shape const& self, Standard_OStream & theOStream, Standard_Integer theDepth) { self.DumpJson(theOStream, theDepth); }
+        ));
     ns.register_type<TopoDS_Vertex, sol::automagic_flags::none>("TopoDS_Vertex")
         .add_constructors(
             []() { return TopoDS_Vertex(); }

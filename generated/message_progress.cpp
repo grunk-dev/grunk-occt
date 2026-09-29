@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "message_progress.hpp"
+#include "sol_base_classes.hpp"
 
 #include <Message_ProgressRange.hxx>
 

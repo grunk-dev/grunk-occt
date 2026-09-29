@@ -180,6 +180,32 @@ class Hooks(generate.CodeGenerator):
             if self._ad_variant:
                 return f"sol::object {param.name}", f"{NS}::to_real({param.name})"
             return None  # primary variant: plain Standard_Real spelling, builtin fallback is correct
+        if kind == "handle":
+            # Emitted BY VALUE (opencascade::handle<X>, not the original
+            # declaration's own "const opencascade::handle<X>&") - required for
+            # sol2's own Handle(Derived)->Handle(X) unique-usertype base-class
+            # conversion to have any chance of applying at all. Root-caused
+            # precisely (see DESIGN.md's "interpolate_curves segfault, real
+            # root cause found" and its own follow-up entries): sol2's
+            # qualified_checker/qualified_getter (the base-aware code path,
+            # consulted during overload resolution and multi-parameter
+            # argument binding - sol::detail::inheritance<T>::type_unique_cast,
+            # which needs SOL_BASE_CLASSES/SOL_DERIVED_CLASSES, generated/
+            # sol_base_classes.hpp) explicitly excludes reference parameters
+            # (`!std::is_reference_v<X>`) from that whole mechanism - a
+            # by-reference Handle(X) parameter, however it's registered, can
+            # only ever accept an *exact*-type match. A Handle is a cheap-to-
+            # copy smart pointer (an O(1) refcount increment, not a deep copy),
+            # so passing every one of them by value instead is always safe and
+            # is what actually enables this - confirmed by a live rebuild of
+            # BRepBuilderAPI_MakeFace's own generated constructor overload set
+            # (a Handle(Geom_Surface) parameter, previously accepting only a
+            # Handle(Geom_Surface) argument exactly, now correctly also
+            # accepting a Handle(Geom_BSplineSurface)/any other registered
+            # subtype).
+            m = HANDLE_PATTERN.match(param.base)
+            handle_type = f"opencascade::handle<{m.group(1)}>"
+            return f"{handle_type} {param.name}", param.name
         if kind == "array1":
             elem = _array_element_type(param.canonical, ARRAY1_PATTERN)
             # A real-element array1 (e.g. TColStd_Array1OfReal) needs

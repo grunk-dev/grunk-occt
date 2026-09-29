@@ -492,33 +492,20 @@ re-deriving the reason fresh; so far every module has needed none of its own.
     `src/occt_sol_traits.hpp`'s `unique_usertype_traits<opencascade::handle<T>>`
     specialization - sol2's own built-in `std::shared_ptr<T>` hits the identical
     gates/crash for a `Derived` satisfying a `Base` parameter, so this isn't
-    something a different trait implementation could fix on its own. **Not fixed
-    here** - tracked as
+    something a different trait implementation could fix on its own. Tracked as
     [grunk-dev/grunk-occt#1](https://github.com/grunk-dev/grunk-occt/issues/1)
-    (full sol2-internals writeup and the recommended fix), deliberately kept as an
-    *occt-specific generator customization point* rather than a generic generator
-    feature: `codegen/generate.py` is planned to eventually move into the `grunk`
-    repo itself so other plugins can reuse it (a longer-term goal, deliberately out
-    of scope for now)
-    - this Handle(T)/base-casting problem is entirely specific to OCCT's handle
-    idiom, not something a hypothetical future non-OCCT plugin using the same
-    generator core would ever hit, so its fix belongs in this repo's own
-    generator config/extension point when the move happens, not baked into a
-    shared core. Different category from the Debug/Release `Handle(T)` upcast bug
-    above ([grunk-dev/grunk#283](https://github.com/grunk-dev/grunk/issues/283)),
-    which stays a grunk issue since it's about grunk/sol2's own build configuration,
-    not a generator-emitted-code shape decision. Consequence: `GeomAPI_
-    ProjectPointOnCurve`/`ProjectPointOnCurve`-shaped APIs taking a `Handle(Geom_
-    Curve)`/`Handle(Geom_Surface)` parameter remain registered (still valid, useful
-    C++) but are not currently *callable from Lua* with any real curve/surface -
-    this will recur for any future module accepting a `Geom_Curve`/`Geom_Surface`
-    handle as a parameter (not just as a return value or `self`), e.g.
-    `BRep_Builder::MakeEdge`'s own `Handle(Geom_Curve)` overloads (accepted by the
-    generator, never yet exercised from Lua either). `tests/test_geomapi.cpp`'s own
-    `InterpolateBSplineSurfaceFromPointGrid` sidesteps this entirely -
-    `GeomAPI_PointsToBSplineSurface::Interpolate` takes a 2D grid of `gp_Pnt` (via
-    the `NCollection_Array2<gp_Pnt>` conversion above), no `Handle(Geom_*)` parameter
-    involved.
+    (full sol2-internals writeup) -
+    **fixed for real 2026-09-28/29, generically, not as an occt-specific
+    generator customization point as originally planned here**: see this file's
+    own later "`Handle(Derived)`->`Handle(Base)` argument conversion: real root
+    cause and fix" section for the actual three-part mechanism (`rebind_actual_type`,
+    generated `SOL_BASE_CLASSES`/`SOL_DERIVED_CLASSES`, by-value `Handle(X)`
+    parameter emission) and its own "grunk-dev/grunk-occt#1 closed" follow-up for
+    `GeomAPI_ProjectPointOnCurve` (this section's own original reproducer)
+    confirmed working natively - `tests/test_geomapi.cpp`'s `ProjectPointOntoLine`
+    is the regression test. Left historical detail below (the original,
+    now-superseded analysis) for context on how the bug was first found and why
+    it was originally judged occt-specific.
 - **`brepfilletapi`** (`BRepFilletAPI_*`, whole-module wildcard): legacy grocc's own
   `config.yml.in` wildcarded this whole module too, with **no** blacklist entries at
   all - re-derived fresh (verified, not just carried forward) and
@@ -1642,3 +1629,215 @@ real risk of the "just re-register it" workaround, not a ruled-out option.
   automagic_flags::none>()` may turn out to produce compatible-enough behavior across two separate
   calls, since neither one adds any automagic surface for sol2's own object-identity resolution to
   disagree about) - not tested, not assumed safe.
+
+## `Handle(Derived)`->`Handle(Base)` argument conversion: real root cause and fix (2026-09-28)
+
+Prompted by a concrete, reproducible failure in a *sibling* plugin
+(`grunk-geoml`): `BRepBuilderAPI_MakeFace`'s own generated constructor overload
+set (`generated/brepbuilderapi.cpp`, a `Handle(Geom_Surface)` parameter) rejected
+a `Handle(Geom_BSplineSurface)` argument outright with sol2's own "no matching
+function call takes this number of arguments and the specified types" - even
+though `Geom_BSplineSurface` genuinely derives from `Geom_Surface` and this
+module's own `.add_bases<...>()` call for it is correct. This is almost
+certainly the same underlying mechanism as this file's own "Known issue:
+`Handle(T)` upcast argument-checking fails in Debug (`SOL_SAFE_FUNCTION_CALLS`)
+builds" section above (grunk-dev/grunk#283) - both are really about sol2's own
+inconsistent handling of `Handle(Derived)`->`Handle(Base)` conversion depending
+on exactly which internal code path a given call/check goes through - but this
+time root-caused precisely enough to fix, rather than filed as an open question.
+
+**The precise mechanism**, found by reading sol2's own vendored source directly
+(not guessed, not inferred from behavior alone - `sol/inheritance.hpp`,
+`sol/unique_usertype_traits.hpp`, `sol/stack_check_qualified.hpp`,
+`sol/stack_get_unqualified.hpp`), confirmed by a real, minimal, build-and-run
+spike (a small synthetic `Base`/`Middle`/`Derived`/`OtherDerived` hierarchy)
+before ever touching real OCCT code:
+
+1. sol2's own base-class-aware unique-usertype conversion
+   (`sol::detail::inheritance<T>::type_unique_cast`, consulted whenever a value
+   registered as one concrete type needs to satisfy a request for one of its
+   bases) only ever walks a *non-empty* base list when
+   `unique_usertype_traits<ActualType>` defines a `rebind_actual_type` member
+   template - exactly the member sol2's own built-in `std::shared_ptr<T>`
+   support already provides, and this project's own `src/occt_sol_traits.hpp`
+   never did. Without it, the conversion is unconditionally treated as
+   impossible, silently, regardless of what `add_bases<...>()` declares -
+   fixed by adding `template <typename X> using rebind_actual_type =
+   opencascade::handle<X>;` to the `unique_usertype_traits<opencascade::handle<T>>`
+   specialization.
+2. Even with that present, the base list walked is `sol::base<T>::type` - a
+   *separate*, compile-time-only trait (populated via the `SOL_BASE_CLASSES(T,
+   Base...)` macro), entirely independent of the *runtime* `.add_bases<...>()`
+   metatable property this generator already emits per class. Neither this
+   plugin nor `grunk.codegen` itself ever populated it. Fixed generically, in
+   `grunk` itself (this project's shared codegen dependency, not something
+   local to this repo): `grunk.codegen.generate` now aggregates every module's
+   own class hierarchy (`ModuleResult.bases`, already computed for
+   `.add_bases<...>()`) across a *whole* `run()` (not per-module - a
+   `SOL_DERIVED_CLASSES(Base, ...)` needs to know about every class deriving
+   from `Base` anywhere in the config, however many separate modules they're
+   split across under `translation_units.mode: separate`) and emits a new,
+   generated `sol_base_classes.hpp` (one `SOL_BASE_CLASSES(Derived, Base...)`
+   per class with a non-empty chain via the same `hooks.emit_bases()` override
+   point already used for `.add_bases<...>()`, plus the inverted
+   `SOL_DERIVED_CLASSES(Base, Derived...)` per base), `#include`d by every
+   generated module's own `.cpp`.
+3. Even with *both* of the above, sol2's own base-aware code path
+   (`qualified_checker`/`qualified_getter`, the ones that actually consult
+   `type_unique_cast`) explicitly excludes **reference** parameters
+   (`!std::is_reference_v<X>` in both) - a `Handle(Base) const&` parameter (the
+   verbatim spelling of nearly every real OCCT declaration this generator
+   copies) can therefore only ever satisfy an *exact*-type match, never a
+   derived one, no matter what the first two fixes provide. Fixed in this
+   plugin's own `codegen/hooks.py`: `emit_param()` now has a `kind == "handle"`
+   branch emitting a plain, by-value `opencascade::handle<X>` parameter instead
+   of the original declaration's own `const opencascade::handle<X>&` - safe
+   unconditionally, since a Handle is a cheap smart pointer to copy (an O(1)
+   refcount increment, not a deep copy).
+
+**Verified end-to-end**, not just reasoned about: a real `grunk codegen` run
+(`pixi run generate_code`, `-D GRUNK_OCCT_GENERATE_CODE=ON`) against this
+plugin's actual `config.yml`/real OCCT headers, a full rebuild, and the full
+existing test suite (50/50 `runUnitTests`, unaffected/still green) - plus a
+live spike confirming `occt.BRepBuilderAPI_MakeFace.new(bspline_surface, tol)`
+(a `Handle(Geom_BSplineSurface)` argument for the generated overload set's own
+`Handle(Geom_Surface)` parameter) now succeeds and produces a real,
+exportable face, where it previously threw "no matching function call" every
+time.
+
+**Relationship to the existing `SOL_SAFE_FUNCTION_CALLS`/Debug-build finding
+above**: not fully reconciled - that entry describes a Release-vs-Debug
+discrepancy for a call that (unlike the fix here) has no `SOL_BASE_CLASSES`/
+`SOL_DERIVED_CLASSES`/by-value treatment at all, so it may be a related but
+distinct manifestation of sol2's own inconsistent unique-usertype dispatch
+(there may be *more than one* internal code path capable of accepting or
+rejecting a `Handle(Derived)` for a `Handle(Base)` request, gated by different
+things - `SOL_SAFE_FUNCTION_CALLS` for one, reference-vs-value for another).
+Worth re-testing `NullHandleSurfacesAsNil`/`downcast_to_geom_line` in a Debug
+build now that all three fixes above are in place, to see whether they also
+happen to close that gap - not done here (out of scope for this change, which
+was scoped to the concrete `BRepBuilderAPI_MakeFace` failure that motivated it).
+
+**What's committed where**: the `rebind_actual_type` trait fix
+(`src/occt_sol_traits.hpp`) and the by-value `emit_param()` override
+(`codegen/hooks.py`) are this repo's own. The `sol_base_classes.hpp`-generation
+feature itself lives in `grunk` (this project's shared codegen dependency) -
+fixed there (commit `d9b079905d4eccaa08d51265ab2f6ef6b76786cd`, merged/pushed
+by the user), following this workspace's own established workflow for generic
+codegen bugs (see this repo's own git history for the two, earlier such fixes -
+canonical-spelling/`std::string`/`std::vector<T>` rejection and
+`expand_headers()`'s Windows path separator bug). This repo's own `GRUNK_REV`
+pin (`scripts/install_grunk.cmake`/`pixi.toml`) bumped to it 2026-09-29 - the
+first bump since this repo's original bootstrap (was still on `583da89f`, the
+very first pinned commit, the whole time until now).
+
+**Fully regenerated and verified for real, not just spiked**, once the pin
+landed: `pixi run generate_code` against this repo's own real `config.yml`/OCCT
+headers, full rebuild, all 50 `runUnitTests` green, and the original
+`BRepBuilderAPI_MakeFace`/`Handle(Geom_BSplineSurface)` scenario confirmed
+working natively.
+
+One real, narrow, **pre-existing and unrelated** gap surfaced only once the pin
+finally moved (this repo's pin had never been bumped past its own original
+commit before, so this is the first time any of the intervening `grunk` fixes -
+not just this one - were ever actually exercised here): `test_hooks.py::
+test_classify_param_array1_array2`'s own `p1.kind(set(), set(), hooks)`
+assertion now gets `"object"` instead of the expected `None`. Root cause: an
+earlier, separate `grunk` fix (the canonical-spelling-rejection narrowing, done
+for `grunk-geoml`'s own `std::string`/`std::vector<T>` needs) also loosened
+`Param.kind()`'s generic fallback enough that an `NCollection_Array1<T>`-typed
+parameter whose element type isn't registered - a case this repo's own
+`classify_param()` override already *intends* to reject by returning `None` -
+now falls through to the generic "plausible bare class" fallback and gets
+accepted anyway, since `classify_param()`'s own `None` return is documented to
+mean both "no opinion, let the fallback decide" and "I considered this and
+reject it," and the generator can't currently tell those apart. **Confirmed to
+have zero practical effect on this repo's own generated code**: every module's
+own accepted/rejected/blacklisted counts are bit-for-bit identical before and
+after this pin bump, because the one type this matters for in practice
+(`gp_Pnt`) is always registered by the time any `NCollection_Array1<gp_Pnt>`
+parameter is processed in a real run - the test's own `registered_types=set()`
+scenario doesn't correspond to anything that actually happens here. Worth
+fixing in `grunk` itself eventually (the `classify_param()` contract needs a
+real "definitively rejected" signal distinct from "no opinion"), not done here
+- flagged to the user, not blocking.
+
+`grunk-geoml` (the sibling plugin that surfaced this whole investigation, via
+its own `geoml.interpolate_curves`/`geoml.curve_vec`) has, as of the same pin
+bump, also fully regenerated its own bindings for real and removed its own
+`surface_face_extras.hpp` escape hatch entirely (native
+`occt.BRepBuilderAPI_MakeFace` now used directly) - see grunk-geoml's own
+DESIGN.md for the one extra piece its own regeneration needed beyond what this
+repo did (a small, permanent, hand-written `SOL_BASE_CLASSES`/
+`SOL_DERIVED_CLASSES` addition to its own `geoml_sol_traits.hpp`, for the OCCT
+`Geom_Curve`/`Geom_Surface` family it references but never itself defines) and
+the two real, separate geoml header-hygiene bugs
+(`src/common/sorting.h`/`src/geometry/IntersectionPoint.h`, both missing
+includes) that blocked its own regeneration until patched locally in
+`scripts/geoml-occt79-compat.patch`. `curve_vec_extras.hpp` stays in
+`grunk-geoml` - it solves a different, unrelated problem (building a
+`std::vector<Handle(X)>` from individual Lua arguments at all, since sol2 has
+no plain-table-to-vector conversion for a by-reference parameter) that none of
+this fix touches.
+
+### grunk-dev/grunk-occt#1 closed, `gc_extras.hpp` removed, `with_std_vector` gains `Handle(X)` support (2026-09-29)
+
+Two follow-ups landed together, both consequences of the three-part fix above
+finally being exercised against every OCCT type this repo actually uses, not
+just `Geom_Surface`/`Geom_BSplineSurface`:
+
+**`grunk-dev/grunk-occt#1` (the original bug report the section above's fix was
+generalized from) is now confirmed fixed, not just "probably fixed by
+extension".** That issue's own reproducer, `GeomAPI_ProjectPointOnCurve`
+(constructor/`Init` take `Handle(Geom_Curve) const&`, `Geom_Curve` being
+abstract - the only way to supply one from Lua is upcasting a concrete
+registered subtype like `Handle(Geom_Line)`), was never actually re-tested once
+the fix landed - `tests/test_geomapi.cpp` still carried its original "does NOT
+currently work" comment describing the bug, not the fix. Verified directly
+(new permanent test, `GeomApiTest.ProjectPointOntoLine`): a `Handle(Geom_Line)`
+now satisfies `GeomAPI_ProjectPointOnCurve.new(p, line)` natively, no upcast
+workaround needed, correct projection result.
+
+**`src/gc/gc_extras.hpp` (`occt.edge_from_arc`) removed entirely** - its own
+top comment named this exact same limitation
+(`GC_MakeArcOfCircle::Value()` returns `Handle(Geom_TrimmedCurve)`,
+`BRepBuilderAPI_MakeEdge`'s curve-taking constructors only accept
+`Handle(Geom_Curve)`) as the reason a whole call chain had to be done in plain
+C++ instead of Lua, explicitly deferring to this same tracked issue. Verified
+directly (new permanent test, `GcTest.ArcToEdgeNoEscapeHatch`, plus
+`examples/tank_model.grr.yml`'s own `cylinder_segment` sub-recipe updated to
+call `occt.GC_MakeArcOfCircle.new(...):Value()` into
+`occt.BRepBuilderAPI_MakeEdge.new(...)` directly): the native two-call chain
+now works with zero C++-side upcast. `register_gc_extras`/its call site in
+`src/occt_plugin.cpp` and the whole `src/gc/` directory are gone.
+
+**`with_std_vector<VecElement>()`'s own reference-vs-value bug** (grunk's
+`grunk/dynamic/usertype_proxy.hpp`, found by a background investigation into
+generalizing `grunk-geoml/src/curve_vec_extras.hpp`) is a *fourth* manifestation
+of the same reference-exclusion this section's own fix #3 already worked
+around for plain `Handle(X)` function parameters: `with_std_vector`'s internal
+`cast_to_element` took its element by `VecElement const&`, which sol2's
+base-aware unique-usertype checker excludes from any `Derived`->`Base`
+conversion attempt outright, the same as any other by-reference `Handle(X)`
+parameter - so `.with_std_vector<Handle<T>>()` silently produced a vector
+builder that rejected any `Handle(Derived)` element even with `rebind_actual_type`/
+`SOL_BASE_CLASSES` both correctly in place. Fixed in `grunk` (commit
+`13ab6232fdcd7b7e20a916392cfbb607417fb143`, merged/pushed by the user, this
+repo's `GRUNK_REV` pin bumped to it the same day) - `cast_to_element` now takes
+`VecElement` by value.
+
+This repo opts `Geom_Curve` into it: `src/geom/geom_extras.hpp` now also calls
+`ns.modify_type<Geom_Curve>("Geom_Curve").with_std_vector<opencascade::handle<Geom_Curve>>()`,
+giving `occt.Geom_Curve.as_vec(...)` (a real `std::vector<Handle(Geom_Curve)>`
+from individual `Handle(Geom_*Curve)` Lua arguments). Same per-TU
+`SOL_BASE_CLASSES`/`SOL_DERIVED_CLASSES` visibility requirement as everywhere
+else in this fix - `src/geom/geom_extras.hpp` now also `#include`s
+`../../generated/sol_base_classes.hpp` directly, since `src/occt_plugin.cpp`
+(which calls `register_geom_extras`) is hand-written and never sees it
+otherwise. This is what lets `grunk-geoml`'s own `curve_vec_extras.hpp`/
+`geoml.curve_vec` escape hatch be replaced by this native `as_vec` call - see
+grunk-geoml's own DESIGN.md for that follow-up.
+
+Verified: all 50 `runUnitTests` (including the two new tests above) green;
+`test_hooks.py` still 20/21 (only the pre-existing, unrelated, documented
+`test_classify_param_array1_array2` gap above, unaffected by this bump).

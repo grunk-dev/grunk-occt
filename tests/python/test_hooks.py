@@ -165,6 +165,25 @@ def test_emit_return_type_strips_handle_by_reference():
     assert hooks.emit_return_type("opencascade::handle<Geom_Curve>") is None  # already by-value
 
 
+def test_emit_param_handle_kind_is_by_value_not_reference():
+    # See this override's own (long) comment for the full "why": sol2's own
+    # Handle(Derived)->Handle(Base) unique-usertype conversion (needs
+    # SOL_BASE_CLASSES/SOL_DERIVED_CLASSES too, see generate.py's own
+    # render_sol_base_classes_header) only ever applies to a genuinely
+    # by-value parameter - qualified_checker/qualified_getter explicitly
+    # exclude references from that whole code path. A Handle(X) const& (the
+    # verbatim spelling of almost every real OCCT declaration) must therefore
+    # be emitted as a plain opencascade::handle<X> instead, never preserving
+    # the original const-reference qualifiers.
+    hooks = Hooks()
+    param = generate.Param("const opencascade::handle<Geom_Curve>&", "c")
+    decl, arg = hooks.emit_param(param, "handle")
+    assert decl == "opencascade::handle<Geom_Curve> c"
+    assert "&" not in decl
+    assert "const" not in decl
+    assert arg == "c"
+
+
 # ---------------------------------------------------------------------------
 # emit_callable() - Standard_Real AD dual-emission
 # ---------------------------------------------------------------------------

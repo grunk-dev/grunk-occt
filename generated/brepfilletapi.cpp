@@ -7,6 +7,7 @@
 // See DESIGN.md's "Generated-code policy" and codegen/README.md.
 
 #include "brepfilletapi.hpp"
+#include "sol_base_classes.hpp"
 
 #include <BRepFilletAPI_LocalOperation.hxx>
 #include <BRepFilletAPI_MakeChamfer.hxx>

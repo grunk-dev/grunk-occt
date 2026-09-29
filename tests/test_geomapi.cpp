@@ -7,25 +7,21 @@
 // to_array2, same helper Collections.Array2RoundTrip already exercises) - no
 // Handle(Geom_Surface)/Handle(Geom_Curve) parameter involved.
 //
-// This module's more obvious smoke test candidate, GeomAPI_ProjectPointOnCurve
-// (projecting a point onto a real curve, e.g. a Handle(Geom_Line)), does NOT
-// currently work from Lua: its constructor/Init take a `Handle(Geom_Curve) const&`
+// GeomAPI_ProjectPointOnCurve's constructor/Init take a `Handle(Geom_Curve) const&`
 // (Geom_Curve is abstract - there is no way to obtain one except by upcasting a real
-// registered subtype like Handle(Geom_Line)), and passing a Handle(Derived) where a
-// Handle(Base) parameter is expected fails at the sol2 dispatch layer with "no
-// matching function call takes this number of arguments and the specified types" -
-// confirmed empirically (both via the constructor and via a separate :Init() call on
-// a default-constructed instance, ruling out a constructor-overload-set-specific
-// issue). This is different from - and, unlike - the already-documented Handle(T)
-// upcast used for *method dispatch* (test_geom.cpp's ValueViaInheritedGeomCurve,
-// calling an inherited method through add_bases), which does work; see DESIGN.md's
-// "Handle(Derived) does not satisfy a Handle(Base) function/constructor parameter"
-// for the general, currently-unfixed limitation this surfaced.
+// registered subtype like Handle(Geom_Line)) - originally the exact case that
+// surfaced grunk-dev/grunk-occt#1 ("Handle(Derived) does not satisfy a Handle(Base)
+// function/constructor parameter"), and did not work from Lua at all. Fixed for real
+// 2026-09-29 (see DESIGN.md's "Handle(Derived)->Handle(Base) argument conversion:
+// real root cause and fix") - ProjectPointOntoLine below is the regression test for
+// the original bug report.
 
 #include <grunk/dynamic.hpp>
 #include <grunk/plugin.hpp>
 
 #include <gtest/gtest.h>
+
+#include "../src/occt_ad_support.hpp"
 
 namespace {
 
@@ -73,4 +69,30 @@ TEST_F(GeomApiTest, InterpolateBSplineSurfaceFromPointGrid)
     )");
     ASSERT_TRUE(res.valid());
     EXPECT_TRUE(env.get<bool>("is_done"));
+}
+
+// Regression test for grunk-dev/grunk-occt#1: a Handle(Geom_Line) (concrete,
+// registered subtype) passed directly where GeomAPI_ProjectPointOnCurve's
+// constructor expects Handle(Geom_Curve) (the abstract base) - no C++-side upcast,
+// no escape hatch, just the generated binding.
+TEST_F(GeomApiTest, ProjectPointOntoLine)
+{
+    auto env = state_->create_env();
+    auto res = env.eval(R"(
+        origin = occt.gp_Pnt.new(0.0, 0.0, 0.0)
+        dir = occt.gp_Dir.new(1.0, 0.0, 0.0)
+        line = occt.Geom_Line.new(origin, dir)
+
+        p = occt.gp_Pnt.new(5.0, 3.0, 0.0)
+        proj = occt.GeomAPI_ProjectPointOnCurve.new(p, line)
+        nb = proj:NbPoints()
+
+        nearest = proj:NearestPoint()
+        nx = nearest:X(); ny = nearest:Y(); nz = nearest:Z()
+    )");
+    ASSERT_TRUE(res.valid());
+    EXPECT_EQ(env.get<int>("nb"), 1);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("nx")), 5.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("ny")), 0.0);
+    EXPECT_DOUBLE_EQ(occt_plugin::to_double(env.get<sol::object>("nz")), 0.0);
 }
