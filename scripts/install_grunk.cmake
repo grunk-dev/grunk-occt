@@ -70,7 +70,18 @@ endif()
 # mutation never ran at all). Found the hard way in grunk-geoml's own
 # wing_loft.grr.yml (three separate bare gp_GTrsf:SetValue(...) statements each
 # silently a no-op) - see that repo's own DESIGN.md for the full story.
-set(GRUNK_REV "40d8a1ebd9f020ba3481b9949437d2aafe95425a")
+# Bumped again 2026-09-30 to 2742afb12c65efc0e6587c2198609e6463ddea4b - lands a
+# new generate.REJECTED sentinel, distinct from None, that classify_param() can
+# return to mean "positively recognized and rejected" rather than "not my
+# concern, use the fallback" - fixes the real ambiguity that let an
+# NCollection_Array1/2 parameter this repo's own hooks.py meant to reject
+# (unsupported element, or a mutable reference) silently fall through to being
+# accepted as a plain "object" instead. Applied to this repo's own hooks.py the
+# same day - see DESIGN.md's own follow-up entry for the real, previously-silent
+# correctness bug a real regeneration then found and fixed (several genuine
+# OCCT mutable-array-out-parameter overloads, e.g. Geom_BSplineCurve::Poles,
+# were being bound in a way sol2 could never correctly fill in place).
+set(GRUNK_REV "2742afb12c65efc0e6587c2198609e6463ddea4b")
 
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set(GRUNK_PREFIX "${PROJECT_ROOT}/.deps/${GRUNK_INSTALL_NAME}")
