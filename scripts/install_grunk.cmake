@@ -61,7 +61,16 @@ endif()
 # reference, excluded from sol2's base-aware unique-usertype conversion just
 # like any other by-reference Handle(X) parameter). Lets Geom_Curve gain a
 # native .with_std_vector<opencascade::handle<Geom_Curve>>() - see DESIGN.md.
-set(GRUNK_REV "13ab6232fdcd7b7e20a916392cfbb607417fb143")
+# Bumped again 2026-09-29 to 40d8a1ebd9f020ba3481b9949437d2aafe95425a - lands a
+# real usability fix, not a bug: a mutating member function (non-const `self`,
+# void return - e.g. gp_GTrsf::SetValue) called through the decorated/parametric
+# environment now throws immediately with a clear message instead of silently
+# doing nothing (grunk's own evaluation is lazy/pull-based - the call's own
+# result feature, if never read, was simply never evaluated, so the real C++
+# mutation never ran at all). Found the hard way in grunk-geoml's own
+# wing_loft.grr.yml (three separate bare gp_GTrsf:SetValue(...) statements each
+# silently a no-op) - see that repo's own DESIGN.md for the full story.
+set(GRUNK_REV "40d8a1ebd9f020ba3481b9949437d2aafe95425a")
 
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set(GRUNK_PREFIX "${PROJECT_ROOT}/.deps/${GRUNK_INSTALL_NAME}")

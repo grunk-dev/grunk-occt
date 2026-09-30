@@ -1752,15 +1752,47 @@ now falls through to the generic "plausible bare class" fallback and gets
 accepted anyway, since `classify_param()`'s own `None` return is documented to
 mean both "no opinion, let the fallback decide" and "I considered this and
 reject it," and the generator can't currently tell those apart. **Confirmed to
-have zero practical effect on this repo's own generated code**: every module's
-own accepted/rejected/blacklisted counts are bit-for-bit identical before and
-after this pin bump, because the one type this matters for in practice
+have zero practical effect on this repo's own generated code** for the
+*element-unsupported* half of this gap: every module's own accepted/rejected/
+blacklisted counts are bit-for-bit identical before and after this pin bump for
+that specific scenario, because the one type this matters for in practice
 (`gp_Pnt`) is always registered by the time any `NCollection_Array1<gp_Pnt>`
 parameter is processed in a real run - the test's own `registered_types=set()`
-scenario doesn't correspond to anything that actually happens here. Worth
-fixing in `grunk` itself eventually (the `classify_param()` contract needs a
-real "definitively rejected" signal distinct from "no opinion"), not done here
-- flagged to the user, not blocking.
+scenario doesn't correspond to anything that actually happens here.
+
+**Fixed upstream 2026-09-29** (`grunk` gains a `generate.REJECTED` sentinel,
+distinct from `None`, that `classify_param()` can return to mean "I positively
+recognized this parameter's shape and determined it's unsupported for a reason
+specific to that shape" - `Param.kind()` now skips its own unregistered-class
+fallback entirely for `REJECTED`, unlike plain `None`, which still means "not
+one of my own library's idioms, use the fallback"). This repo's own
+`classify_param()` updated to return `REJECTED` (not `None`) whenever an
+`NCollection_Array1<X>`/`NCollection_Array2<X>` parameter is recognized at all
+(the pattern matches) but turns out unsupported - either the element type isn't
+one this run knows about, **or** the parameter is a mutable reference.
+
+**The mutable-reference half of this gap was NOT "zero practical impact" - a
+real regeneration (`pixi run generate_code`, done for real, not spiked) found
+and fixed a genuine, previously-silent correctness bug**: several real OCCT
+methods taking a mutable `NCollection_Array1/2`-typed out-parameter -
+`Geom_BSplineCurve`/`Geom_BSplineSurface`/`Geom_BezierCurve`/
+`Geom_BezierSurface`'s own `Poles`/`Weights`/`Knots`/`KnotSequence`/
+`Multiplicities`/`UKnots`/`UKnotSequence`/`UMultiplicities`/`VKnots`/
+`VKnotSequence`/`VMultiplicities`, plus `gp_Torus::Coefficients` and
+`Geom_ToroidalSurface::Coefficients` - were being silently accepted as a plain
+mutable "object" parameter (the exact same fallback-escape bug, just for the
+mutable-ref sub-case rather than the unsupported-element one) even though
+sol2's own generic object push/pop has no "fill this array's own contents in
+place from a Lua value" semantics at all - calling any of these mutable-ref
+overloads from Lua would silently do nothing useful, or worse. All now
+correctly rejected; only the const-reference/return-value overload of each
+stays. Verified this is a real fix, not a loss of coverage: the full
+`runUnitTests` (52/52) and every example recipe still pass unchanged -
+confirming nothing anywhere actually relied on (or could have correctly used)
+the now-removed broken overloads. See `grunk-geoml`'s own DESIGN.md for why
+this specific half of the fix has zero effect there (no mutable
+`NCollection_Array1/2`-shaped parameter exists anywhere in that plugin's own
+real generated code).
 
 `grunk-geoml` (the sibling plugin that surfaced this whole investigation, via
 its own `geoml.interpolate_curves`/`geoml.curve_vec`) has, as of the same pin
@@ -1840,4 +1872,6 @@ grunk-geoml's own DESIGN.md for that follow-up.
 
 Verified: all 50 `runUnitTests` (including the two new tests above) green;
 `test_hooks.py` still 20/21 (only the pre-existing, unrelated, documented
-`test_classify_param_array1_array2` gap above, unaffected by this bump).
+`test_classify_param_array1_array2` gap above, unaffected by this bump - later
+fixed for real upstream, see that section's own follow-up entry, "Fixed
+upstream 2026-09-29").

@@ -336,32 +336,19 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("FirstUKnotIndex", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.FirstUKnotIndex(); })
         .add_member_function("FirstParameter", [](Geom_BSplineCurve const& self) -> Standard_Real { return self.FirstParameter(); })
         .add_member_function("Knot", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Knot(Index); })
-        .add_member_function("Knots", sol::overload(
-            [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.Knots(); },
-            [](Geom_BSplineCurve const& self, TColStd_Array1OfReal & K) { self.Knots(K); }
-        ))
-        .add_member_function("KnotSequence", sol::overload(
-            [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.KnotSequence(); },
-            [](Geom_BSplineCurve const& self, TColStd_Array1OfReal & K) { self.KnotSequence(K); }
-        ))
+        .add_member_function("Knots", [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.Knots(); })
+        .add_member_function("KnotSequence", [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfReal & { return self.KnotSequence(); })
         .add_member_function("KnotDistribution", [](Geom_BSplineCurve const& self) -> GeomAbs_BSplKnotDistribution { return self.KnotDistribution(); })
         .add_member_function("LastUKnotIndex", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.LastUKnotIndex(); })
         .add_member_function("LastParameter", [](Geom_BSplineCurve const& self) -> Standard_Real { return self.LastParameter(); })
         .add_member_function("Multiplicity", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Integer { return self.Multiplicity(Index); })
-        .add_member_function("Multiplicities", sol::overload(
-            [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfInteger & { return self.Multiplicities(); },
-            [](Geom_BSplineCurve const& self, TColStd_Array1OfInteger & M) { self.Multiplicities(M); }
-        ))
+        .add_member_function("Multiplicities", [](Geom_BSplineCurve const& self) -> const TColStd_Array1OfInteger & { return self.Multiplicities(); })
         .add_member_function("NbKnots", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.NbKnots(); })
         .add_member_function("NbPoles", [](Geom_BSplineCurve const& self) -> Standard_Integer { return self.NbPoles(); })
         .add_member_function("Pole", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Pole(Index); })
-        .add_member_function("Poles", sol::overload(
-            [](Geom_BSplineCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); },
-            [](Geom_BSplineCurve const& self, TColgp_Array1OfPnt & P) { self.Poles(P); }
-        ))
+        .add_member_function("Poles", [](Geom_BSplineCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); })
         .add_member_function("StartPoint", [](Geom_BSplineCurve const& self) -> gp_Pnt { return self.StartPoint(); })
         .add_member_function("Weight", [](Geom_BSplineCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Weight(Index); })
-        .add_member_function("Weights", [](Geom_BSplineCurve const& self, TColStd_Array1OfReal & W) { self.Weights(W); })
         .add_member_function("Transform", [](Geom_BSplineCurve& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BSplineCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_member_function("IsEqual", 
@@ -624,44 +611,22 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("NbVKnots", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbVKnots(); })
         .add_member_function("NbVPoles", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.NbVPoles(); })
         .add_member_function("Pole", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> const gp_Pnt & { return self.Pole(UIndex, VIndex); })
-        .add_member_function("Poles", sol::overload(
-            [](Geom_BSplineSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); },
-            [](Geom_BSplineSurface const& self, TColgp_Array2OfPnt & P) { self.Poles(P); }
-        ))
+        .add_member_function("Poles", [](Geom_BSplineSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); })
         .add_member_function("UDegree", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.UDegree(); })
         .add_member_function("UKnot", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex) -> Standard_Real { return self.UKnot(UIndex); })
         .add_member_function("UKnotDistribution", [](Geom_BSplineSurface const& self) -> GeomAbs_BSplKnotDistribution { return self.UKnotDistribution(); })
-        .add_member_function("UKnots", sol::overload(
-            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnots(); },
-            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Ku) { self.UKnots(Ku); }
-        ))
-        .add_member_function("UKnotSequence", sol::overload(
-            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnotSequence(); },
-            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Ku) { self.UKnotSequence(Ku); }
-        ))
+        .add_member_function("UKnots", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnots(); })
+        .add_member_function("UKnotSequence", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.UKnotSequence(); })
         .add_member_function("UMultiplicity", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex) -> Standard_Integer { return self.UMultiplicity(UIndex); })
-        .add_member_function("UMultiplicities", sol::overload(
-            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.UMultiplicities(); },
-            [](Geom_BSplineSurface const& self, TColStd_Array1OfInteger & Mu) { self.UMultiplicities(Mu); }
-        ))
+        .add_member_function("UMultiplicities", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.UMultiplicities(); })
         .add_member_function("VDegree", [](Geom_BSplineSurface const& self) -> Standard_Integer { return self.VDegree(); })
         .add_member_function("VKnot", [](Geom_BSplineSurface const& self, const Standard_Integer VIndex) -> Standard_Real { return self.VKnot(VIndex); })
         .add_member_function("VKnotDistribution", [](Geom_BSplineSurface const& self) -> GeomAbs_BSplKnotDistribution { return self.VKnotDistribution(); })
-        .add_member_function("VKnots", sol::overload(
-            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnots(); },
-            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Kv) { self.VKnots(Kv); }
-        ))
-        .add_member_function("VKnotSequence", sol::overload(
-            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnotSequence(); },
-            [](Geom_BSplineSurface const& self, TColStd_Array1OfReal & Kv) { self.VKnotSequence(Kv); }
-        ))
+        .add_member_function("VKnots", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnots(); })
+        .add_member_function("VKnotSequence", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfReal & { return self.VKnotSequence(); })
         .add_member_function("VMultiplicity", [](Geom_BSplineSurface const& self, const Standard_Integer VIndex) -> Standard_Integer { return self.VMultiplicity(VIndex); })
-        .add_member_function("VMultiplicities", sol::overload(
-            [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.VMultiplicities(); },
-            [](Geom_BSplineSurface const& self, TColStd_Array1OfInteger & Mv) { self.VMultiplicities(Mv); }
-        ))
+        .add_member_function("VMultiplicities", [](Geom_BSplineSurface const& self) -> const TColStd_Array1OfInteger & { return self.VMultiplicities(); })
         .add_member_function("Weight", [](Geom_BSplineSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> Standard_Real { return self.Weight(UIndex, VIndex); })
-        .add_member_function("Weights", [](Geom_BSplineSurface const& self, TColStd_Array2OfReal & W) { self.Weights(W); })
         .add_member_function("D0", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
             [](Geom_BSplineSurface const& self, sol::object U, sol::object V, gp_Pnt & P) { self.D0(occt_plugin::to_real(U), occt_plugin::to_real(V), P); }
@@ -884,12 +849,8 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("LastParameter", [](Geom_BezierCurve const& self) -> Standard_Real { return self.LastParameter(); })
         .add_member_function("NbPoles", [](Geom_BezierCurve const& self) -> Standard_Integer { return self.NbPoles(); })
         .add_member_function("Pole", [](Geom_BezierCurve const& self, const Standard_Integer Index) -> const gp_Pnt & { return self.Pole(Index); })
-        .add_member_function("Poles", sol::overload(
-            [](Geom_BezierCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); },
-            [](Geom_BezierCurve const& self, TColgp_Array1OfPnt & P) { self.Poles(P); }
-        ))
+        .add_member_function("Poles", [](Geom_BezierCurve const& self) -> const TColgp_Array1OfPnt & { return self.Poles(); })
         .add_member_function("Weight", [](Geom_BezierCurve const& self, const Standard_Integer Index) -> Standard_Real { return self.Weight(Index); })
-        .add_member_function("Weights", [](Geom_BezierCurve const& self, TColStd_Array1OfReal & W) { self.Weights(W); })
         .add_member_function("Transform", [](Geom_BezierCurve& self, const gp_Trsf & T) { self.Transform(T); })
         .add_member_function("Copy", [](Geom_BezierCurve const& self) -> opencascade::handle<Geom_Geometry> { return self.Copy(); })
         .add_member_function("DumpJson", sol::overload(
@@ -1011,10 +972,7 @@ void register_geom(grunk::plugin_namespace& ns)
         .add_member_function("NbUPoles", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.NbUPoles(); })
         .add_member_function("NbVPoles", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.NbVPoles(); })
         .add_member_function("Pole", [](Geom_BezierSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> const gp_Pnt & { return self.Pole(UIndex, VIndex); })
-        .add_member_function("Poles", sol::overload(
-            [](Geom_BezierSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); },
-            [](Geom_BezierSurface const& self, TColgp_Array2OfPnt & P) { self.Poles(P); }
-        ))
+        .add_member_function("Poles", [](Geom_BezierSurface const& self) -> const TColgp_Array2OfPnt & { return self.Poles(); })
         .add_member_function("UDegree", [](Geom_BezierSurface const& self) -> Standard_Integer { return self.UDegree(); })
         .add_member_function("UIso", 
 #if defined(GRUNK_OCCT_WITH_ADOLC)
@@ -1032,7 +990,6 @@ void register_geom(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Weight", [](Geom_BezierSurface const& self, const Standard_Integer UIndex, const Standard_Integer VIndex) -> Standard_Real { return self.Weight(UIndex, VIndex); })
-        .add_member_function("Weights", [](Geom_BezierSurface const& self, TColStd_Array2OfReal & W) { self.Weights(W); })
         .add_member_function("IsUClosed", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsUClosed(); })
         .add_member_function("IsVClosed", [](Geom_BezierSurface const& self) -> Standard_Boolean { return self.IsVClosed(); })
         .add_member_function("IsCNu", [](Geom_BezierSurface const& self, const Standard_Integer N) -> Standard_Boolean { return self.IsCNu(N); })
@@ -2881,7 +2838,6 @@ void register_geom(grunk::plugin_namespace& ns)
 #endif
         )
         .add_member_function("Area", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.Area(); })
-        .add_member_function("Coefficients", [](Geom_ToroidalSurface const& self, TColStd_Array1OfReal & Coef) { self.Coefficients(Coef); })
         .add_member_function("MajorRadius", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.MajorRadius(); })
         .add_member_function("MinorRadius", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.MinorRadius(); })
         .add_member_function("Volume", [](Geom_ToroidalSurface const& self) -> Standard_Real { return self.Volume(); })

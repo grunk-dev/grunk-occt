@@ -139,14 +139,32 @@ class Hooks(generate.CodeGenerator):
         # build to check a *return* type, so an array-typed return stays rejected
         # (no decided Lua-facing shape yet for a from_array1/2-converted return
         # value).
+        #
+        # Once m1/m2 actually matches, this IS an NCollection_Array1/2 parameter -
+        # everything from here on is a definitive commitment, never "no opinion"
+        # (None): either accept it (a supported, non-mutable-ref element) or
+        # reject it outright (generate.REJECTED) for an unsupported element OR a
+        # mutable reference (no Lua-side identity to mutate a bare array in
+        # place through - see this method's own comment above). Plain None here
+        # for either reason used to let Param.kind()'s own generic
+        # BARE_TYPE_NAME fallback silently accept the param's *surface*
+        # spelling - almost always a bare-identifier typedef (e.g.
+        # "TColgp_Array1OfPnt" for "NCollection_Array1<gp_Pnt>") - as a plain
+        # "object" instead (a real, confirmed bug for both cases - see
+        # generate.REJECTED's own module-level docstring and
+        # test_hooks.py::test_classify_param_array1_array2).
         if param.name and param.canonical:
             canon_base = generate.strip_type(param.canonical)
             m1 = ARRAY1_PATTERN.match(canon_base)
-            if m1 and _array_element_supported(m1.group(1), registered_types):
-                return None if param.is_mutable_ref else "array1"
+            if m1:
+                if param.is_mutable_ref or not _array_element_supported(m1.group(1), registered_types):
+                    return generate.REJECTED
+                return "array1"
             m2 = ARRAY2_PATTERN.match(canon_base)
-            if m2 and _array_element_supported(m2.group(1), registered_types):
-                return None if param.is_mutable_ref else "array2"
+            if m2:
+                if param.is_mutable_ref or not _array_element_supported(m2.group(1), registered_types):
+                    return generate.REJECTED
+                return "array2"
         return None
 
     def classify_ctor_mode(self, class_name, base_chain):
