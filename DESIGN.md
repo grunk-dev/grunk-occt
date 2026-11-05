@@ -1875,3 +1875,46 @@ Verified: all 50 `runUnitTests` (including the two new tests above) green;
 `test_classify_param_array1_array2` gap above, unaffected by this bump - later
 fixed for real upstream, see that section's own follow-up entry, "Fixed
 upstream 2026-09-29").
+
+## `downcast_to_geom_line` switched to a by-value `Handle(X)` parameter (2026-09-30)
+
+Found while investigating a real grunk-core bug from the other side of the workspace
+(`grunk-geoml`'s own `airplane_seats.grr.yml` - see that repo's own DESIGN.md for the
+full story): sol2 defaults to *unchecked* argument extraction
+(`SOL_ALL_SAFETIES_ON` off), so a value of one registered usertype passed where a
+different, unrelated one is expected gets silently, dangerously reinterpreted instead
+of rejected - grunk's own fix (uncommitted, pending review) turns the *checked* getter
+on globally via an `INTERFACE` compile definition on `grunk::dynamic`.
+
+Turning that flag on locally to verify the fix broke exactly one test here,
+`GeomTest.NullHandleSurfacesAsNil`: sol2's *checked* getter for a unique usertype
+(`Handle(X)`) validates the argument's own metatable directly and has **no**
+`add_bases`/`rebind_actual_type` base-walking awareness at all - a real, narrow,
+pre-existing sol2 limitation (confirmed by reading `stack_check_unqualified.hpp`'s own
+unique-usertype branch directly), unlike the *unchecked* getter, which does consult it
+(the whole mechanism the "Handle(Derived)->Handle(Base) argument conversion" entry
+above landed). This only bites a `Handle(Derived)` value bound to a `Handle(Base)
+const&` **by-reference** parameter - every *generated* `Handle(X)` parameter already
+takes its handle **by value** (`codegen/hooks.py`'s own established "by-value
+`emit_param()`" convention, a different fix for a related but distinct sol2 quirk, see
+above) - `src/geom/geom_extras.hpp`'s own hand-written `downcast_to_geom_line` was the
+one place still doing it by reference, a real drift between this one hand-written
+escape hatch and the generator's own already-established convention. Confirmed this
+distinction is real, not hypothetical: `wing_loft.grr.yml`'s own genuine production
+`Handle(Geom_Surface)` upcast (via `occt.BRepBuilderAPI_MakeFace`'s generated,
+by-value overload) keeps working fine with the flag on; only this one by-reference
+outlier broke. Fixed by switching its own parameter to by-value too, matching the
+convention it should have followed from the start.
+
+Verified: `GeomTest.NullHandleSurfacesAsNil` passes again with the flag on; all 52
+`runUnitTests`, all 21 `test_hooks.py` tests, and all 4 examples (including
+`wing_loft.grr.yml`, run from `grunk-geoml`) still pass with the flag on. This fix
+is harmless without the flag too - verified separately against the currently-pinned,
+unpatched `grunk` (same 52/21/4 all green) - so it's kept regardless of when the
+`SOL_ALL_SAFETIES_ON` pin bump itself lands.
+
+**Pinned for real as of 2026-11-05** (`GRUNK_REV`/pypi `rev` bumped to
+`ba3b775d89509d1f94e41c27092919561c247304`, grunk's own `main` post PR
+grunk-dev/grunk#299's merge). Re-verified against the real, freshly-built pin
+(not just a local patched checkout): 52/52 `runUnitTests`, 21/21
+`test_hooks.py`, all 4 examples green.

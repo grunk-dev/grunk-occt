@@ -81,7 +81,37 @@ endif()
 # correctness bug a real regeneration then found and fixed (several genuine
 # OCCT mutable-array-out-parameter overloads, e.g. Geom_BSplineCurve::Poles,
 # were being bound in a way sol2 could never correctly fill in place).
-set(GRUNK_REV "2742afb12c65efc0e6587c2198609e6463ddea4b")
+# Bumped again 2026-09-30 to 1566d7459acfbc42db74b43517267143bf48d438 - lands a
+# fix to DynamicFeature::as(): its returned proxy used to capture `this` (a raw
+# pointer to the DynamicFeature it was called on) instead of a copy, so calling
+# :as(Type) on the unnamed result of a module-function call (nothing else keeps
+# that temporary's own Lua userdata reachable) could leave the captured pointer
+# dangling once Lua's GC collected it. Found in grunk-geoml's own
+# airplane_seats.grr.yml, not this repo's own examples - no local workaround
+# here to remove, this repo never called :as() on an unnamed module-function
+# result. See grunk-geoml's own DESIGN.md for the full story.
+# Bumped again 2026-11-05 to ba3b775d89509d1f94e41c27092919561c247304 (grunk's
+# own main, post PR grunk-dev/grunk#299 merge) - lands SOL_ALL_SAFETIES_ON=1 as
+# an INTERFACE compile definition on grunk::dynamic: sol2 now does *checked*
+# argument/userdata extraction everywhere instead of defaulting to unchecked
+# (a mismatched usertype argument now throws a clear sol::error instead of
+# silently corrupting memory) - found via grunk-geoml's own generated code (a
+# geoml::Shape passed where a TopoDS_Shape was expected segfaulted instead of
+# erroring). This repo's own src/geom/geom_extras.hpp needed a matching local
+# fix, landed the same day: downcast_to_geom_line's Handle(Geom_Geometry)
+# parameter switched from by-reference to by-value, matching the generator's
+# own already-established "by-value emit_param()" convention for every other
+# Handle(X) parameter - sol2's *checked* unique-usertype getter has no
+# add_bases/rebind_actual_type base-walking awareness at all (unlike the
+# unchecked getter), so a Handle(Derived) argument bound to a Handle(Base)
+# const& parameter only works by value, not by reference, once safeties are
+# on. See DESIGN.md's own "downcast_to_geom_line switched to a by-value
+# Handle(X) parameter" entry for the full story (the real, generated-code
+# BRepBuilderAPI_MakeFace upcast was never affected - only this one
+# hand-written escape hatch had drifted from the by-value convention).
+# PR #309 (closing grunk/#306, CMake static-linking docs/safeguard - unrelated
+# to this repo) is also included, having merged the same day.
+set(GRUNK_REV "ba3b775d89509d1f94e41c27092919561c247304")
 
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set(GRUNK_PREFIX "${PROJECT_ROOT}/.deps/${GRUNK_INSTALL_NAME}")

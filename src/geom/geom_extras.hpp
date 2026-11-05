@@ -50,9 +50,30 @@ inline void register_geom_extras(grunk::plugin_namespace& ns)
     // Real OCCT RTTI-based downcast: succeeds (non-null) when the handle actually
     // points to a Geom_Line, returns a null handle otherwise (including when the
     // input itself is already null) - never throws.
+    //
+    // Takes its Handle(Geom_Geometry) parameter BY VALUE, not by reference - the
+    // same "by-value emit_param()" convention codegen/hooks.py already enforces
+    // for every *generated* Handle(X) parameter (see this file's own header
+    // comment and DESIGN.md's "Handle(Derived)->Handle(Base) argument conversion"
+    // entries), needed here for a second, independent reason found only once
+    // grunk's own SOL_ALL_SAFETIES_ON define was turned on (see grunk's own
+    // DynamicFeature/dynamic CMakeLists.txt): sol2's *checked* unique-usertype
+    // getter (SOL_SAFE_GETTER, gated behind that define) validates a Handle(X)
+    // argument's own metatable directly, with no base-class/rebind_actual_type
+    // awareness at all - unlike the *unchecked* getter, which does consult
+    // add_bases/rebind_actual_type and so tolerated a Handle(Derived) argument
+    // being bound to a Handle(Base) const& parameter just fine before. Passing
+    // by value sidesteps the checked getter's own unique-usertype branch
+    // entirely (a byvalue argument's ownership - and thus its exact type - is
+    // resolved before the checked-getter machinery this function's own
+    // by-reference form triggered), the same way the generator's own hand-off
+    // already worked around this. A hand-written function like this one is
+    // exactly the kind of escape hatch that can drift from the generator's own
+    // convention unnoticed - this was caught only because the plugin generation
+    // itself is used as a stress test for grunk core's own default settings.
     ns.register_function(
         "downcast_to_geom_line",
-        [](Handle(Geom_Geometry) const& geometry) -> Handle(Geom_Line) {
+        [](Handle(Geom_Geometry) geometry) -> Handle(Geom_Line) {
             return Handle(Geom_Line)::DownCast(geometry);
         }
     );
