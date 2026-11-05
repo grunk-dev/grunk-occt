@@ -93,6 +93,15 @@ gtest = "*"
 # find_package(PkgConfig REQUIRED) in CMakeLists.txt (GRUNK_OCCT_ENABLE_AD branch
 # only) uses this to locate ADOL-C via its own adolc.pc.
 pkg-config = "*"
+# scripts/install_adocct.sh's own adOCCT configure needs this directly, despite
+# that script's own comment assuming it comes transitively via conda-forge's
+# `occt` package - this environment is fully isolated (no-default-feature =
+# true) and never pulls in `default`'s own `occt` dependency at all, so there is
+# no such transitive closure here. Missing here is why `pixi run -e ad
+# install_adocct` failed in CI with "Could NOT find Freetype" (3RDPARTY_FREETYPE_
+# INCLUDE_DIR_ft2build/freetype2) - confirmed by reading the CMake configure
+# output directly, not assumed.
+freetype = "*"
 
 # grunk's own Python bindings - needed for this environment's own run_examples task
 # (examples/run_example.py), same as the default environment's own copy of this
