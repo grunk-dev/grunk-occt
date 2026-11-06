@@ -23,6 +23,19 @@
 # taken directly from grunk's own cad_autodiff example, which built adOCCT
 # successfully this way.
 #
+# BUILD_MODULE_Visualization=OFF: this repo's own registration source (see
+# src/) never touches AIS_*/V3d_*/OpenGl_*/Xw_* - Visualization's own TKService
+# toolkit pulls in TKOpenGl/TKV3d and (via Aspect_DisplayConnection) a hard
+# #include <X11/Xlib.h> on Linux, which a from-source OCCT build needs X11 dev
+# headers (libx11-dev etc.) to compile at all - confirmed directly: this is what
+# broke `pixi run -e ad install_adocct` in CI with "X11/Xlib.h: No such file or
+# directory". The conda-forge `occt` package the *stock* (non-AD) build uses
+# (`novtk_*` build string, see [feature.occt.dependencies] in pixi.toml) is
+# prebuilt and ships its own X11 runtime closure, so it never hit this - adOCCT
+# compiles from source here and has no such luxury. Disabling the module this
+# repo never uses avoids needing X11 dev headers at all, rather than installing
+# them just to throw the result away.
+#
 # Run and verified end-to-end (see DESIGN.md's "What could and could not be verified
 # in this environment") and now runs on every PR via .github/workflows/ci.yml's
 # build-and-test-ad job. OCCT's own third-party dependency resolution is large and
@@ -66,6 +79,7 @@ cmake -G Ninja \
     -D USE_ADOLC=ON \
     -D ADOLC_REVERSE_MODE=OFF \
     -D 3RDPARTY_ADOLC_DIR="$ADOLC_PREFIX" \
+    -D BUILD_MODULE_Visualization=OFF \
     ..
 ninja install
 
