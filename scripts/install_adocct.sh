@@ -37,6 +37,29 @@
 # in pixi.toml) is prebuilt and ships its own X11 runtime closure, so it never
 # hit this - adOCCT compiles from source here and has no such luxury.
 #
+# BUILD_MODULE_Visualization=OFF *is* still worth setting, though, despite not
+# helping with X11/TKService above: TKOpenGl (OpenGl_Window.cxx's own
+# GL/glx.h #include) is a Visualization-only toolkit with no DataExchange-side
+# pull keeping it around, unlike TKService - confirmed directly (this is what
+# a from-source CI build hit next, after the X11 fix, at object 3397/5926:
+# "fatal error: GL/glx.h: No such file or directory"). ApplicationFramework
+# (OCAF/TDocStd) and Draw (OCCT's own DRAWEXE test harness, pulls in Tcl/Tk)
+# are excluded the same way - on the same "never referenced by this plugin's
+# own registration source" basis as Visualization, not because either one hit
+# an observed build failure. Pruning these three cuts the adOCCT build down
+# to only DataExchange/ModelingAlgorithms/ModelingData/FoundationClasses/
+# DETools and their real transitive deps, instead of OCCT's entire module set -
+# meaningfully reducing both build time and the odds of hitting yet another
+# unrelated system-library requirement belonging to a module this plugin
+# never uses.
+#
+# Stopgap, not a permanent fix: this module pruning (and the X11 apt
+# dependency in ci.yml) exists only because adOCCT is built from source in CI.
+# See DESIGN.md's "AD validation milestone" section - once grunk-occt/adOCCT
+# publish prebuilt binary packages, build-and-test-ad should download those
+# instead of running this script at all, and this entire file (plus the X11
+# apt-get step in ci.yml) should be deleted rather than kept in sync.
+#
 # Run and verified end-to-end (see DESIGN.md's "What could and could not be verified
 # in this environment") and now runs on every PR via .github/workflows/ci.yml's
 # build-and-test-ad job. OCCT's own third-party dependency resolution is large and
@@ -80,6 +103,9 @@ cmake -G Ninja \
     -D USE_ADOLC=ON \
     -D ADOLC_REVERSE_MODE=OFF \
     -D 3RDPARTY_ADOLC_DIR="$ADOLC_PREFIX" \
+    -D BUILD_MODULE_Visualization=OFF \
+    -D BUILD_MODULE_ApplicationFramework=OFF \
+    -D BUILD_MODULE_Draw=OFF \
     ..
 ninja install
 

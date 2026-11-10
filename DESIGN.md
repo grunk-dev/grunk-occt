@@ -1257,6 +1257,24 @@ ci.yml`'s own `build-and-test-ad` job now runs this on every PR (Linux-only, mat
 `ad` feature), caching `.deps/adolc`/`.deps/adocct` so it doesn't rebuild ADOL-C/adOCCT from source
 on every run.
 
+**Stopgap note (2026-11-10):** building adOCCT from source in CI, even cached, keeps surfacing new
+system-library requirements one at a time as OCCT's build touches more of its own module set than
+this plugin actually uses (X11 for `TKService`, then `fontconfig`, then `GL/glx.h` for `TKOpenGl` -
+each one only discoverable by letting a 40+ minute build run far enough to hit it).
+`scripts/install_adocct.sh` now passes `BUILD_MODULE_Visualization=OFF`,
+`BUILD_MODULE_ApplicationFramework=OFF`, and `BUILD_MODULE_Draw=OFF` (none of this plugin's own
+registration source touches `AIS_*/V3d_*/OpenGl_*/Xw_*`, OCAF/TDocStd, or OCCT's own DRAWEXE test
+harness) to prune the build down to only what `DataExchange`/`ModelingAlgorithms`/`ModelingData`/
+`FoundationClasses`/`DETools` actually need - this materially shrinks the from-source build and
+avoids whole categories of unrelated system-library requirements, but it is still a from-source
+build, and still a stopgap. A real pre-built binary distribution for grunk-occt/adOCCT is planned
+for the future; once that exists, `build-and-test-ad` should download those binaries instead of
+running `scripts/install_adolc.sh`/`scripts/install_adocct.sh` at all, and the module-pruning flags
+above plus the X11 dev-header `apt-get` step in `ci.yml` should be deleted outright rather than kept
+in sync with OCCT's own module/toolkit graph going forward. The identical module-pruning change
+should also be applied (or already has been) to `grunk-geoml`'s own copy of
+`scripts/install_adocct.sh`, which builds adOCCT independently.
+
 What was verified earlier, before adOCCT/ADOL-C build access was available, kept here for history:
 
 - **`scripts/install_adolc.sh`** - run for real, end to end, producing a working ADOL-C 2.7.2

@@ -97,7 +97,12 @@ jobs:
         # OCCT's own CMakeLists.txt pulls TKService (X11/Xlib.h) in
         # transitively via DataExchange's own STEP toolkits regardless of
         # whether Visualization is enabled - see scripts/install_adocct.sh's
-        # own comment for how this was confirmed.
+        # own comment for how this was confirmed. That same script prunes the
+        # rest of OCCT's module set (Visualization/ApplicationFramework/Draw)
+        # that this plugin doesn't need - this apt step and that pruning are
+        # both a stopgap for building adOCCT from source in CI at all, see
+        # DESIGN.md's "AD validation milestone" section for when/how to
+        # remove both once prebuilt binaries exist.
         run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool libx11-dev libxmu-dev libxi-dev libxt-dev
 
       - uses: prefix-dev/setup-pixi@v0.11.0
