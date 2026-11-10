@@ -1275,6 +1275,17 @@ in sync with OCCT's own module/toolkit graph going forward. The identical module
 should also be applied (or already has been) to `grunk-geoml`'s own copy of
 `scripts/install_adocct.sh`, which builds adOCCT independently.
 
+**fontconfig correction:** the `fontconfig` requirement (`Font_FontMgr.cxx`'s `#include
+<fontconfig/fontconfig.h>`) was first "fixed" by adding a conda `fontconfig` package to `pixi.toml`'s
+`ad` feature, mirroring the working `freetype` fix - this did not work (confirmed directly: the CI
+failure was unchanged after adding it), because unlike freetype (resolved via a proper
+`find_package(Freetype MODULE REQUIRED)` in adOCCT's own `adm/cmake/freetype.cmake`, which honors
+`CMAKE_PREFIX_PATH`), adOCCT's `adm/cmake/occt_csf.cmake` sets `CSF_fontconfig` to the bare literal
+string `"fontconfig"` - a plain linker name with no `3RDPARTY_*_DIR`/`CMAKE_PREFIX_PATH` detection at
+all, resolved only via the compiler/linker's default *system* search paths, exactly like `X11` above.
+The actual fix is `libfontconfig1-dev` via `apt-get` in `ci.yml`, not a pixi/conda dependency - the
+conda `fontconfig = "*"` entry was removed from `pixi.toml` once this was understood.
+
 What was verified earlier, before adOCCT/ADOL-C build access was available, kept here for history:
 
 - **`scripts/install_adolc.sh`** - run for real, end to end, producing a working ADOL-C 2.7.2

@@ -102,15 +102,6 @@ pkg-config = "*"
 # INCLUDE_DIR_ft2build/freetype2) - confirmed by reading the CMake configure
 # output directly, not assumed.
 freetype = "*"
-# Same reasoning as freetype above, found the same way (CMAKE_PREFIX_PATH=
-# $CONDA_PREFIX): adOCCT's own Font package (TKService) #includes
-# fontconfig/fontconfig.h unconditionally on Linux - confirmed directly, this is
-# what broke `pixi run -e ad install_adocct` in CI with "fatal error:
-# fontconfig/fontconfig.h: No such file or directory" once the X11 headers
-# (installed via apt in ci.yml) got past the earlier Aspect_DisplayConnection.cxx
-# failure.
-fontconfig = "*"
-
 # grunk's own Python bindings - needed for this environment's own run_examples task
 # (examples/run_example.py), same as the default environment's own copy of this
 # dependency in [pypi-dependencies] above (kept in sync manually - see that

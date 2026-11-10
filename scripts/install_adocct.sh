@@ -37,6 +37,16 @@
 # in pixi.toml) is prebuilt and ships its own X11 runtime closure, so it never
 # hit this - adOCCT compiles from source here and has no such luxury.
 #
+# fontconfig dev headers (libfontconfig1-dev, also installed by ci.yml, not by
+# this repo's own pixi.toml) are the same story as X11: adOCCT's own
+# adm/cmake/occt_csf.cmake sets CSF_fontconfig to the bare literal
+# "fontconfig" (a plain linker name, no 3RDPARTY_*_DIR/CMAKE_PREFIX_PATH
+# detection at all, unlike freetype's proper find_package(Freetype)) - so it
+# only ever resolves via the compiler/linker's default *system* search paths.
+# A conda `fontconfig` package was tried first and confirmed NOT to work for
+# this reason (the CI failure was unchanged after adding it) before apt was
+# used instead.
+#
 # BUILD_MODULE_Visualization=OFF *is* still worth setting, though, despite not
 # helping with X11/TKService above: TKOpenGl (OpenGl_Window.cxx's own
 # GL/glx.h #include) is a Visualization-only toolkit with no DataExchange-side

@@ -92,7 +92,7 @@ jobs:
       # scripts/install_adolc.sh's own top comment) - present on GitHub's ubuntu-
       # latest runner image already, installed explicitly anyway so this job doesn't
       # depend on that undocumented, changeable image content.
-      - name: Install autotools and X11 dev headers
+      - name: Install autotools and X11/fontconfig dev headers
         # libx11-dev et al.: adOCCT is a full from-source OCCT build, and
         # OCCT's own CMakeLists.txt pulls TKService (X11/Xlib.h) in
         # transitively via DataExchange's own STEP toolkits regardless of
@@ -103,7 +103,19 @@ jobs:
         # both a stopgap for building adOCCT from source in CI at all, see
         # DESIGN.md's "AD validation milestone" section for when/how to
         # remove both once prebuilt binaries exist.
-        run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool libx11-dev libxmu-dev libxi-dev libxt-dev
+        #
+        # libfontconfig1-dev: unlike freetype (found via a proper
+        # find_package(Freetype) that honors CMAKE_PREFIX_PATH, see adOCCT's
+        # own adm/cmake/freetype.cmake), adOCCT's adm/cmake/occt_csf.cmake sets
+        # CSF_fontconfig to the bare literal "fontconfig" - a plain linker
+        # name with no 3RDPARTY_*_DIR/CMAKE_PREFIX_PATH detection at all - so
+        # it only ever resolves via the compiler/linker's default *system*
+        # search paths, same as X11 above. Installing fontconfig as a conda
+        # package (pixi.toml's `ad` feature, tried first) never had a way to
+        # be found by this build - confirmed directly: the CI failure
+        # persisted unchanged after that pixi dependency was added. apt is
+        # the fix, not pixi, for this one.
+        run: sudo apt-get update && sudo apt-get install -y autoconf automake libtool libx11-dev libxmu-dev libxi-dev libxt-dev libfontconfig1-dev
 
       - uses: prefix-dev/setup-pixi@v0.11.0
         with:
