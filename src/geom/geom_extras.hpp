@@ -79,4 +79,67 @@ inline void register_geom_extras(grunk::plugin_namespace& ns)
     );
 
     ns.modify_type<Geom_Curve>("Geom_Curve").with_std_vector<opencascade::handle<Geom_Curve>>();
+
+    // TEMP DIAGNOSTIC (remove once the macOS-only occt.Geom_Curve.as_vec(...)
+    // failure is root-caused - see grunk-geoml's own DESIGN.md/CI issue this is
+    // chasing): with_std_vector<Handle(Geom_Curve)>() above reproduces the real
+    // bug on macOS even for curves built entirely via occt.* calls (same dylib
+    // as this registration) - ruling out cross-plugin origin as the cause. A
+    // hand-rolled replica of the exact same cast_to_element/convert_one logic,
+    // registered as a plain NAMESPACE function (no usertype, no sol::overload),
+    // works fine on macOS (grunk-geoml's own debug_as_vec3). The two structural
+    // differences between that working replica and this real, broken
+    // with_std_vector()-produced as_vec are (a) usertype member-function
+    // registration (add_member_function, looked up via `occt.Geom_Curve.as_vec`)
+    // vs a plain namespace function, and (b) sol::overload(from_table,
+    // from_varargs) - two candidates - vs one plain lambda. The three probes
+    // below isolate each factor and their combination, duplicating
+    // cast_to_element/convert_one inline (not worth factoring out for
+    // throwaway diagnostic code):
+    //   debug_member_novoverload - member function, no overload (tests (a) alone)
+    //   debug_namespace_overload - namespace function, with overload (tests (b) alone)
+    //   debug_member_overload    - both together (expected to fail, reproducing
+    //                              the real as_vec exactly, as a sanity check
+    //                              that this hand-rolled copy is equivalent)
+    {
+        // cast_to_element is built fresh from whichever lua_State the call itself
+        // carries (va.lua_state()/t.lua_state()) rather than once at registration
+        // time - plugin_namespace has no lua_state() accessor of its own, and this
+        // is throwaway diagnostic code, not worth plumbing one through.
+        auto convert_one = [](auto const& v) -> opencascade::handle<Geom_Curve> {
+            std::string const ud_name = "Geom_Curve";
+            if (v.get_type() != sol::type::userdata) {
+                throw std::runtime_error("Cannot create std::vector. The values cannot be converted to the expected usertype \"" + ud_name + "\".");
+            }
+            sol::state_view lua(v.lua_state());
+            sol::protected_function cast_to_element = sol::make_object(
+                lua, [](opencascade::handle<Geom_Curve> x) -> opencascade::handle<Geom_Curve> { return x; }
+            );
+            sol::protected_function_result res = cast_to_element(v);
+            if (!res.valid()) {
+                throw std::runtime_error("Cannot create std::vector. The values cannot be converted to the expected usertype \"" + ud_name + "\".");
+            }
+            return res.get<opencascade::handle<Geom_Curve>>();
+        };
+        auto from_varargs = [convert_one](sol::variadic_args va) {
+            std::vector<opencascade::handle<Geom_Curve>> ret;
+            ret.reserve(va.size());
+            for (auto const& v : va) {
+                ret.push_back(convert_one(v));
+            }
+            return ret;
+        };
+        auto from_table = [convert_one](sol::table t) {
+            std::vector<opencascade::handle<Geom_Curve>> ret;
+            ret.reserve(t.size());
+            for (auto const& kv : t) {
+                ret.push_back(convert_one(kv.second));
+            }
+            return ret;
+        };
+
+        ns.modify_type<Geom_Curve>("Geom_Curve").add_member_function("debug_member_novoverload", from_varargs);
+        ns.register_function("debug_namespace_overload", sol::overload(from_table, from_varargs));
+        ns.modify_type<Geom_Curve>("Geom_Curve").add_member_function("debug_member_overload", sol::overload(from_table, from_varargs));
+    }
 }
