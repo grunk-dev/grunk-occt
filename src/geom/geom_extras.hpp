@@ -142,4 +142,56 @@ inline void register_geom_extras(grunk::plugin_namespace& ns)
         ns.register_function("debug_namespace_overload", sol::overload(from_table, from_varargs));
         ns.modify_type<Geom_Curve>("Geom_Curve").add_member_function("debug_member_overload", sol::overload(from_table, from_varargs));
     }
+
+    // TEMP DIAGNOSTIC, round 2 (remove alongside the probes above): all three
+    // probes above - including debug_member_overload, structurally identical to
+    // with_std_vector's own add_member_function("as_vec", sol::overload(...))
+    // call - PASSED on macOS, while the real occt.Geom_Curve.as_vec(...) still
+    // fails on the exact same curves (see debug_as_vec_variants.grr.yml's own
+    // CI results). The one remaining difference: the real with_std_vector()
+    // builds cast_to_element ONCE, at *registration* time (plugin-load time),
+    // via `sol::state_view lua(ut.lua_state())` - a single sol::protected_function
+    // captured by value into convert_one's closure and reused for the lifetime
+    // of the process. The probes above instead rebuild cast_to_element FRESH on
+    // *every call* (plugin_namespace has no lua_state() accessor of its own, so
+    // this was a pragmatic workaround, not a deliberate design choice) - this
+    // probe removes that difference, building cast_to_element once via the
+    // usertype_proxy's own `ut.lua_state()` (public member, same accessor
+    // with_std_vector itself uses), to test whether a persistent,
+    // registration-time-captured closure is what actually breaks on macOS.
+    {
+        auto proxy = ns.modify_type<Geom_Curve>("Geom_Curve");
+        std::string const ud_name = "Geom_Curve";
+        sol::state_view lua(proxy.ut.lua_state());
+        sol::protected_function cast_to_element = sol::make_object(
+            lua, [](opencascade::handle<Geom_Curve> x) -> opencascade::handle<Geom_Curve> { return x; }
+        );
+        auto convert_one = [ud_name, cast_to_element](auto const& v) -> opencascade::handle<Geom_Curve> {
+            if (v.get_type() != sol::type::userdata) {
+                throw std::runtime_error("Cannot create std::vector. The values cannot be converted to the expected usertype \"" + ud_name + "\".");
+            }
+            sol::protected_function_result res = cast_to_element(v);
+            if (!res.valid()) {
+                throw std::runtime_error("Cannot create std::vector. The values cannot be converted to the expected usertype \"" + ud_name + "\".");
+            }
+            return res.get<opencascade::handle<Geom_Curve>>();
+        };
+        auto from_varargs = [convert_one](sol::variadic_args va) {
+            std::vector<opencascade::handle<Geom_Curve>> ret;
+            ret.reserve(va.size());
+            for (auto const& v : va) {
+                ret.push_back(convert_one(v));
+            }
+            return ret;
+        };
+        auto from_table = [convert_one](sol::table t) {
+            std::vector<opencascade::handle<Geom_Curve>> ret;
+            ret.reserve(t.size());
+            for (auto const& kv : t) {
+                ret.push_back(convert_one(kv.second));
+            }
+            return ret;
+        };
+        ns.modify_type<Geom_Curve>("Geom_Curve").add_member_function("debug_member_overload_persistent_cast", sol::overload(from_table, from_varargs));
+    }
 }
