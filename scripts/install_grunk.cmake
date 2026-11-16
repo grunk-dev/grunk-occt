@@ -124,7 +124,12 @@ endif()
 # bug. Pure python/grunk/codegen/generate.py change - no effect on already-
 # generated generated/*.cpp or the runtime C++ libraries, only on the next
 # `generate_code` run.
-set(GRUNK_REV "6bf642412c7d501101585a41370050386551f759")
+# TEMP DIAGNOSTIC (revert to 6bf642412c7d501101585a41370050386551f759 - or
+# whatever grunk main is at by then - once the macOS-only occt.Geom_Curve.as_vec
+# failure is root-caused): f72d47c is grunk's with_vector_diagnostics branch,
+# 6bf6424 plus stderr instrumentation inside with_std_vector() itself, so the
+# next macOS CI run reports which throw branch fires and sol2's own error text.
+set(GRUNK_REV "f72d47c3a4756a284e03766c1f1f362a7f10926c")
 
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set(GRUNK_PREFIX "${PROJECT_ROOT}/.deps/${GRUNK_INSTALL_NAME}")
