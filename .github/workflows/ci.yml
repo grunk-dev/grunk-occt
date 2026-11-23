@@ -142,8 +142,14 @@ jobs:
       - name: Configure
         run: pixi run -e ad configure Release
 
+      # One compile job at a time: the AD translation units are huge (locally
+      # measured peaks: occt_plugin_tu_1.cpp ~8.8 GB, generated/gp.cpp ~6.4 GB,
+      # several more at ~2 GB), and the `build` task's bare `--parallel` lets
+      # Ninja run ~6 jobs on a 4-core/16 GB hosted runner - the runner was
+      # repeatedly killed mid-build (exit code 143 / "lost communication").
+      # Later steps' depends-on `build` then finds nothing left to do.
       - name: Build
-        run: pixi run -e ad build
+        run: pixi run -e ad cmake --build build-ad --parallel 1
 
       - name: Test
         run: pixi run -e ad test
