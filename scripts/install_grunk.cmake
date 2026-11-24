@@ -124,7 +124,15 @@ endif()
 # bug. Pure python/grunk/codegen/generate.py change - no effect on already-
 # generated generated/*.cpp or the runtime C++ libraries, only on the next
 # `generate_code` run.
-set(GRUNK_REV "6bf642412c7d501101585a41370050386551f759")
+# Bumped again 2026-11-17 to 6b08b0e0dec3d66b56a2e7eaa415ebdd67b7a9dc (grunk's
+# own main, post PR grunk-dev/grunk#317 merge, fixing grunk-dev/grunk#300) -
+# with_std_vector()'s element cast is now a named function template instead of
+# a lambda. Under Clang, sol2's __PRETTY_FUNCTION__-derived metatable name for
+# that lambda was identical across instantiations, so Handle(Geom_Curve)'s
+# as_vec silently reused gp_Pnt's cast and rejected every argument - the
+# macOS-only occt.Geom_Curve.as_vec failure. Runtime header change: requires
+# a rebuild, not just a regenerate.
+set(GRUNK_REV "6b08b0e0dec3d66b56a2e7eaa415ebdd67b7a9dc")
 
 get_filename_component(PROJECT_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 set(GRUNK_PREFIX "${PROJECT_ROOT}/.deps/${GRUNK_INSTALL_NAME}")
